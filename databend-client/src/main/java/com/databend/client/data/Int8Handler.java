@@ -1,0 +1,620 @@
+/*
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+package com.databend.client.data;
+
+import java.math.BigInteger;
+
+class Int8Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Int8Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Byte parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Byte.parseByte((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).byteValue();
+        }
+        return null;
+    }
+
+    private byte parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Int8 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Byte.parseByte((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).byteValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+       this.isNullable = isNullable;
+    }
+}
+
+class Int16Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Int16Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Short parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Short.parseShort((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).shortValue();
+        }
+        return null;
+    }
+
+    private short parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Int16 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Short.parseShort((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).shortValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// int32
+class Int32Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Int32Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Integer parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return null;
+    }
+
+    private int parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Int32 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// int64
+class Int64Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Int64Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Long parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return null;
+    }
+
+    private long parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Int64 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// uint8
+class UInt8Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public UInt8Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Short parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Short.parseShort((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).shortValue();
+        }
+        return null;
+    }
+
+    private short parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("UInt8 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Short.parseShort((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).shortValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// uint16
+class UInt16Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public UInt16Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Integer parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return null;
+    }
+
+    private int parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("UInt16 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Integer.parseInt((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// uint32
+class UInt32Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public UInt32Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Long parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return null;
+    }
+
+    private long parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("UInt32 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Long.parseLong((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).longValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// uint64
+class UInt64Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public UInt64Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private BigInteger parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return new BigInteger((String) value);
+        }
+        if (value instanceof Number) {
+            return BigInteger.valueOf(((Number) value).longValue());
+        }
+        return null;
+    }
+
+    private BigInteger parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("UInt64 type is not nullable");
+        }
+        if (value instanceof String) {
+            return new BigInteger((String) value);
+        }
+        if (value instanceof Number) {
+            return BigInteger.valueOf(((Number) value).longValue());
+        }
+        return BigInteger.ZERO;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// float32
+class Float32Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Float32Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Float parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Float.parseFloat((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).floatValue();
+        }
+        return null;
+    }
+
+    private float parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Float32 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Float.parseFloat((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).floatValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// float64
+class Float64Handler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public Float64Handler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Double parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Double.parseDouble((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        return null;
+    }
+
+    private double parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Float64 type is not nullable");
+        }
+        if (value instanceof String) {
+            return Double.parseDouble((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).doubleValue();
+        }
+        return 0;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}
+
+// boolean
+class BooleanHandler implements ColumnTypeHandler
+{
+    private boolean isNullable;
+
+    public BooleanHandler()
+    {
+        this.isNullable = false;
+    }
+
+    @Override
+    public Object parseValue(Object value)
+    {
+        if (isNullable) {
+            return parseNonNullValue(value);
+        } else {
+            return parseNullableValue(value);
+        }
+    }
+
+    private Boolean parseNullableValue(Object value)
+    {
+        if (value == null) {
+            throw null;
+        }
+        if (value instanceof String) {
+            return Boolean.parseBoolean((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        return null;
+    }
+
+    private boolean parseNonNullValue(Object value)
+    {
+        if (value == null) {
+            throw new IllegalArgumentException("Boolean type is not nullable");
+        }
+        if (value instanceof String) {
+            return Boolean.parseBoolean((String) value);
+        }
+        if (value instanceof Number) {
+            return ((Number) value).intValue() != 0;
+        }
+        return false;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+}

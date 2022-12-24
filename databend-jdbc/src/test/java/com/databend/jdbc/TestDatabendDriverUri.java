@@ -1,0 +1,150 @@
+package com.databend.jdbc;
+
+import org.testng.Assert;
+import org.testng.annotations.Test;
+
+import java.sql.SQLException;
+import java.util.Properties;
+
+import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
+public class TestDatabendDriverUri
+{
+    private static DatabendDriverUri createDriverUri(String url)
+            throws SQLException
+    {
+        Properties properties = new Properties();
+
+        return DatabendDriverUri.create(url, properties);
+    }
+
+    private static void assertInvalid(String url, String prefix)
+    {
+        assertThatThrownBy(() -> createDriverUri(url))
+                .isInstanceOf(SQLException.class)
+                .hasMessageStartingWith(prefix);
+    }
+
+    @Test(groups = {"unit"})
+    public void testInvalidUri()
+    {
+        // missing jdbc: prefix
+        assertInvalid("test", "Invalid JDBC URL: test");
+
+        // empty jdbc: url
+        assertInvalid("jdbc:", "Invalid JDBC URL: jdbc:");
+        assertInvalid("jdbc:databend://localhost:8080/default?SSL=", "Connection property 'ssl' value is empty");
+        assertInvalid("jdbc:databend://localhost:8080?SSL=0", "Connection property 'ssl' value is invalid: 0");
+
+    }
+
+    @Test(groups = {"unit"})
+    public void testBasic() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "http");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 80);
+    }
+
+    @Test(groups = {"unit"})
+    public void testDefaultSSL() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "http");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 80);
+    }
+
+    @Test(groups = {"unit"})
+    public void testSSLSetFalse() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?SSL=false", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "http");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 80);
+    }
+
+    @Test(groups = {"unit"})
+    public void testSSLSetTrue() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?ssl=true", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "https");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 443);
+    }
+
+    @Test(groups = {"unit"})
+    public void testSSLCustomPort() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:33101", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "http");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 33101);
+    }
+
+    @Test(groups = {"unit"})
+    public void testSSLCustomPort2() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost:33101", null);
+
+        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getScheme(), "http");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 33101);
+    }
+
+    @Test(groups = {"unit"})
+    public void testUser() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101?password=p1", null);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "default");
+    }
+
+    @Test(groups = {"unit"})
+    public void testUserDatabase() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1", null);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "db1");
+    }
+
+    @Test(groups = {"unit"})
+    public void testUserDatabasePath() throws SQLException
+    {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2", null);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "db2");
+    }
+
+    @Test(groups = {"unit"})
+    public void testUserDatabaseProp() throws SQLException
+    {
+        Properties  props = new Properties();
+        props.setProperty("database", "db3");
+        props.setProperty("SSL", "true");
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2", props);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "db3");
+        Assert.assertEquals(uri.getUri().getScheme(), "https");
+    }
+}
