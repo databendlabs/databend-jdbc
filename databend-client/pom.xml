@@ -6,14 +6,15 @@
     <parent>
         <groupId>com.databend</groupId>
         <artifactId>databend-base</artifactId>
-        <version>1-SNAPSHOT</version>
+        <version>0.0.1</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-client</artifactId>
-    <version>1-SNAPSHOT</version>
+    <version>0.0.1</version>
 
     <properties>
+        <!--suppress UnresolvedMavenProperty -->
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
     </properties>

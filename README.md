@@ -1,5 +1,6 @@
 # Databend JDBC
 ![Apache License 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
+[![databend-jdbc](https://img.shields.io/maven-central/v/com.databend/databend-jdbc?style=flat-square)](https://central.sonatype.dev/artifact/com.databend/databend-jdbc/0.0.1)
 
 ## Prerequisites
 The Databend JDBC driver requires Java 8 or later. 
@@ -9,9 +10,9 @@ If the minimum required version of Java is not installed on the client machines 
 Add following code block as a dependency
 ```xml
 <dependency>
-    <groupId>com.datafuse</groupId>
+    <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
-    <version>1-SNAPSHOT</version>
+    <version>0.0.1</version>
 </dependency>
 ```
 

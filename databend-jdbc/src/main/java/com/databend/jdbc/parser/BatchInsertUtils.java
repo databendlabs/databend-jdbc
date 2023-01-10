@@ -15,7 +15,7 @@ public class BatchInsertUtils
     private final String sql;
     // prepareValues[i] is null if the i-th value is a placeholder
 
-    private final TreeMap<Integer, String> placeHolderEntries;
+    private TreeMap<Integer, String> placeHolderEntries;
     private BatchInsertUtils(String sql)
     {
         this.sql = sql;
