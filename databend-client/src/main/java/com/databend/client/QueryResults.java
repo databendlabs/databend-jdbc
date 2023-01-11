@@ -70,9 +70,6 @@ public class QueryResults {
     }
 
     // add builder
-    public static Builder builder() {
-        return new Builder();
-    }
 
     @JsonProperty
     public String getId() {
@@ -156,90 +153,5 @@ public class QueryResults {
                 .add("nextUri", nextUri)
                 .add("killUri", killUri)
                 .toString();
-    }
-
-    public static class Builder {
-        private String id;
-        private String sessionId;
-        private DatabendSession session;
-        private QuerySchema schema;
-        private List<List<Object>> data;
-        private String state;
-        private QueryErrors error;
-        private QueryStats stats;
-        private QueryAffect affect;
-        private URI statsUri;
-        private URI finalUri;
-        private URI nextUri;
-        private URI killUri;
-
-        public Builder setId(String id) {
-            this.id = id;
-            return this;
-        }
-
-        public Builder setSessionId(String sessionId) {
-            this.sessionId = sessionId;
-            return this;
-        }
-
-        public Builder setSession(DatabendSession session) {
-            this.session = session;
-            return this;
-        }
-
-        public Builder setSchema(QuerySchema schema) {
-            this.schema = schema;
-            return this;
-        }
-
-        public Builder setData(List<List<Object>> data) {
-            this.data = data;
-            return this;
-        }
-
-        public Builder setState(String state) {
-            this.state = state;
-            return this;
-        }
-
-        public Builder setError(QueryErrors error) {
-            this.error = error;
-            return this;
-        }
-
-        public Builder setStats(QueryStats stats) {
-            this.stats = stats;
-            return this;
-        }
-
-        public Builder setAffect(QueryAffect affect) {
-            this.affect = affect;
-            return this;
-        }
-
-        public Builder setStatsUri(URI statsUri) {
-            this.statsUri = statsUri;
-            return this;
-        }
-
-        public Builder setFinalUri(URI finalUri) {
-            this.finalUri = finalUri;
-            return this;
-        }
-
-        public Builder setNextUri(URI nextUri) {
-            this.nextUri = nextUri;
-            return this;
-        }
-
-        public Builder setKillUri(URI killUri) {
-            this.killUri = killUri;
-            return this;
-        }
-
-        public QueryResults build() {
-            return new QueryResults(id, sessionId, session, schema, data, state, error, stats, affect, statsUri, finalUri, nextUri, killUri);
-        }
     }
 }

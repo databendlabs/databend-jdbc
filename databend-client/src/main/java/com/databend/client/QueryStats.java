@@ -43,10 +43,6 @@ public class QueryStats {
     }
 
     // add builder
-    public static Builder builder() {
-        return new Builder();
-    }
-
     @JsonProperty
     public float getRunningTimeMS() {
         return runningTimeMS;
@@ -75,37 +71,6 @@ public class QueryStats {
                 .add("writeProgress", writeProgress)
                 .add("readProgress", resultProgress)
                 .toString();
-    }
-
-    public static final class Builder {
-        private float runningTimeMS;
-        private QueryProgress scamProgress;
-        private QueryProgress writeProgress;
-        private QueryProgress readProgress;
-
-        public Builder setRunningTimeMS(float runningTimeMS) {
-            this.runningTimeMS = runningTimeMS;
-            return this;
-        }
-
-        public Builder setScamProgress(QueryProgress scamProgress) {
-            this.scamProgress = scamProgress;
-            return this;
-        }
-
-        public Builder setWriteProgress(QueryProgress writeProgress) {
-            this.writeProgress = writeProgress;
-            return this;
-        }
-
-        public Builder setReadProgress(QueryProgress readProgress) {
-            this.readProgress = readProgress;
-            return this;
-        }
-
-        public QueryStats build() {
-            return new QueryStats(runningTimeMS, scamProgress, writeProgress, readProgress);
-        }
     }
 }
 
