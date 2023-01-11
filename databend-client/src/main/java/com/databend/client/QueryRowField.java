@@ -37,11 +37,6 @@ public class QueryRowField {
         this.DataType = DataType;
     }
 
-    // add builder
-    public static Builder builder() {
-        return new Builder();
-    }
-
     @JsonProperty
     public String getName() {
         return name;
@@ -65,31 +60,5 @@ public class QueryRowField {
                 .add("DataType", DataType)
                 .toString();
     }
-
-    public static final class Builder {
-        private String name;
-        private String defaultExpr;
-        private DatabendRawType DataType;
-
-        public Builder setName(String name) {
-            this.name = name;
-            return this;
-        }
-
-        public Builder setDefaultExpr(String defaultExpr) {
-            this.defaultExpr = defaultExpr;
-            return this;
-        }
-
-        public Builder setDataType(DatabendRawType DataType) {
-            this.DataType = DataType;
-            return this;
-        }
-
-        public QueryRowField build() {
-            return new QueryRowField(name, defaultExpr, DataType);
-        }
-    }
-
 
 }

@@ -49,9 +49,6 @@ public abstract class QueryAffect {
         }
 
         // add builder
-        public static Builder builder() {
-            return new Builder();
-        }
 
         @JsonProperty
         public String getKind() {
@@ -76,31 +73,6 @@ public abstract class QueryAffect {
                     .add("success", success)
                     .toString();
         }
-
-        public static final class Builder {
-            private String kind;
-            private String name;
-            private boolean success;
-
-            public Builder setKind(String kind) {
-                this.kind = kind;
-                return this;
-            }
-
-            public Builder setName(String name) {
-                this.name = name;
-                return this;
-            }
-
-            public Builder setSuccess(boolean success) {
-                this.success = success;
-                return this;
-            }
-
-            public Create build() {
-                return new Create(kind, name, success);
-            }
-        }
     }
 
     public static class UseDB extends QueryAffect {
@@ -112,9 +84,6 @@ public abstract class QueryAffect {
         }
 
         // add builder
-        public static Builder builder() {
-            return new Builder();
-        }
 
         @JsonProperty
         public String getName() {
@@ -128,18 +97,7 @@ public abstract class QueryAffect {
                     .toString();
         }
 
-        public static final class Builder {
-            private String name;
 
-            public Builder setName(String name) {
-                this.name = name;
-                return this;
-            }
-
-            public UseDB build() {
-                return new UseDB(name);
-            }
-        }
     }
 
     public static class ChangeSettings extends QueryAffect {
@@ -157,12 +115,6 @@ public abstract class QueryAffect {
             this.values = values;
             this.isGlobals = isGlobals;
         }
-
-        // add builder
-        public static Builder builder() {
-            return new Builder();
-        }
-
         @JsonProperty
         public List<String> getKeys() {
             return keys;
@@ -186,30 +138,6 @@ public abstract class QueryAffect {
                     .add("isGlobals", isGlobals)
                     .toString();
         }
-
-        public static final class Builder {
-            private List<String> keys;
-            private List<String> values;
-            private List<Boolean> isGlobals;
-
-            public Builder setKeys(List<String> keys) {
-                this.keys = keys;
-                return this;
-            }
-
-            public Builder setValues(List<String> values) {
-                this.values = values;
-                return this;
-            }
-
-            public Builder setIsGlobals(List<Boolean> isGlobals) {
-                this.isGlobals = isGlobals;
-                return this;
-            }
-
-            public ChangeSettings build() {
-                return new ChangeSettings(keys, values, isGlobals);
-            }
-        }
     }
+
 }

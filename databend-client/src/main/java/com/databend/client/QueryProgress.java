@@ -32,10 +32,6 @@ public class QueryProgress {
     }
 
     // add builder
-    public static Builder builder() {
-        return new Builder();
-    }
-
     @JsonProperty
     public int getRows() {
         return rows;
@@ -52,24 +48,5 @@ public class QueryProgress {
                 .add("rows", rows)
                 .add("bytes", bytes)
                 .toString();
-    }
-
-    public static final class Builder {
-        private int rows;
-        private int bytes;
-
-        public Builder setRows(int rows) {
-            this.rows = rows;
-            return this;
-        }
-
-        public Builder setBytes(int bytes) {
-            this.bytes = bytes;
-            return this;
-        }
-
-        public QueryProgress build() {
-            return new QueryProgress(rows, bytes);
-        }
     }
 }

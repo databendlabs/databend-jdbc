@@ -35,9 +35,6 @@ public class QuerySchema {
     }
 
     // add builder
-    public static Builder builder() {
-        return new Builder();
-    }
 
     @JsonProperty
     public List<QueryRowField> getFields() {
@@ -56,24 +53,4 @@ public class QuerySchema {
                 .add("metadata", metadata)
                 .toString();
     }
-
-    public static final class Builder {
-        private List<QueryRowField> fields;
-        private Map<String, String> metadata;
-
-        public Builder setFields(List<QueryRowField> fields) {
-            this.fields = fields;
-            return this;
-        }
-
-        public Builder setMetadata(Map<String, String> metadata) {
-            this.metadata = metadata;
-            return this;
-        }
-
-        public QuerySchema build() {
-            return new QuerySchema(fields, metadata);
-        }
-    }
-
 }
