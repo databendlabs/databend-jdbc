@@ -49,14 +49,11 @@ public class TestQueryResults {
         Assert.assertEquals(queryResults.getSession().getSettings(), null);
         Assert.assertEquals(queryResults.getSchema().getFields().size(), 2);
         Assert.assertEquals(queryResults.getSchema().getFields().get(0).getName(), "max(number)");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDefaultExpr(), null);
         Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getType(), "Nullable");
         Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getInner().getType(), "UInt64");
         Assert.assertEquals(queryResults.getSchema().getFields().get(1).getName(), "sum(number)");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(1).getDefaultExpr(), null);
         Assert.assertEquals(queryResults.getSchema().getFields().get(1).getDataType().getType(), "Nullable");
         Assert.assertEquals(queryResults.getSchema().getFields().get(1).getDataType().getInner().getType(), "UInt64");
-        Assert.assertEquals(queryResults.getSchema().getMetadata().size(), 0);
         for (List<Object> row : queryResults.getData()) {
             Assert.assertEquals(row.size(), 2);
             Assert.assertEquals(row.get(0).getClass(), BigInteger.class);
@@ -88,7 +85,6 @@ public class TestQueryResults {
         Assert.assertEquals(queryResults.getSession().getKeepServerSessionSecs(), 0);
         Assert.assertEquals(queryResults.getSession().getSettings(), null);
         Assert.assertEquals(queryResults.getSchema().getFields().size(), 0);
-        Assert.assertEquals(queryResults.getSchema().getMetadata().size(), 0);
         Assert.assertEquals(queryResults.getState(), "Failed");
         Assert.assertEquals(queryResults.getError().getCode(), 1006);
         Assert.assertEquals(queryResults.getError().getMessage(), "Incorrect CREATE query: required list of column descriptions or AS section or SELECT..");

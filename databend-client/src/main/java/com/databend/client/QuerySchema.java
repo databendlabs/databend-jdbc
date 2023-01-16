@@ -22,16 +22,15 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
+// "schema":[{"name":"column1","type":"UInt8"}]
+// "schema":[{"name":"column2","type":"Nullable(UInt8)"}]
 public class QuerySchema {
     private final List<QueryRowField> fields;
-    private final Map<String, String> metadata;
 
     @JsonCreator
     public QuerySchema(
-            @JsonProperty("fields") List<QueryRowField> fields,
-            @JsonProperty("metadata") Map<String, String> metadata) {
+            @JsonProperty() List<QueryRowField> fields) {
         this.fields = fields;
-        this.metadata = metadata;
     }
 
     // add builder
@@ -41,16 +40,11 @@ public class QuerySchema {
         return fields;
     }
 
-    @JsonProperty
-    public Map<String, String> getMetadata() {
-        return metadata;
-    }
 
     @Override
     public String toString() {
         return toStringHelper(this)
-                .add("fields", fields)
-                .add("metadata", metadata)
+                .add("", fields)
                 .toString();
     }
 }
