@@ -30,17 +30,17 @@ public class TestClientIT {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("root", "root")).build();
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
-        DatabendClient cli = new DatabendClientV1(client, "select * from airbyte_integration_dnvcdtfusz", settings);
+        DatabendClient cli = new DatabendClientV1(client, "select 1", settings);
         System.out.println(cli.getResults().getData());
-//        Assert.assertEquals(cli.getQuery(), "select 1");
-//        Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
-//        Assert.assertNotNull(cli.getResults());
-//        Assert.assertEquals(cli.getResults().getSchema().getFields().size(), 1);
-//        for (List<Object> data : cli.getResults().getData()) {
-//            Assert.assertEquals(data.size(), 1);
-//            Assert.assertEquals((Short) data.get(0), Short.valueOf("1"));
-//        }
-//        cli.close();
+        Assert.assertEquals(cli.getQuery(), "select 1");
+        Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
+        Assert.assertNotNull(cli.getResults());
+        Assert.assertEquals(cli.getResults().getSchema().getFields().size(), 1);
+        for (List<Object> data : cli.getResults().getData()) {
+            Assert.assertEquals(data.size(), 1);
+            Assert.assertEquals((Short) data.get(0), Short.valueOf("1"));
+        }
+        cli.close();
     }
 
 }
