@@ -53,7 +53,6 @@ abstract class AbstractDatabendResultSet implements ResultSet
     protected final Iterator<List<Object>> results;
     protected final QuerySchema schema;
     private final Optional<Statement> statement;
-    private final DateTimeZone resultTimeZone;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
@@ -65,7 +64,6 @@ abstract class AbstractDatabendResultSet implements ResultSet
     AbstractDatabendResultSet(Optional<Statement> statement, QuerySchema schema, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
-        this.resultTimeZone = DateTimeZone.forID(ZoneId.systemDefault().getId());
         this.schema =  requireNonNull(schema, "schema is null");;
         this.fieldMap = getFieldMap(schema.getFields());
         this.columnInfoList = getColumnInfo(schema.getFields());

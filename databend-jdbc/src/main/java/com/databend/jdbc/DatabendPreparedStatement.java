@@ -323,7 +323,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         }
         else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatStringLiteral(toDateLiteral(date))));
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
         }
     }
 
@@ -336,7 +336,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         }
         else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatStringLiteral(toTimeLiteral(time))));
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
         }
     }
 
@@ -349,7 +349,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         }
         else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatStringLiteral(toTimestampLiteral(timestamp))));
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
         }
     }
 
