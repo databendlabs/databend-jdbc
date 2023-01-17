@@ -30,34 +30,59 @@ package com.databend.client.data;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 // it could be either a string or a struct if it is not nullable
-// "data_type":{"type":"Nullable","inner":{"type":"UInt64"}}}
-// "data_type":{"type":"Timestamp"}}
 public class DatabendRawType {
     private final String type;
-    // it could be a nested data type
-    // {"name":"arr","default_expr":null,"data_type":{"type":"Nullable","inner":{"type":"Array","inner":{"type":"Int64"}}}}
-    private final DatabendRawType inner;
+    DatabendRawType inner;
+
     @JsonCreator
     public DatabendRawType(
-            @JsonProperty("type") String type,
-            @JsonProperty("inner") DatabendRawType inner) {
+            String type) {
         this.type = type;
-        this.inner = inner;
     }
-    @JsonProperty
+
     public String getType() {
+        if (isNullable()) {
+            return "Nullable";
+        } else if (type.contains("(")) {
+            Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
+            Matcher matcher = pattern.matcher(type);
+            if (matcher.find()) {
+                return matcher.group(1);
+            }
+        }
         return type;
     }
-    @JsonProperty
+
     public DatabendRawType getInner() {
+        Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
+        Matcher matcher = pattern.matcher(type);
+        if (matcher.find()) {
+            return new DatabendRawType(matcher.group(2));
+        }
         return inner;
     }
+
     public boolean isNullable() {
-        return DatabendTypes.NULLABLE.equals(type) || DatabendTypes.NULL.equals(type);
+        return type.contains(DatabendTypes.NULLABLE) || type.contains(DatabendTypes.NULL);
     }
+
+    public static boolean isArrayType(String type) {
+        Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
+        Matcher matcher = pattern.matcher(type);
+
+        if (matcher.find()) {
+            String arrayType = matcher.group(1);
+            String innerType = matcher.group(2);
+        }
+        return false;
+    }
+
     @Override
     public String toString() {
         return toStringHelper(this).add("type", type).add("inner", inner).toString();

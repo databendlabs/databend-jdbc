@@ -16,15 +16,17 @@ package com.databend.client.data;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkArgument;
 import static java.util.Objects.requireNonNull;
 
-final class ArrayHandler implements ColumnTypeHandler
-{
+final class ArrayHandler implements ColumnTypeHandler {
 
     private final ColumnTypeHandler elementTypeHandler;
     private boolean isNullable;
+
     public ArrayHandler(DatabendRawType type) {
         requireNonNull(type, "type is null");
         checkArgument(type.getType().equals(DatabendTypes.ARRAY), "type must be array type");
@@ -34,8 +36,7 @@ final class ArrayHandler implements ColumnTypeHandler
     }
 
     @Override
-    public Object parseValue(Object value)
-    {
+    public Object parseValue(Object value) {
         List<?> listValue = (List<?>) value;
         ArrayList<Object> result = new ArrayList<>(listValue.size());
         for (Object item : listValue) {
@@ -48,8 +49,7 @@ final class ArrayHandler implements ColumnTypeHandler
     }
 
     @Override
-    public void setNullable(boolean isNullable)
-    {
+    public void setNullable(boolean isNullable) {
         this.isNullable = isNullable;
     }
 }

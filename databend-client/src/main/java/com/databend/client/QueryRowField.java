@@ -22,18 +22,15 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class QueryRowField {
     private final String name;
-    /// default_expr is serialized representation from PlanExpression
-    private final String defaultExpr;
 
     // possible it contain nullable wrapper
     private final DatabendRawType DataType;
+
     @JsonCreator
     public QueryRowField(
             @JsonProperty("name") String name,
-            @JsonProperty("default_expr") String defaultExpr,
-            @JsonProperty("data_type") DatabendRawType DataType) {
+            @JsonProperty("type") DatabendRawType DataType) {
         this.name = name;
-        this.defaultExpr = defaultExpr;
         this.DataType = DataType;
     }
 
@@ -42,10 +39,6 @@ public class QueryRowField {
         return name;
     }
 
-    @JsonProperty
-    public String getDefaultExpr() {
-        return defaultExpr;
-    }
 
     @JsonProperty
     public DatabendRawType getDataType() {
@@ -56,8 +49,7 @@ public class QueryRowField {
     public String toString() {
         return toStringHelper(this)
                 .add("name", name)
-                .add("defaultExpr", defaultExpr)
-                .add("DataType", DataType)
+                .add("type", DataType)
                 .toString();
     }
 

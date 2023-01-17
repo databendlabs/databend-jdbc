@@ -20,24 +20,25 @@ import org.testng.annotations.Test;
 
 import java.util.List;
 
-public class TestClientIT
-{
+public class TestClientIT {
     // please setup a local databend cluster before running this test
-    private static final String DATABEND_HOST = "http://0.0.0.0:8000";
+    private static final String DATABEND_HOST = "http://root:root@127.0.0.1:8000";
     private static final String DATABASE = "default";
-    @Test( groups = {"it"} )
+
+    @Test(groups = {"it"})
     public void testBasicQueryPagination() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("root", "root")).build();
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
         DatabendClient cli = new DatabendClientV1(client, "select 1", settings);
+        System.out.println(cli.getResults().getData());
         Assert.assertEquals(cli.getQuery(), "select 1");
         Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
         Assert.assertNotNull(cli.getResults());
         Assert.assertEquals(cli.getResults().getSchema().getFields().size(), 1);
-        for (List<Object> data: cli.getResults().getData()) {
+        for (List<Object> data : cli.getResults().getData()) {
             Assert.assertEquals(data.size(), 1);
-            Assert.assertEquals((Short)data.get(0), Short.valueOf("1"));
+            Assert.assertEquals((Short) data.get(0), Short.valueOf("1"));
         }
         cli.close();
     }
