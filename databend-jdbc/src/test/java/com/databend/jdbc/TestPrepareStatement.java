@@ -23,8 +23,11 @@ public class TestPrepareStatement
 
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("drop table if exists test_prepare_time");
+        c.createStatement().execute("drop table if exists objects_test1");
         c.createStatement().execute("create table test_prepare_statement (a int, b int)");
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
+        // json data
+        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, var VARIANT) Engine = Fuse");
     }
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
@@ -63,6 +66,11 @@ public class TestPrepareStatement
         ps.setDate(1, Date.valueOf("2020-01-10"));
         ps.setTimestamp(2, Timestamp.valueOf("1983-07-12 21:30:55.888"));
         ps.addBatch();
+        ps.setDate(1, Date.valueOf("1970-01-01"));
+        ps.setTimestamp(2, Timestamp.valueOf("1970-01-01 00:00:01"));
+        ps.addBatch();
+        ps.setDate(1, Date.valueOf("2021-01-01"));
+        ps.setTimestamp(2, Timestamp.valueOf("1970-01-01 00:00:01.234"));
         int[] ans = ps.executeBatch();
         Statement statement = c.createStatement();
 
