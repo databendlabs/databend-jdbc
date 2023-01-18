@@ -6,8 +6,10 @@ import com.databend.client.DatabendClientV1;
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
+import com.databend.jdbc.cloud.DatabendStage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
@@ -581,7 +583,10 @@ public class DatabendConnection implements Connection, FileTransferAPI
         }
     }
 
+    @Override
+    public void copyIntoTable(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
+            throws SQLException
+    {
 
-
-
+    }
 }

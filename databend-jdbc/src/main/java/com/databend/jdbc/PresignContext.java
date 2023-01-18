@@ -14,8 +14,6 @@ import static java.util.Objects.requireNonNull;
 
 public final class PresignContext
 {
-
-
     private final  PresignMethod method;
     private final  String stageName;
     private final  String fileName;
