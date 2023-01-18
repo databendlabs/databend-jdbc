@@ -2,13 +2,18 @@ package com.databend.jdbc.cloud;
 
 public class DatabendStage
 {
+    private static final String defaultStageName = "~";
     private final String stageName;
     private final String path;
     private final ExternalLocationS3 externalLocationS3;
     // TODO(zhihanz) support more external location such as Azure/GCS
     private DatabendStage(String stageName, String path, ExternalLocationS3 externalLocationS3)
     {
-        this.stageName = stageName;
+        if (stageName == null || stageName.isEmpty()) {
+           this.stageName = defaultStageName;
+        } else {
+           this.stageName = stageName;
+        }
         this.path = path;
         this.externalLocationS3 = externalLocationS3;
     }

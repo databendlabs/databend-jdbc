@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -39,7 +40,9 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -131,10 +134,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return x.toString();
     }
 
-    private static String formatStringLiteral(String x)
-    {
-        return "'" + x + "'";
-    }
 
     private static String formatBytesLiteral(byte[] x)
     {
@@ -172,7 +171,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).build();
+            Map<String, String> format = new HashMap<>();
+            format.put(DatabendCopyParams.DatabendParams.QUOTE.name(), "\\'");
+            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).setFileFormatOptions(format).build();
             return attachment;
         } catch (FileNotFoundException e) {
             throw new SQLException(e);
@@ -303,7 +304,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException
     {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatStringLiteral(s)));
+        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
     }
 
     @Override

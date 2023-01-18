@@ -1,5 +1,7 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.cloud.DatabendCopyParams;
+import com.databend.jdbc.cloud.DatabendStage;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -11,7 +13,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 
 public class TestFileTransfer
 {
@@ -60,6 +66,24 @@ public class TestFileTransfer
         }
         return csvPath;
     }
+    private String generateRandomCSVComplex(int lines) {
+        if (lines <= 0) {
+            return "";
+        }
+        String tmpDir = System.getProperty("java.io.tmpdir");
+        String csvPath = tmpDir + "/complex.csv";
+        try {
+            FileWriter writer = new FileWriter(csvPath);
+            for (int i = 0; i < lines; i++) {
+                writer.write(i + ",'{\"str_col\": 9,  \"int_col\": 9}',hello" + "\n");
+            }
+            writer.close();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return csvPath;
+    }
 
     @Test(groups = {"IT"})
     public void testFileTransfer()
@@ -78,6 +102,35 @@ public class TestFileTransfer
             byte[] got = streamToByteArray(inputStream);
             byte[] expected = streamToByteArray(new FileInputStream(f));
             Assert.assertEquals(got, expected);
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testCopyInto()
+    {
+        String filePath = generateRandomCSVComplex(1);
+        try {
+            Connection connection = createConnection();
+            String stageName = "test_stage";
+            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
+            PresignContext.createStageIfNotExists(databendConnection, stageName);
+            File f = new File(filePath);
+            FileInputStream fileInputStream = new FileInputStream(f);
+            databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
+            connection.createStatement().execute("CREATE TABLE IF NOT EXISTS t18 (i int, a String, b string) ENGINE = FUSE");
+            DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
+            Map<String, String> params = new HashMap<>();
+            params.put(DatabendCopyParams.DatabendParams.QUOTE.name(), "\\'");
+            DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").setFileOptions(params).build();
+            databendConnection.copyIntoTable(null, "t18", s, p);
+            Statement stmt = connection.createStatement();
+            ResultSet r = stmt.executeQuery("SELECT * FROM t18");
+            while (r.next()) {
+                System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
+            }
         }
         catch (Exception e) {
             throw new RuntimeException(e);

@@ -256,6 +256,9 @@ public class DatabendClientV1
         if (q == null) {
             return;
         }
+        if (q.getKillUri() == null) {
+            return;
+        }
         String killUriPath = q.getKillUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(killUriPath).build();
