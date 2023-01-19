@@ -41,11 +41,11 @@ public class DatabendStage
     @Override
     public String toString()
     {
-        if (this.stageName != null) {
-            return String.format("@%s/%s", this.stageName, this.path);
-        }
         if (this.externalLocationS3 != null) {
             return this.externalLocationS3.toString();
+        }
+        if (this.stageName != null) {
+            return String.format("@%s/%s", this.stageName, this.path);
         }
         return this.path;
     }

@@ -5,6 +5,7 @@ import com.databend.jdbc.cloud.DatabendStage;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.io.ByteArrayOutputStream;
@@ -23,6 +24,16 @@ import java.util.Map;
 
 public class TestFileTransfer
 {
+    @BeforeTest
+    public void setUp()
+            throws SQLException
+    {
+        // create table
+        Connection c = createConnection();
+
+        c.createStatement().execute("drop table if exists copy_into");
+        c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
+    }
     private static byte[] streamToByteArray(InputStream stream) throws IOException
     {
 
@@ -123,12 +134,11 @@ public class TestFileTransfer
             File f = new File(filePath);
             FileInputStream fileInputStream = new FileInputStream(f);
             databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
-            connection.createStatement().execute("CREATE TABLE IF NOT EXISTS t19 (i int, a Variant, b string) ENGINE = FUSE");
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
             DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").build();
-            databendConnection.copyIntoTable(null, "t19", s, p);
+            databendConnection.copyIntoTable(null, "copy_into", s, p);
             Statement stmt = connection.createStatement();
-            ResultSet r = stmt.executeQuery("SELECT * FROM t19");
+            ResultSet r = stmt.executeQuery("SELECT * FROM copy_into");
             while (r.next()) {
                 System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
             }

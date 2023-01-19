@@ -6,6 +6,7 @@ import com.google.common.collect.ImmutableList;
 
 import java.sql.Types;
 import java.util.List;
+import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 
@@ -157,7 +158,7 @@ class ColumnInfo
 //        if (type.isNullable()) {
 //            return getType(type.getInner());
 //        }
-        switch (type.getType()) {
+        switch (type.getType().toLowerCase(Locale.US)) {
             case DatabendTypes.BOOLEAN:
                 return java.sql.Types.BOOLEAN;
             case DatabendTypes.UINT8:
