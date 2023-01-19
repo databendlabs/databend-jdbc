@@ -120,7 +120,8 @@ public class TestQueryResults {
         Assert.assertEquals(queryResults.getId(), "d74b2471-3a15-45e2-9ef4-ca8a39505661");
         Assert.assertEquals(queryResults.getSchema().size(), 1);
         Assert.assertEquals(queryResults.getSchema().get(0).getName(), "var");
-        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Nullable(Variant)");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Variant");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().isNullable(), true);
 
     }
 }

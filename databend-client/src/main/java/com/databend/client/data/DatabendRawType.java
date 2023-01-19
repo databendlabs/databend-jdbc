@@ -38,11 +38,22 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 // it could be either a string or a struct if it is not nullable
 public class DatabendRawType {
     private final String type;
+    private final boolean isNullable;
 
     @JsonCreator
     public DatabendRawType(
             String type) {
-        this.type = type;
+        // pattern match on Nullable(String) ignore case, and extract the inner type
+        Pattern pattern = Pattern.compile("Nullable\\((.+)\\)", Pattern.CASE_INSENSITIVE);
+        if (pattern.matcher(type).matches()) {
+            this.isNullable = true;
+            Matcher matcher = pattern.matcher(type);
+            matcher.find();
+            this.type = matcher.group(1);
+        } else {
+            this.isNullable = false;
+            this.type = type;
+        }
     }
 
     public String getType() {
@@ -50,23 +61,13 @@ public class DatabendRawType {
     }
 
 
-    public boolean isNullable() {
-        return type.contains(DatabendTypes.NULLABLE) || type.contains(DatabendTypes.NULL);
-    }
-
-    public static boolean isArrayType(String type) {
-        Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
-        Matcher matcher = pattern.matcher(type);
-
-        if (matcher.find()) {
-            String arrayType = matcher.group(1);
-            String innerType = matcher.group(2);
-        }
-        return false;
+    public boolean isNullable()
+    {
+        return isNullable;
     }
 
     @Override
     public String toString() {
-        return toStringHelper(this).add("type", type).toString();
+        return toStringHelper(this).add("type", type).add("isNullable", isNullable).toString();
     }
 }

@@ -25,6 +25,11 @@ class Int8Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public Int8Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -77,6 +82,11 @@ class Int16Handler implements ColumnTypeHandler
     public Int16Handler()
     {
         this.isNullable = false;
+    }
+
+    public Int16Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
     }
 
     @Override
@@ -134,6 +144,11 @@ class Int32Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public Int32Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -187,6 +202,11 @@ class Int64Handler implements ColumnTypeHandler
     public Int64Handler()
     {
         this.isNullable = false;
+    }
+
+    public Int64Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
     }
 
     @Override
@@ -244,6 +264,11 @@ class UInt8Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public UInt8Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -297,6 +322,11 @@ class UInt16Handler implements ColumnTypeHandler
     public UInt16Handler()
     {
         this.isNullable = false;
+    }
+
+    public UInt16Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
     }
 
     @Override
@@ -354,6 +384,11 @@ class UInt32Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public UInt32Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -407,6 +442,11 @@ class UInt64Handler implements ColumnTypeHandler
     public UInt64Handler()
     {
         this.isNullable = false;
+    }
+
+    public UInt64Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
     }
 
     @Override
@@ -464,6 +504,11 @@ class Float32Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public Float32Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -519,6 +564,11 @@ class Float64Handler implements ColumnTypeHandler
         this.isNullable = false;
     }
 
+    public Float64Handler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
+    }
+
     @Override
     public Object parseValue(Object value)
     {
@@ -572,6 +622,11 @@ class BooleanHandler implements ColumnTypeHandler
     public BooleanHandler()
     {
         this.isNullable = false;
+    }
+
+    public BooleanHandler(boolean isNullable)
+    {
+        this.isNullable = isNullable;
     }
 
     @Override
