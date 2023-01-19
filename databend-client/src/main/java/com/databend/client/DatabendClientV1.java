@@ -176,7 +176,7 @@ public class DatabendClientV1
             }
 
             if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Query failed: " + response.getHeaders());
+                throw new RuntimeException("Query failed: " + response.getResponseBody());
             }
             return false;
         }

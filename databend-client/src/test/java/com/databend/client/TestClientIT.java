@@ -35,7 +35,7 @@ public class TestClientIT {
         Assert.assertEquals(cli.getQuery(), "select 1");
         Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
         Assert.assertNotNull(cli.getResults());
-        Assert.assertEquals(cli.getResults().getSchema().getFields().size(), 1);
+        Assert.assertEquals(cli.getResults().getSchema().size(), 1);
         for (List<Object> data : cli.getResults().getData()) {
             Assert.assertEquals(data.size(), 1);
             Assert.assertEquals((Short) data.get(0), Short.valueOf("1"));

@@ -41,15 +41,7 @@ public class ColumnTypeHandlerFactory
                 return new Float32Handler();
             case DatabendTypes.FLOAT64:
                 return new Float64Handler();
-            case DatabendTypes.NULLABLE:
-                ColumnTypeHandler inner = ColumnTypeHandlerFactory.getTypeHandler(type.getInner());
-                if (inner == null) {
-                    return new StringHandler();
-                }
-                inner.setNullable(true);
-                return inner;
             case DatabendTypes.ARRAY:
-                return new ArrayHandler(type);
             case DatabendTypes.DATE:
             case DatabendTypes.DATETIME:
             case DatabendTypes.DATETIME64:

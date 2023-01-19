@@ -34,13 +34,13 @@ public class QueryRowField {
         this.DataType = DataType;
     }
 
-    @JsonProperty
+    @JsonProperty("name")
     public String getName() {
         return name;
     }
 
 
-    @JsonProperty
+    @JsonProperty("type")
     public DatabendRawType getDataType() {
         return DataType;
     }

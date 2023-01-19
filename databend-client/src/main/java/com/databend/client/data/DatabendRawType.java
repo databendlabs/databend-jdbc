@@ -38,7 +38,6 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 // it could be either a string or a struct if it is not nullable
 public class DatabendRawType {
     private final String type;
-    DatabendRawType inner;
 
     @JsonCreator
     public DatabendRawType(
@@ -47,26 +46,9 @@ public class DatabendRawType {
     }
 
     public String getType() {
-        if (isNullable()) {
-            return "Nullable";
-        } else if (type.contains("(")) {
-            Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
-            Matcher matcher = pattern.matcher(type);
-            if (matcher.find()) {
-                return matcher.group(1);
-            }
-        }
         return type;
     }
 
-    public DatabendRawType getInner() {
-        Pattern pattern = Pattern.compile("(\\w+)\\((\\w+)\\)");
-        Matcher matcher = pattern.matcher(type);
-        if (matcher.find()) {
-            return new DatabendRawType(matcher.group(2));
-        }
-        return inner;
-    }
 
     public boolean isNullable() {
         return type.contains(DatabendTypes.NULLABLE) || type.contains(DatabendTypes.NULL);
@@ -85,6 +67,6 @@ public class DatabendRawType {
 
     @Override
     public String toString() {
-        return toStringHelper(this).add("type", type).add("inner", inner).toString();
+        return toStringHelper(this).add("type", type).toString();
     }
 }

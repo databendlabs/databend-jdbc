@@ -33,9 +33,9 @@ final class ParseJsonDataUtils
      * input List<List<Object>> : a list of rows parsed from QueryResponse
      * output Iterable<List<Object>> : convert the input rows into DatabendType and return an immutable list
      */
-    public static Iterable<List<Object>> parseRawData(QuerySchema schema, List<List<Object>> data)
+    public static Iterable<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data)
     {
-        if (data == null || schema == null || schema.getFields() == null) {
+        if (data == null || schema == null ) {
             return null;
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(schema);
@@ -59,10 +59,10 @@ final class ParseJsonDataUtils
         return rows.build();
     }
 
-    private static ColumnTypeHandler[] createTypeHandlers(QuerySchema schema) {
+    private static ColumnTypeHandler[] createTypeHandlers(List<QueryRowField> schema) {
         int index = 0;
-        ColumnTypeHandler[] typeHandlers = new ColumnTypeHandler[schema.getFields().size()];
-        for (QueryRowField field : schema.getFields()) {
+        ColumnTypeHandler[] typeHandlers = new ColumnTypeHandler[schema.size()];
+        for (QueryRowField field : schema) {
             typeHandlers[index++] = ColumnTypeHandlerFactory.getTypeHandler(field.getDataType());
         }
         return typeHandlers;
