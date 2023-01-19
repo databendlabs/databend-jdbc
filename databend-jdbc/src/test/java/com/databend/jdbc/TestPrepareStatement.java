@@ -27,7 +27,7 @@ public class TestPrepareStatement
         c.createStatement().execute("create table test_prepare_statement (a int, b int)");
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
         // json data
-        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP) Engine = Fuse");
+        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String) Engine = Fuse");
     }
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
@@ -90,8 +90,9 @@ public class TestPrepareStatement
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
         ps.setInt(1, 1);
-        ps.setString(2, "\"{\"\"a\"\": 1,\"\"b\"\": 2}\"");
+        ps.setString(2, "{\"a\": 1,\"b\": 2}");
         ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
+        ps.setString(4, "hello world, 你好");
         ps.addBatch();
         int[] ans = ps.executeBatch();
         Statement statement = c.createStatement();
@@ -104,6 +105,7 @@ public class TestPrepareStatement
             System.out.println(r.getInt(1));
             System.out.println(r.getString(2));
             System.out.println(r.getTimestamp(3).toString());
+            System.out.println(r.getString(4));
         }
     }
 }

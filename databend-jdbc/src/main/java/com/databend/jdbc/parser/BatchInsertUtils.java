@@ -1,7 +1,12 @@
 package com.databend.jdbc.parser;
 
+import de.siegmar.fastcsv.writer.CsvWriter;
+import de.siegmar.fastcsv.writer.LineDelimiter;
+
 import java.io.File;
 import java.io.FileNotFoundException;
+import java.io.FileWriter;
+import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
@@ -71,13 +76,14 @@ public class BatchInsertUtils
 
     public File saveBatchToCSV(List<String[]> values, File file) {
         // save values to csv file
-        try (PrintWriter pw = new PrintWriter(file)) {
-            values.stream()
-                    .map(this::convertToCSV)
-                    .forEach(pw::println);
+        try (FileWriter pw = new FileWriter(file)) {
+            CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(pw);
+            for (String[] row : values) {
+                w.writeRow(row);
+            }
             return file;
         }
-        catch (FileNotFoundException e) {
+        catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

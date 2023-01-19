@@ -156,8 +156,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (this.batchValues == null || this.batchValues.size() == 0) {
             return null;
         }
+        File saved = null;
         try {
-            File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+            saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
             DatabendConnection c = (DatabendConnection) getConnection();
             FileInputStream fis = new FileInputStream(saved);
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
@@ -171,44 +172,61 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            Map<String, String> format = new HashMap<>();
-            format.put(DatabendCopyParams.DatabendParams.QUOTE.name(), "\\'");
-            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).setFileFormatOptions(format).build();
+            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).build();
             return attachment;
         } catch (FileNotFoundException e) {
             throw new SQLException(e);
+        } finally{
+            try {
+                if (saved != null) {
+                    saved.delete();
+                }
+            } catch (Exception e) {
+                // ignore
+            }
         }
+    }
+
+    /**
+     * delete stage file on stage attachment
+     * @param attachment
+     * @return true if delete success or resource not found
+     */
+    private boolean dropStageAttachment(StageAttachment attachment)
+            throws SQLException
+    {
+        if (attachment == null) {
+            return true;
+        }
+        String sql = String.format("REMOVE %s", attachment.getLocation());
+        return super.execute(sql);
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-
+        int[] batchUpdateCounts = new int[batchValues.size()];
+        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
+            super.execute(this.originalSql);
+            return batchUpdateCounts;
+        }
+        StageAttachment attachment = uploadBatches();
+        if (attachment == null) {
+            super.execute(batchInsertUtils.get().getSql());
+            return batchUpdateCounts;
+        }
         try {
-            int[] batchUpdateCounts = new int[batchValues.size()];
-            // save batchValues into a csv file
-            if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-                super.execute(this.originalSql);
+            super.internalExecute(batchInsertUtils.get().getSql(), attachment);
+            ResultSet r = getResultSet();
+            while (r.next()) {
 
-            } else {
-                StageAttachment attachment = uploadBatches();
-                if (attachment == null) {
-                    super.execute(batchInsertUtils.get().getSql());
-                    return batchUpdateCounts;
-                } else {
-                    super.internalExecute(batchInsertUtils.get().getSql(), attachment);
-                    ResultSet r = getResultSet();
-                    while (r.next()) {
-
-                    }
-                    Arrays.fill(batchUpdateCounts, 1);
-                    return batchUpdateCounts;
-                }
             }
-
+            Arrays.fill(batchUpdateCounts, 1);
             return batchUpdateCounts;
         }
         catch (RuntimeException e) {
             throw new SQLException(e);
+        } finally{
+            dropStageAttachment(attachment);
         }
     }
 
