@@ -2,6 +2,8 @@ package com.databend.jdbc;
 
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
+import de.siegmar.fastcsv.writer.CsvWriter;
+import de.siegmar.fastcsv.writer.LineDelimiter;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -74,8 +76,9 @@ public class TestFileTransfer
         String csvPath = tmpDir + "/complex.csv";
         try {
             FileWriter writer = new FileWriter(csvPath);
+            CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(writer);
             for (int i = 0; i < lines; i++) {
-                writer.write(i + ",'{\"str_col\": 9,  \"int_col\": 9}',hello" + "\n");
+                w.writeRow("1", "{\"str_col\": 1, \"int_col\": 2}", "c");
             }
             writer.close();
         }
@@ -111,7 +114,7 @@ public class TestFileTransfer
     @Test(groups = {"IT"})
     public void testCopyInto()
     {
-        String filePath = generateRandomCSVComplex(1);
+        String filePath = generateRandomCSVComplex(10);
         try {
             Connection connection = createConnection();
             String stageName = "test_stage";
@@ -120,14 +123,12 @@ public class TestFileTransfer
             File f = new File(filePath);
             FileInputStream fileInputStream = new FileInputStream(f);
             databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
-            connection.createStatement().execute("CREATE TABLE IF NOT EXISTS t18 (i int, a String, b string) ENGINE = FUSE");
+            connection.createStatement().execute("CREATE TABLE IF NOT EXISTS t19 (i int, a Variant, b string) ENGINE = FUSE");
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
-            Map<String, String> params = new HashMap<>();
-            params.put(DatabendCopyParams.DatabendParams.QUOTE.name(), "\\'");
-            DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").setFileOptions(params).build();
-            databendConnection.copyIntoTable(null, "t18", s, p);
+            DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").build();
+            databendConnection.copyIntoTable(null, "t19", s, p);
             Statement stmt = connection.createStatement();
-            ResultSet r = stmt.executeQuery("SELECT * FROM t18");
+            ResultSet r = stmt.executeQuery("SELECT * FROM t19");
             while (r.next()) {
                 System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
             }

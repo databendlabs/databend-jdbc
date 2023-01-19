@@ -154,9 +154,9 @@ class ColumnInfo
         if (type ==null) {
             return java.sql.Types.NULL;
         }
-        if (type.isNullable()) {
-            return getType(type.getInner());
-        }
+//        if (type.isNullable()) {
+//            return getType(type.getInner());
+//        }
         switch (type.getType()) {
             case DatabendTypes.BOOLEAN:
                 return java.sql.Types.BOOLEAN;
