@@ -7,9 +7,11 @@ public class TestColumnTypeHandlerFactory
 {
     @Test(groups = {"Unit"})
     public void testGetTypeFunction() {
-       assertTypeHandler("UInt8", UInt8Handler.class, false);
-       assertTypeHandler("Nullable(Uint8)", UInt8Handler.class, true);
-       assertTypeHandler("UInt16", UInt16Handler.class, false);
+        assertTypeHandler("Boolean", BooleanHandler.class, false);
+        assertTypeHandler("Nullable(Boolean)", BooleanHandler.class, true);
+        assertTypeHandler("UInt8", UInt8Handler.class, false);
+        assertTypeHandler("Nullable(Uint8)", UInt8Handler.class, true);
+        assertTypeHandler("UInt16", UInt16Handler.class, false);
         assertTypeHandler("Nullable(Uint16)", UInt16Handler.class, true);
         assertTypeHandler("UInt32", UInt32Handler.class, false);
         assertTypeHandler("Nullable(Uint32)", UInt32Handler.class, true);
@@ -41,10 +43,16 @@ public class TestColumnTypeHandlerFactory
         assertTypeHandler("Nullable(Array)", StringHandler.class, true);
         assertTypeHandler("Struct", StringHandler.class, false);
         assertTypeHandler("Nullable(Struct)", StringHandler.class, true);
-        assertTypeHandler("Boolean", StringHandler.class, false);
-        assertTypeHandler("Nullable(Boolean)", StringHandler.class, true);
         assertTypeHandler("Null", StringHandler.class, false);
         assertTypeHandler("Nullable(Null)", StringHandler.class, true);
+        assertTypeHandler("Variant", StringHandler.class, false);
+        assertTypeHandler("Nullable(Variant)", StringHandler.class, true);
+        assertTypeHandler("VariantArray", StringHandler.class, false);
+        assertTypeHandler("Nullable(VariantArray)", StringHandler.class, true);
+        assertTypeHandler("UUID", StringHandler.class, false);
+        assertTypeHandler("Nullable(UUID)", StringHandler.class, true);
+        assertTypeHandler("IPv4", StringHandler.class, false);
+        assertTypeHandler("Nullable(IPv4)", StringHandler.class, true);
     }
 
     private void assertTypeHandler(String typeStr, Class<?> clazz, boolean isNullable) {

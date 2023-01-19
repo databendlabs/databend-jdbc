@@ -43,6 +43,8 @@ public class ColumnTypeHandlerFactory
                 return new Float32Handler(type.isNullable());
             case DatabendTypes.FLOAT64:
                 return new Float64Handler(type.isNullable());
+            case DatabendTypes.BOOLEAN:
+                return new BooleanHandler(type.isNullable());
             case DatabendTypes.ARRAY:
             case DatabendTypes.DATE:
             case DatabendTypes.DATETIME:
@@ -50,7 +52,6 @@ public class ColumnTypeHandlerFactory
             case DatabendTypes.TIMESTAMP:
             case DatabendTypes.STRING:
             case DatabendTypes.NULL:
-            case DatabendTypes.BOOLEAN:
             case DatabendTypes.STRUCT:
 
             case DatabendTypes.VARIANT:
