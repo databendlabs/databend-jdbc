@@ -24,27 +24,26 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 // "schema":[{"name":"column1","type":"UInt8"}]
 // "schema":[{"name":"column2","type":"Nullable(UInt8)"}]
-public class QuerySchema {
-    private final List<QueryRowField> fields;
-
-    @JsonCreator
-    public QuerySchema(
-            @JsonProperty() List<QueryRowField> fields) {
-        this.fields = fields;
-    }
-
-    // add builder
-
-    @JsonProperty
-    public List<QueryRowField> getFields() {
-        return fields;
-    }
-
-
-    @Override
-    public String toString() {
-        return toStringHelper(this)
-                .add("", fields)
-                .toString();
-    }
-}
+//public class QuerySchema {
+//
+//    @JsonCreator
+//    public QuerySchema(
+//            @JsonProperty() List<QueryRowField> fields) {
+//        this.fields = fields;
+//    }
+//
+//    // add builder
+//
+//    @JsonProperty
+//    public List<QueryRowField> getFields() {
+//        return fields;
+//    }
+//
+//
+//    @Override
+//    public String toString() {
+//        return toStringHelper(this)
+//                .add("fields", fields)
+//                .toString();
+//    }
+//}

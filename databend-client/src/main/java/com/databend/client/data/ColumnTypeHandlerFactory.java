@@ -14,49 +14,44 @@
 
 package com.databend.client.data;
 
+import java.util.Locale;
+
 public class ColumnTypeHandlerFactory
 {
     public static ColumnTypeHandler getTypeHandler(DatabendRawType type) {
         if (type == null) {
             return null;
         }
-        switch (type.getType()) {
+        switch (type.getType().toLowerCase(Locale.US)) {
             case DatabendTypes.INT8:
-                return new Int8Handler();
+                return new Int8Handler(type.isNullable());
             case DatabendTypes.INT16:
-                return new Int16Handler();
+                return new Int16Handler(type.isNullable());
             case DatabendTypes.INT32:
-                return new Int32Handler();
+                return new Int32Handler(type.isNullable());
             case DatabendTypes.INT64:
-                return new Int64Handler();
+                return new Int64Handler(type.isNullable());
             case DatabendTypes.UINT8:
-                return new UInt8Handler();
+                return new UInt8Handler(type.isNullable());
             case DatabendTypes.UINT16:
-                return new UInt16Handler();
+                return new UInt16Handler(type.isNullable());
             case DatabendTypes.UINT32:
-                return new UInt32Handler();
+                return new UInt32Handler(type.isNullable());
             case DatabendTypes.UINT64:
-                return new UInt64Handler();
+                return new UInt64Handler(type.isNullable());
             case DatabendTypes.FLOAT32:
-                return new Float32Handler();
+                return new Float32Handler(type.isNullable());
             case DatabendTypes.FLOAT64:
-                return new Float64Handler();
-            case DatabendTypes.NULLABLE:
-                ColumnTypeHandler inner = ColumnTypeHandlerFactory.getTypeHandler(type.getInner());
-                if (inner == null) {
-                    return new StringHandler();
-                }
-                inner.setNullable(true);
-                return inner;
+                return new Float64Handler(type.isNullable());
+            case DatabendTypes.BOOLEAN:
+                return new BooleanHandler(type.isNullable());
             case DatabendTypes.ARRAY:
-                return new ArrayHandler(type);
             case DatabendTypes.DATE:
             case DatabendTypes.DATETIME:
             case DatabendTypes.DATETIME64:
             case DatabendTypes.TIMESTAMP:
             case DatabendTypes.STRING:
             case DatabendTypes.NULL:
-            case DatabendTypes.BOOLEAN:
             case DatabendTypes.STRUCT:
 
             case DatabendTypes.VARIANT:
@@ -64,7 +59,7 @@ public class ColumnTypeHandlerFactory
             case DatabendTypes.VARIANT_OBJECT:
             case DatabendTypes.INTERVAL:
             default:
-                return new StringHandler();
+                return new StringHandler(type.isNullable());
         }
     }
 }

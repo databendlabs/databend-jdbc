@@ -2,7 +2,6 @@ package com.databend.jdbc;
 
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
-import com.databend.client.QuerySchema;
 import com.databend.client.errors.QueryErrors;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -63,7 +62,6 @@ import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 abstract class AbstractDatabendResultSet implements ResultSet
 {
     protected final Iterator<List<Object>> results;
-    protected final QuerySchema schema;
     private final Optional<Statement> statement;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
@@ -102,12 +100,11 @@ abstract class AbstractDatabendResultSet implements ResultSet
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
 
     private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1901, 1, 1).toEpochDay() * SECONDS_PER_DAY;
-    AbstractDatabendResultSet(Optional<Statement> statement, QuerySchema schema, Iterator<List<Object>> results)
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
-        this.schema =  requireNonNull(schema, "schema is null");;
-        this.fieldMap = getFieldMap(schema.getFields());
-        this.columnInfoList = getColumnInfo(schema.getFields());
+        this.fieldMap = getFieldMap(schema);
+        this.columnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(columnInfoList);
         this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());

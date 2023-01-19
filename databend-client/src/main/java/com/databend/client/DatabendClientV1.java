@@ -176,7 +176,7 @@ public class DatabendClientV1
             }
 
             if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Query failed: " + response.getHeaders());
+                throw new RuntimeException("Query failed: " + response.getResponseBody());
             }
             return false;
         }
@@ -254,6 +254,9 @@ public class DatabendClientV1
     {
         QueryResults q = this.currentResults.get();
         if (q == null) {
+            return;
+        }
+        if (q.getKillUri() == null) {
             return;
         }
         String killUriPath = q.getKillUri().toString();

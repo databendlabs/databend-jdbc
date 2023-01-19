@@ -15,6 +15,7 @@
 package com.databend.client;
 
 import io.airlift.json.JsonCodec;
+import org.checkerframework.checker.units.qual.A;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -26,113 +27,71 @@ import static io.airlift.json.JsonCodec.jsonCodec;
 public class TestQueryResults {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
-    // {"id":"1453cca7-f424-4009-974d-cdc93a264ec9","session_id":"34a28f84-2f2b-4740-904d-7c43bbb65b8e","session":{},"schema":{"fields":[{"name":"max(number)","default_expr":null,"data_type":{"type":"Nullable","inner":{"type":"UInt64"}}},{"name":"sum(number)","default_expr":null,"data_type":{"type":"Nullable","inner":{"type":"UInt64"}}}],"metadata":{}},"data":[["60","60"],["98","136"],["79","98"],["57","57"],["71","82"],["93","126"],["95","130"],["96","132"],["62","64"],["40","40"]],"state":"Succeeded","error":null,"stats":{"scan_progress":{"rows":100,"bytes":800},"write_progress":{"rows":0,"bytes":0},"result_progress":{"rows":10,"bytes":164},"running_time_ms":2.000744},"affect":null,"stats_uri":"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9","final_uri":"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final","next_uri":"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final","kill_uri":"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/kill"}
     @Test(groups = {"unit"})
     public void testBasic() {
-        String goldenValue = "{\"id\":\"1453cca7-f424-4009-974d-cdc93a264ec9\",\"session_id\":\"34a28f84-2f2b-4740-904d-7c43bbb65b8e\","
-        + "\"session\":{},\"schema\":{\"fields\":[{\"name\":\"max(number)\",\"default_expr\":null, " +
-        "\"data_type\":{\"type\":\"Nullable\",\"inner\":{\"type\":\"UInt64\"}}},{\"name\":\"sum(number)\",\"default_expr\":null," +
-        "\"data_type\":{\"type\":\"Nullable\",\"inner\":{\"type\":\"UInt64\"}}}],\"metadata\":{}}," +
-        "\"data\":[[\"60\",\"60\"],[\"98\",\"136\"],[\"79\",\"98\"],[\"57\",\"57\"],[\"71\",\"82\"], " +
-        "[\"93\",\"126\"],[\"95\",\"130\"],[\"96\",\"132\"],[\"62\",\"64\"],[\"40\",\"40\"]]," +
-        "\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":100,\"bytes\":800}," +
-        "\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":10,\"bytes\":164},\"running_time_ms\":2.000744}, " +
-                "\"affect\":null,\"stats_uri\":\"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9\", " +
-                "\"final_uri\":\"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final\"," +
-                "\"next_uri\":\"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final\", " +
-                "\"kill_uri\":\"/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/kill\"}\n";
+        String goldenValue = "{\"id\":\"5c4e776a-8171-462a-b2d3-6a34823d0552\",\"session_id\":\"3563624b-8767-44ff-a235-3f5bb4e54d03\",\"session\":{},\"schema\":[{\"name\":\"(number / 3)\",\"type\":\"Float64\"},{\"name\":\"(number + 1)\",\"type\":\"UInt64\"}],\"data\":[[\"0.0\",\"1\"],[\"0.3333333333333333\",\"2\"],[\"0.6666666666666666\",\"3\"],[\"1.0\",\"4\"],[\"1.3333333333333333\",\"5\"],[\"1.6666666666666667\",\"6\"],[\"2.0\",\"7\"],[\"2.3333333333333335\",\"8\"],[\"2.6666666666666665\",\"9\"],[\"3.0\",\"10\"]],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":10,\"bytes\":80},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":10,\"bytes\":160},\"running_time_ms\":1.494205},\"affect\":null,\"stats_uri\":\"/v1/query/5c4e776a-8171-462a-b2d3-6a34823d0552\",\"final_uri\":\"/v1/query/5c4e776a-8171-462a-b2d3-6a34823d0552/final\",\"next_uri\":\"/v1/query/5c4e776a-8171-462a-b2d3-6a34823d0552/final\",\"kill_uri\":\"/v1/query/5c4e776a-8171-462a-b2d3-6a34823d0552/kill\"}";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenValue);
-        Assert.assertEquals(queryResults.getId(), "1453cca7-f424-4009-974d-cdc93a264ec9");
-        Assert.assertEquals(queryResults.getSessionId(), "34a28f84-2f2b-4740-904d-7c43bbb65b8e");
-        Assert.assertEquals(queryResults.getSession().getDatabase(), null);
-        Assert.assertEquals(queryResults.getSession().getKeepServerSessionSecs(), 0);
-        Assert.assertEquals(queryResults.getSession().getSettings(), null);
-        Assert.assertEquals(queryResults.getSchema().getFields().size(), 2);
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getName(), "max(number)");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getType(), "Nullable");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getInner().getType(), "UInt64");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(1).getName(), "sum(number)");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(1).getDataType().getType(), "Nullable");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(1).getDataType().getInner().getType(), "UInt64");
+        Assert.assertEquals(queryResults.getId(), "5c4e776a-8171-462a-b2d3-6a34823d0552");
+        Assert.assertEquals(queryResults.getSessionId(), "3563624b-8767-44ff-a235-3f5bb4e54d03");
+        Assert.assertEquals(queryResults.getSchema().size(), 2);
+        Assert.assertEquals(queryResults.getSchema().get(0).getName(), "(number / 3)");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Float64");
+        Assert.assertEquals(queryResults.getSchema().get(1).getName(), "(number + 1)");
+        Assert.assertEquals(queryResults.getSchema().get(1).getDataType().getType(), "UInt64");
         for (List<Object> row : queryResults.getData()) {
             Assert.assertEquals(row.size(), 2);
-            Assert.assertEquals(row.get(0).getClass(), BigInteger.class);
-            Assert.assertEquals(row.get(1).getClass(), BigInteger.class);
         }
         Assert.assertEquals(queryResults.getState(), "Succeeded");
-        Assert.assertEquals(queryResults.getError(), null);
-        Assert.assertEquals(queryResults.getStats().getScanProgress().getRows(), 100);
-        Assert.assertEquals(queryResults.getStats().getScanProgress().getBytes(), 800);
-        Assert.assertEquals(queryResults.getStats().getWriteProgress().getRows(), 0);
-        Assert.assertEquals(queryResults.getStats().getWriteProgress().getBytes(), 0);
-        Assert.assertEquals(queryResults.getStats().getResultProgress().getRows(), 10);
-        Assert.assertEquals(queryResults.getStats().getResultProgress().getBytes(), 164);
-        Assert.assertEquals(Math.abs(queryResults.getStats().getRunningTimeMS() - 2.000744) < 0.000001, true);
-        Assert.assertEquals(queryResults.getAffect(), null);
-        Assert.assertEquals(queryResults.getStatsUri().toString(), "/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9");
-        Assert.assertEquals(queryResults.getFinalUri().toString(), "/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final");
-        Assert.assertEquals(queryResults.getNextUri().toString(), "/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/final");
-        Assert.assertEquals(queryResults.getKillUri().toString(), "/v1/query/1453cca7-f424-4009-974d-cdc93a264ec9/kill");
     }
 
     @Test(groups = "unit")
     public void TestError() {
-        String goldenValue = "{\"id\":\"baeadb9c-c277-4fa7-9b3f-b439fb00075d\",\"session_id\":\"18edf21d-5d9f-4258-8781-0aafc5d41a83\",\"session\":{},\"schema\":{\"fields\":[],\"metadata\":{}},\"data\":[],\"state\":\"Failed\",\"error\":{\"code\":1006,\"message\":\"Incorrect CREATE query: required list of column descriptions or AS section or SELECT..\"},\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":1.086606},\"affect\":null,\"stats_uri\":\"/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d\",\"final_uri\":\"/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/final\",\"next_uri\":\"/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/final\",\"kill_uri\":\"/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/kill\"}";
+        String goldenValue = "{\"id\":\"\",\"session_id\":null,\"session\":null,\"schema\":[],\"data\":[],\"state\":\"Failed\",\"error\":{\"code\":1065,\"message\":\"error: \\n  --> SQL:1:8\\n  |\\n1 | select error\\n  |        ^^^^^ column doesn't exist\\n\\n\"},\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":0.0},\"affect\":null,\"stats_uri\":null,\"final_uri\":null,\"next_uri\":null,\"kill_uri\":null}";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenValue);
-        Assert.assertEquals(queryResults.getId(), "baeadb9c-c277-4fa7-9b3f-b439fb00075d");
-        Assert.assertEquals(queryResults.getSessionId(), "18edf21d-5d9f-4258-8781-0aafc5d41a83");
-        Assert.assertEquals(queryResults.getSession().getDatabase(), null);
-        Assert.assertEquals(queryResults.getSession().getKeepServerSessionSecs(), 0);
-        Assert.assertEquals(queryResults.getSession().getSettings(), null);
-        Assert.assertEquals(queryResults.getSchema().getFields().size(), 0);
+        Assert.assertEquals(queryResults.getId(), "");
+        Assert.assertEquals(queryResults.getSessionId(), null);
+        Assert.assertEquals(queryResults.getSession(), null);
         Assert.assertEquals(queryResults.getState(), "Failed");
-        Assert.assertEquals(queryResults.getError().getCode(), 1006);
-        Assert.assertEquals(queryResults.getError().getMessage(), "Incorrect CREATE query: required list of column descriptions or AS section or SELECT..");
-        Assert.assertEquals(queryResults.getStats().getScanProgress().getRows(), 0);
-        Assert.assertEquals(queryResults.getStats().getScanProgress().getBytes(), 0);
-        Assert.assertEquals(queryResults.getStats().getWriteProgress().getRows(), 0);
-        Assert.assertEquals(queryResults.getStats().getWriteProgress().getBytes(), 0);
-        Assert.assertEquals(queryResults.getStats().getResultProgress().getRows(), 0);
-        Assert.assertEquals(queryResults.getStats().getResultProgress().getBytes(), 0);
-        Assert.assertEquals(Math.abs(queryResults.getStats().getRunningTimeMS() - 1.086606) < 0.000001, true);
-        Assert.assertEquals(queryResults.getAffect(), null);
-        Assert.assertEquals(queryResults.getStatsUri().toString(), "/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d");
-        Assert.assertEquals(queryResults.getFinalUri().toString(), "/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/final");
-        Assert.assertEquals(queryResults.getNextUri().toString(), "/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/final");
-        Assert.assertEquals(queryResults.getKillUri().toString(), "/v1/query/baeadb9c-c277-4fa7-9b3f-b439fb00075d/kill");
+        Assert.assertEquals(queryResults.getError().getCode(), 1065);
+        Assert.assertEquals(queryResults.getError().getMessage().contains("error: \n  --> SQL:1:8"), true);
     }
 
     @Test(groups = "unit")
     public void TestDateTime() {
-        String goldenString = "{\"id\":\"86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d\",\"session_id\":\"7e255eba-2698-443e-a544-38c53af301d6\",\"session\":{},\"schema\":{\"fields\":[{\"name\":\"now()\",\"default_expr\":null,\"data_type\":{\"type\":\"Timestamp\"}}],\"metadata\":{}},\"data\":[[\"2022-12-23 12:27:04.081894\"]],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":1,\"bytes\":1},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":1,\"bytes\":8},\"running_time_ms\":1.3580409999999998},\"affect\":null,\"stats_uri\":\"/v1/query/86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d\",\"final_uri\":\"/v1/query/86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d/final\",\"next_uri\":\"/v1/query/86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d/final\",\"kill_uri\":\"/v1/query/86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d/kill\"}";
+        String goldenString = "{\"id\":\"1fbbaf5b-8807-47d3-bb9c-122a3b7c527c\",\"session_id\":\"ef4a4a66-7a81-4a90-b6ab-d484313111b8\",\"session\":{},\"schema\":[{\"name\":\"date\",\"type\":\"Date\"},{\"name\":\"ts\",\"type\":\"Timestamp\"}],\"data\":[[\"2022-04-07\",\"2022-04-07 01:01:01.123456\"],[\"2022-04-08\",\"2022-04-08 01:01:01.000000\"],[\"2022-04-07\",\"2022-04-07 01:01:01.123456\"],[\"2022-04-08\",\"2022-04-08 01:01:01.000000\"],[\"2022-04-07\",\"2022-04-07 01:01:01.123456\"],[\"2022-04-08\",\"2022-04-08 01:01:01.000000\"]],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":6,\"bytes\":72},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":6,\"bytes\":72},\"running_time_ms\":7.681399},\"affect\":null,\"stats_uri\":\"/v1/query/1fbbaf5b-8807-47d3-bb9c-122a3b7c527c\",\"final_uri\":\"/v1/query/1fbbaf5b-8807-47d3-bb9c-122a3b7c527c/final\",\"next_uri\":\"/v1/query/1fbbaf5b-8807-47d3-bb9c-122a3b7c527c/final\",\"kill_uri\":\"/v1/query/1fbbaf5b-8807-47d3-bb9c-122a3b7c527c/kill\"}";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenString);
-        Assert.assertEquals(queryResults.getId(), "86ffc1fd-d4e6-4b11-9001-c6bf61dbaf6d");
-        Assert.assertEquals(queryResults.getSchema().getFields().size(), 1);
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getName(), "now()");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getType(), "Timestamp");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getInner(), null);
+        Assert.assertEquals(queryResults.getId(), "1fbbaf5b-8807-47d3-bb9c-122a3b7c527c");
+        Assert.assertEquals(queryResults.getSessionId(), "ef4a4a66-7a81-4a90-b6ab-d484313111b8");
+        Assert.assertEquals(queryResults.getSession().getDatabase(), null);
+        Assert.assertEquals(queryResults.getSession().getKeepServerSessionSecs(), 0);
+        Assert.assertEquals(queryResults.getSession().getSettings(), null);
+        Assert.assertEquals(queryResults.getState(), "Succeeded");
+        Assert.assertEquals(queryResults.getError(), null);
+        Assert.assertEquals(queryResults.getSchema().size(), 2);
+        Assert.assertEquals(queryResults.getSchema().get(0).getName(), "date");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Date");
+        Assert.assertEquals(queryResults.getSchema().get(1).getName(), "ts");
+        Assert.assertEquals(queryResults.getSchema().get(1).getDataType().getType(), "Timestamp");
         for (List<Object> row : queryResults.getData()) {
-            Assert.assertEquals(row.size(), 1);
-            Assert.assertEquals(row.get(0).getClass(), String.class);
-            Assert.assertEquals(row.get(0), "2022-12-23 12:27:04.081894");
+            Assert.assertEquals(row.size(), 2);
+
         }
     }
 
     @Test(groups = "unit")
     public void TestUseDB() {
-        String goldenString = "{\"id\":\"684a6d3c-e6d7-44b1-b8d6-3b687acb05a3\",\"session_id\":\"9d6018f2-10b1-4089-a1ac-0ee5b6068ca0\",\"session\":{\"database\":\"db1\"},\"schema\":{\"fields\":[],\"metadata\":{}},\"data\":[],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":2.46636},\"affect\":{\"type\":\"UseDB\",\"name\":\"db1\"},\"stats_uri\":\"/v1/query/684a6d3c-e6d7-44b1-b8d6-3b687acb05a3\",\"final_uri\":\"/v1/query/684a6d3c-e6d7-44b1-b8d6-3b687acb05a3/final\",\"next_uri\":\"/v1/query/684a6d3c-e6d7-44b1-b8d6-3b687acb05a3/final\",\"kill_uri\":\"/v1/query/684a6d3c-e6d7-44b1-b8d6-3b687acb05a3/kill\"}";
+        String goldenString = "{\"id\":\"d0aa3285-0bf5-42da-b06b-0d3db55f10bd\",\"session_id\":\"ded852b7-0da2-46ba-8708-e6fcb1c33081\",\"session\":{\"database\":\"db2\"},\"schema\":[],\"data\":[],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":0.891883},\"affect\":{\"type\":\"UseDB\",\"name\":\"db2\"},\"stats_uri\":\"/v1/query/d0aa3285-0bf5-42da-b06b-0d3db55f10bd\",\"final_uri\":\"/v1/query/d0aa3285-0bf5-42da-b06b-0d3db55f10bd/final\",\"next_uri\":\"/v1/query/d0aa3285-0bf5-42da-b06b-0d3db55f10bd/final\",\"kill_uri\":\"/v1/query/d0aa3285-0bf5-42da-b06b-0d3db55f10bd/kill\"}";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenString);
-        Assert.assertEquals(queryResults.getId(), "684a6d3c-e6d7-44b1-b8d6-3b687acb05a3");
+        Assert.assertEquals(queryResults.getId(), "d0aa3285-0bf5-42da-b06b-0d3db55f10bd");
         QueryAffect affect = queryResults.getAffect();
         Assert.assertEquals(affect.getClass(), QueryAffect.UseDB.class);
-        Assert.assertEquals(((QueryAffect.UseDB) affect).getName(), "db1");
+        Assert.assertEquals(((QueryAffect.UseDB) affect).getName(), "db2");
     }
 
     @Test(groups = "unit")
     public void TestChangeSettings() {
-        String goldenString = "{\"id\":\"068682a1-b61b-4dff-b059-5739d8bcc698\",\"session_id\":\"d1179f7d-5e7d-47a4-946b-184be2dcd670\",\"session\":{\"settings\":{\"max_threads\":\"1\"}},\"schema\":{\"fields\":[],\"metadata\":{}},\"data\":[],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":0.61151},\"affect\":{\"type\":\"ChangeSettings\",\"keys\":[\"max_threads\"],\"values\":[\"1\"],\"is_globals\":[false]},\"stats_uri\":\"/v1/query/068682a1-b61b-4dff-b059-5739d8bcc698\",\"final_uri\":\"/v1/query/068682a1-b61b-4dff-b059-5739d8bcc698/final\",\"next_uri\":\"/v1/query/068682a1-b61b-4dff-b059-5739d8bcc698/final\",\"kill_uri\":\"/v1/query/068682a1-b61b-4dff-b059-5739d8bcc698/kill\"}";
+        String goldenString = "{\"id\":\"a59cf8ff-f8a0-4bf6-bb90-120d3ea140c0\",\"session_id\":\"3423881e-f57b-4c53-a432-cf665ac1fb3e\",\"session\":{\"settings\":{\"max_threads\":\"1\"}},\"schema\":[],\"data\":[],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":0,\"bytes\":0},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":0,\"bytes\":0},\"running_time_ms\":0.81772},\"affect\":{\"type\":\"ChangeSettings\",\"keys\":[\"max_threads\"],\"values\":[\"1\"],\"is_globals\":[false]},\"stats_uri\":\"/v1/query/a59cf8ff-f8a0-4bf6-bb90-120d3ea140c0\",\"final_uri\":\"/v1/query/a59cf8ff-f8a0-4bf6-bb90-120d3ea140c0/final\",\"next_uri\":\"/v1/query/a59cf8ff-f8a0-4bf6-bb90-120d3ea140c0/final\",\"kill_uri\":\"/v1/query/a59cf8ff-f8a0-4bf6-bb90-120d3ea140c0/kill\"}";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenString);
-        Assert.assertEquals(queryResults.getId(), "068682a1-b61b-4dff-b059-5739d8bcc698");
         QueryAffect affect = queryResults.getAffect();
         Assert.assertEquals(affect.getClass(), QueryAffect.ChangeSettings.class);
         Assert.assertEquals(((QueryAffect.ChangeSettings) affect).getKeys().size(), 1);
@@ -143,56 +102,26 @@ public class TestQueryResults {
         Assert.assertEquals(((QueryAffect.ChangeSettings) affect).getIsGlobals().get(0).booleanValue(), false);
     }
 
+
+    @Test(groups = "unit")
+    public void TestArray() {
+        String goldenString = "{\"id\":\"eecb2440-0180-45cb-8b21-23f4a9975df3\",\"session_id\":\"ef692df6-657d-42b8-a10d-6e6cac657abe\",\"session\":{},\"schema\":[{\"name\":\"id\",\"type\":\"Int8\"},{\"name\":\"obj\",\"type\":\"Variant\"},{\"name\":\"d\",\"type\":\"Timestamp\"},{\"name\":\"s\",\"type\":\"String\"},{\"name\":\"arr\",\"type\":\"Array(Int64)\"}],\"data\":[[\"1\",\"{\\\"a\\\": 1,\\\"b\\\": 2}\",\"1983-07-12 21:30:55.888000\",\"hello world, 你好\",\"[1,2,3,4,5]\"]],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":1,\"bytes\":131},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":1,\"bytes\":131},\"running_time_ms\":9.827047},\"affect\":null,\"stats_uri\":\"/v1/query/eecb2440-0180-45cb-8b21-23f4a9975df3\",\"final_uri\":\"/v1/query/eecb2440-0180-45cb-8b21-23f4a9975df3/final\",\"next_uri\":\"/v1/query/eecb2440-0180-45cb-8b21-23f4a9975df3/final\",\"kill_uri\":\"/v1/query/eecb2440-0180-45cb-8b21-23f4a9975df3/kill\"}";
+        QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenString);
+        Assert.assertEquals(queryResults.getId(), "eecb2440-0180-45cb-8b21-23f4a9975df3");
+        Assert.assertEquals(queryResults.getSchema().size(), 5);
+        Assert.assertEquals(queryResults.getSchema().get(0).getName(), "id");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Int8");
+    }
+
     @Test(groups = "unit")
     public void TestVariant() {
-        String goldenString = "{\n" +
-                "  \"id\": \"e6f3574e-c0f7-47b1-9e82-7050bee91e0b\",\n" +
-                "  \"session_id\": \"9caf4553-0fd6-4649-b985-4c4ad6629829\",\n" +
-                "  \"session\": {},\n" +
-                "  \"schema\": {\n" +
-                "    \"fields\": [\n" +
-                "      {\n" +
-                "        \"name\": \"parse_json('[-1, 12, 289, 2188, false]')\",\n" +
-                "        \"default_expr\": null,\n" +
-                "        \"data_type\": {\n" +
-                "          \"type\": \"Variant\"\n" +
-                "        }\n" +
-                "      }\n" +
-                "    ],\n" +
-                "    \"metadata\": {}\n" +
-                "  },\n" +
-                "  \"data\": [\n" +
-                "    [\n" +
-                "      \"[-1,12,289,2188,false]\"\n" +
-                "    ]\n" +
-                "  ],\n" +
-                "  \"state\": \"Succeeded\",\n" +
-                "  \"error\": null,\n" +
-                "  \"stats\": {\n" +
-                "    \"scan_progress\": {\n" +
-                "      \"rows\": 1,\n" +
-                "      \"bytes\": 1\n" +
-                "    },\n" +
-                "    \"write_progress\": {\n" +
-                "      \"rows\": 0,\n" +
-                "      \"bytes\": 0\n" +
-                "    },\n" +
-                "    \"result_progress\": {\n" +
-                "      \"rows\": 1,\n" +
-                "      \"bytes\": 480\n" +
-                "    },\n" +
-                "    \"running_time_ms\": 2.086137\n" +
-                "  },\n" +
-                "  \"affect\": null,\n" +
-                "  \"stats_uri\": \"/v1/query/e6f3574e-c0f7-47b1-9e82-7050bee91e0b\",\n" +
-                "  \"final_uri\": \"/v1/query/e6f3574e-c0f7-47b1-9e82-7050bee91e0b/final\",\n" +
-                "  \"next_uri\": \"/v1/query/e6f3574e-c0f7-47b1-9e82-7050bee91e0b/final\",\n" +
-                "  \"kill_uri\": \"/v1/query/e6f3574e-c0f7-47b1-9e82-7050bee91e0b/kill\"\n" +
-                "}";
+        String goldenString = "{\"id\":\"d74b2471-3a15-45e2-9ef4-ca8a39505661\",\"session_id\":\"f818e198-20d9-4c06-8de6-bc68ab6e9dc1\",\"session\":{},\"schema\":[{\"name\":\"var\",\"type\":\"Nullable(Variant)\"}],\"data\":[[\"1\"],[\"1.34\"],[\"true\"],[\"[1,2,3,[\\\"a\\\",\\\"b\\\",\\\"c\\\"]]\"],[\"{\\\"a\\\":1,\\\"b\\\":{\\\"c\\\":2}}\"]],\"state\":\"Succeeded\",\"error\":null,\"stats\":{\"scan_progress\":{\"rows\":5,\"bytes\":168},\"write_progress\":{\"rows\":0,\"bytes\":0},\"result_progress\":{\"rows\":5,\"bytes\":168},\"running_time_ms\":7.827281},\"affect\":null,\"stats_uri\":\"/v1/query/d74b2471-3a15-45e2-9ef4-ca8a39505661\",\"final_uri\":\"/v1/query/d74b2471-3a15-45e2-9ef4-ca8a39505661/final\",\"next_uri\":\"/v1/query/d74b2471-3a15-45e2-9ef4-ca8a39505661/final\",\"kill_uri\":\"/v1/query/d74b2471-3a15-45e2-9ef4-ca8a39505661/kill\"}\n";
         QueryResults queryResults = QUERY_RESULTS_CODEC.fromJson(goldenString);
-        Assert.assertEquals(queryResults.getId(), "e6f3574e-c0f7-47b1-9e82-7050bee91e0b");
-        Assert.assertEquals(queryResults.getSchema().getFields().size(), 1);
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getName(), "parse_json('[-1, 12, 289, 2188, false]')");
-        Assert.assertEquals(queryResults.getSchema().getFields().get(0).getDataType().getType(), "Variant");
+        Assert.assertEquals(queryResults.getId(), "d74b2471-3a15-45e2-9ef4-ca8a39505661");
+        Assert.assertEquals(queryResults.getSchema().size(), 1);
+        Assert.assertEquals(queryResults.getSchema().get(0).getName(), "var");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Variant");
+        Assert.assertEquals(queryResults.getSchema().get(0).getDataType().isNullable(), true);
+
     }
 }

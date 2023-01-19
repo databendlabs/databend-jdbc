@@ -2,7 +2,7 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendClient;
 import com.databend.client.QueryResults;
-import com.databend.client.QuerySchema;
+import com.databend.client.QueryRowField;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
@@ -37,7 +37,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet
     private boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
-    private DatabendResultSet(Statement statement, DatabendClient client, QuerySchema schema, long maxRows) throws SQLException
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows) throws SQLException
     {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client),maxRows), client));
@@ -50,7 +50,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet
             throws SQLException
     {
         requireNonNull(client, "client is null");
-        QuerySchema s = client.getResults().getSchema();
+        List<QueryRowField> s = client.getResults().getSchema();
         return new DatabendResultSet(statement, client, s, maxRows);
     }
 

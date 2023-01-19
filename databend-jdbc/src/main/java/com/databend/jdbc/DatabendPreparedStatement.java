@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -39,7 +40,9 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.function.Consumer;
 
@@ -131,10 +134,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return x.toString();
     }
 
-    private static String formatStringLiteral(String x)
-    {
-        return "'" + x + "'";
-    }
 
     private static String formatBytesLiteral(byte[] x)
     {
@@ -157,8 +156,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (this.batchValues == null || this.batchValues.size() == 0) {
             return null;
         }
+        File saved = null;
         try {
-            File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+            saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
             DatabendConnection c = (DatabendConnection) getConnection();
             FileInputStream fis = new FileInputStream(saved);
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
@@ -176,38 +176,57 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             return attachment;
         } catch (FileNotFoundException e) {
             throw new SQLException(e);
+        } finally{
+            try {
+                if (saved != null) {
+                    saved.delete();
+                }
+            } catch (Exception e) {
+                // ignore
+            }
         }
+    }
+
+    /**
+     * delete stage file on stage attachment
+     * @param attachment
+     * @return true if delete success or resource not found
+     */
+    private boolean dropStageAttachment(StageAttachment attachment)
+            throws SQLException
+    {
+        if (attachment == null) {
+            return true;
+        }
+        String sql = String.format("REMOVE %s", attachment.getLocation());
+        return super.execute(sql);
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-
+        int[] batchUpdateCounts = new int[batchValues.size()];
+        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
+            super.execute(this.originalSql);
+            return batchUpdateCounts;
+        }
+        StageAttachment attachment = uploadBatches();
+        if (attachment == null) {
+            super.execute(batchInsertUtils.get().getSql());
+            return batchUpdateCounts;
+        }
         try {
-            int[] batchUpdateCounts = new int[batchValues.size()];
-            // save batchValues into a csv file
-            if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-                super.execute(this.originalSql);
+            super.internalExecute(batchInsertUtils.get().getSql(), attachment);
+            ResultSet r = getResultSet();
+            while (r.next()) {
 
-            } else {
-                StageAttachment attachment = uploadBatches();
-                if (attachment == null) {
-                    super.execute(batchInsertUtils.get().getSql());
-                    return batchUpdateCounts;
-                } else {
-                    super.internalExecute(batchInsertUtils.get().getSql(), attachment);
-                    ResultSet r = getResultSet();
-                    while (r.next()) {
-
-                    }
-                    Arrays.fill(batchUpdateCounts, 1);
-                    return batchUpdateCounts;
-                }
             }
-
+            Arrays.fill(batchUpdateCounts, 1);
             return batchUpdateCounts;
         }
         catch (RuntimeException e) {
             throw new SQLException(e);
+        } finally{
+            dropStageAttachment(attachment);
         }
     }
 
@@ -303,7 +322,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException
     {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatStringLiteral(s)));
+        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
     }
 
     @Override

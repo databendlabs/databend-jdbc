@@ -27,7 +27,7 @@ public class QueryResults {
     private final String id;
     private final String sessionId;
     private final DatabendSession session;
-    private final QuerySchema schema;
+    private final List<QueryRowField> schema;
     private final Iterable<List<Object>> data;
     private final String state;
     private final QueryErrors error;
@@ -44,7 +44,7 @@ public class QueryResults {
             @JsonProperty("id") String id,
             @JsonProperty("session_id") String sessionId,
             @JsonProperty("session") DatabendSession session,
-            @JsonProperty("schema") QuerySchema schema,
+            @JsonProperty("schema") List<QueryRowField> schema,
             @JsonProperty("data") List<List<Object>> data,
             @JsonProperty("state") String state,
             @JsonProperty("error") QueryErrors error,
@@ -87,7 +87,7 @@ public class QueryResults {
     }
 
     @JsonProperty
-    public QuerySchema getSchema() {
+    public List<QueryRowField> getSchema() {
         return schema;
     }
 
