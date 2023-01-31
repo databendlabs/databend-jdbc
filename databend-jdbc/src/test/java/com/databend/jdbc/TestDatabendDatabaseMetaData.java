@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import org.testng.Assert;
+import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -10,12 +11,25 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.Arrays;
 import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 
 public class TestDatabendDatabaseMetaData
 {
+    @BeforeTest
+    public void setUp()
+            throws SQLException
+    {
+        // create table
+        Connection c = createConnection();
+        c.createStatement().execute("drop table if exists test_column_meta");
+        c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL) NULL) engine = fuse");
+        // json data
+    }
+
+
     private static void assertTableMetadata(ResultSet rs)
             throws SQLException
     {
@@ -132,6 +146,46 @@ public class TestDatabendDatabaseMetaData
         }
     }
 
+    @Test(groups = {"IT"})
+    public void testColumnsMeta() throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            try(ResultSet rs = connection.getMetaData().getColumns(null, "default", "test_column_meta", null)) {
+                while (rs.next()) {
+                    String tableSchem = rs.getString("table_schem");
+                    String tableName = rs.getString("table_name");
+                    String columnName = rs.getString("COLUMN_NAME");
+                    String dataType = rs.getString("data_type");
+                    String columnType = rs.getString("type_name");
+                    System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
+                }
+            }
+            System.out.println("====================================");
+            try(ResultSet rs = connection.getMetaData().unwrap(DatabendDatabaseMetaData.class).getColumns(null, "default", "test_column_meta", new String[]{"v1", "u1"})) {
+                while (rs.next()) {
+                    String tableSchem = rs.getString("table_schem");
+                    String tableName = rs.getString("table_name");
+                    String columnName = rs.getString("COLUMN_NAME");
+                    String dataType = rs.getString("data_type");
+                    String columnType = rs.getString("type_name");
+                    System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
+                }
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetColumnTypesBySelectEmpty() throws Exception
+    {
+        try (Connection connection = createConnection()) {
+            ResultSet rs = connection.createStatement().executeQuery("select * from test_column_meta where 1=2");
+            ResultSetMetaData metaData = rs.getMetaData();
+            assertEquals(metaData.getColumnCount(), 17);
+            for (int i = 1; i <= metaData.getColumnCount(); i++) {
+                System.out.println(metaData.getColumnLabel(i) + " " + metaData.getColumnTypeName(i));
+            }
+        }
+    }
     @Test(groups = {"IT"})
     public void testGetPrimaryKeys() throws Exception
     {

@@ -64,6 +64,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     {
         requireNonNull(uri, "uri is null");
         this.httpUri = uri.getUri();
+        this.setSchema(uri.getDatabase());
         this.httpClient = httpClient;
     }
 
