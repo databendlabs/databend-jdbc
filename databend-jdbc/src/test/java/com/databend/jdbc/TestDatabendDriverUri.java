@@ -105,6 +105,7 @@ public class TestDatabendDriverUri
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
+
     }
 
     @Test(groups = {"unit"})
