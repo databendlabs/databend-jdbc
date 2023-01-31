@@ -1,6 +1,8 @@
 package com.databend.jdbc;
 
 import com.databend.client.DatabendClient;
+import com.databend.client.QueryAffect;
+import com.databend.client.QueryResults;
 import com.databend.client.StageAttachment;
 
 import java.sql.Connection;
@@ -174,6 +176,26 @@ public class DatabendStatement implements Statement
         currentResult.set(null);
     }
 
+    private void updateClientSession(QueryResults q)
+    {
+        if (q == null) {
+            return;
+        }
+        if (q.getAffect() == null) {
+            return;
+        }
+        if (q.getSession() == null) {
+            return;
+        }
+
+        if (q.getAffect().getClass() != QueryAffect.UseDB.class && q.getAffect().getClass() != QueryAffect.ChangeSettings.class) {
+            return;
+        }
+        // current query has result on update client session
+        DatabendConnection connection = this.connection.get();
+        connection.setSession(q.getSession());
+    }
+
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException
     {
         clearCurrentResults();
@@ -193,6 +215,7 @@ public class DatabendStatement implements Statement
                     throw resultsException(client.getResults());
                 }
             }
+            updateClientSession(client.getResults());
             executingClient.set(client);
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);

@@ -11,7 +11,6 @@ import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.annotations.VisibleForTesting;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
@@ -56,6 +55,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final URI httpUri;
     private final AtomicReference<String> schema = new AtomicReference<>();
+    private AtomicReference<DatabendSession> session = new AtomicReference<>();
     private final OkHttpClient httpClient;
     private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private final DatabendDriverUri driverUri;
@@ -67,6 +67,21 @@ public class DatabendConnection implements Connection, FileTransferAPI
         this.setSchema(uri.getDatabase());
         this.httpClient = httpClient;
         this.driverUri = uri;
+        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
+        this.setSession(session);
+    }
+
+    public void setSession(DatabendSession session)
+    {
+        if (session == null) {
+            return;
+        }
+        this.session.set(session);
+    }
+
+    public DatabendSession getSession()
+    {
+        return this.session.get();
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -538,16 +553,14 @@ public class DatabendConnection implements Connection, FileTransferAPI
     }
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
