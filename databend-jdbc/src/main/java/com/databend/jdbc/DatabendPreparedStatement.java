@@ -1,7 +1,6 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
-import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -9,7 +8,6 @@ import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileNotFoundException;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
@@ -40,9 +38,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Calendar;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;

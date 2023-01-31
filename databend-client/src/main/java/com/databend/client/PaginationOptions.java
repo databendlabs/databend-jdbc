@@ -48,6 +48,18 @@ public class PaginationOptions {
         return new Builder();
     }
 
+    public static int getDefaultWaitTimeSec() {
+        return DEFAULT_WAIT_TIME_SEC;
+    }
+
+    public static int getDefaultMaxRowsInBuffer() {
+        return DEFAULT_MAX_ROWS_IN_BUFFER;
+    }
+
+    public static int getDefaultMaxRowsPerPage() {
+        return DEFAULT_MAX_ROWS_PER_PAGE;
+    }
+
     @JsonProperty("wait_time_secs")
     public int getWaitTimeSecs() {
         return waitTimeSecs;
@@ -61,18 +73,6 @@ public class PaginationOptions {
     @JsonProperty("max_rows_per_page")
     public int getMaxRowsPerPage() {
         return maxRowsPerPage;
-    }
-
-    public static int getDefaultWaitTimeSec() {
-        return DEFAULT_WAIT_TIME_SEC;
-    }
-
-    public static int getDefaultMaxRowsInBuffer() {
-        return DEFAULT_MAX_ROWS_IN_BUFFER;
-    }
-
-    public static int getDefaultMaxRowsPerPage() {
-        return DEFAULT_MAX_ROWS_PER_PAGE;
     }
 
     @Override

@@ -20,21 +20,9 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.util.HashMap;
-import java.util.Map;
 
 public class TestFileTransfer
 {
-    @BeforeTest
-    public void setUp()
-            throws SQLException
-    {
-        // create table
-        Connection c = createConnection();
-
-        c.createStatement().execute("drop table if exists copy_into");
-        c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
-    }
     private static byte[] streamToByteArray(InputStream stream) throws IOException
     {
 
@@ -51,6 +39,17 @@ public class TestFileTransfer
         os.flush();
         os.close();
         return os.toByteArray();
+    }
+
+    @BeforeTest
+    public void setUp()
+            throws SQLException
+    {
+        // create table
+        Connection c = createConnection();
+
+        c.createStatement().execute("drop table if exists copy_into");
+        c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
     }
 
     private Connection createConnection()

@@ -55,10 +55,10 @@ public class DatabendConnection implements Connection, FileTransferAPI
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final URI httpUri;
     private final AtomicReference<String> schema = new AtomicReference<>();
-    private AtomicReference<DatabendSession> session = new AtomicReference<>();
     private final OkHttpClient httpClient;
     private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private final DatabendDriverUri driverUri;
+    private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException
     {
@@ -69,19 +69,6 @@ public class DatabendConnection implements Connection, FileTransferAPI
         this.driverUri = uri;
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         this.setSession(session);
-    }
-
-    public void setSession(DatabendSession session)
-    {
-        if (session == null) {
-            return;
-        }
-        this.session.set(session);
-    }
-
-    public DatabendSession getSession()
-    {
-        return this.session.get();
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -101,6 +88,34 @@ public class DatabendConnection implements Connection, FileTransferAPI
         if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
             throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
         }
+    }
+
+    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("COPY INTO ");
+        if (database != null) {
+            sb.append(database).append(".");
+        }
+        sb.append(tableName).append(" ");
+        sb.append("FROM ");
+        sb.append(stage.toString());
+        sb.append(" ");
+        sb.append(params.toString());
+        return sb.toString();
+    }
+
+    public DatabendSession getSession()
+    {
+        return this.session.get();
+    }
+
+    public void setSession(DatabendSession session)
+    {
+        if (session == null) {
+            return;
+        }
+        this.session.set(session);
     }
 
     public OkHttpClient getHttpClient() {
@@ -551,6 +566,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     {
         return this.httpUri;
     }
+
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
         PaginationOptions options = getPaginationOptions();
@@ -563,8 +579,6 @@ public class DatabendConnection implements Connection, FileTransferAPI
         ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
-
-
 
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
@@ -634,20 +648,5 @@ public class DatabendConnection implements Connection, FileTransferAPI
             ResultSet rs = statement.getResultSet();
             while (rs.next()) {
             }
-    }
-
-    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append("COPY INTO ");
-        if (database != null) {
-            sb.append(database).append(".");
-        }
-        sb.append(tableName).append(" ");
-        sb.append("FROM ");
-        sb.append(stage.toString());
-        sb.append(" ");
-        sb.append(params.toString());
-        return sb.toString();
     }
 }

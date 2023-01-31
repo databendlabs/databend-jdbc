@@ -18,6 +18,11 @@ public class DatabendStage
         this.externalLocationS3 = externalLocationS3;
     }
 
+    public static DatabendStage.Builder builder()
+    {
+        return new DatabendStage.Builder();
+    }
+
     public String getStageName()
     {
         return stageName;
@@ -31,11 +36,6 @@ public class DatabendStage
     public ExternalLocationS3 getExternalLocationS3()
     {
         return externalLocationS3;
-    }
-
-    public static DatabendStage.Builder builder()
-    {
-        return new DatabendStage.Builder();
     }
 
     @Override

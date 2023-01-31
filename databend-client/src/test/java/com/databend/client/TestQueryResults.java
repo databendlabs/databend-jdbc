@@ -15,11 +15,9 @@
 package com.databend.client;
 
 import io.airlift.json.JsonCodec;
-import org.checkerframework.checker.units.qual.A;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.math.BigInteger;
 import java.util.List;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
