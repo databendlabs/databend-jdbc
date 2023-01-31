@@ -1,7 +1,10 @@
 package com.databend.jdbc.cloud;
 
+import com.google.common.net.HostAndPort;
 import okhttp3.Headers;
+import okhttp3.HttpUrl;
 import okhttp3.MediaType;
+import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.RequestBody;
@@ -20,6 +23,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.UUID;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -32,12 +36,40 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
 
     private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
+    private final String uri;
 
-
-    public DatabendPresignClientV1(OkHttpClient client) {
+    public DatabendPresignClientV1(OkHttpClient client, String uri) {
         this.client = client;
+        this.uri = uri;
     }
 
+    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name) throws IOException
+    {
+        // multipart upload input stream into /v1/upload_to_stage
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream))
+                .build();
+        Headers headers = new Headers.Builder()
+                .add("stage_name", stageName)
+                .add("relative_path", relativePath)
+                .build();
+
+        HttpUrl url = HttpUrl.get(this.uri);
+        Request request = new Request.Builder()
+                .url(url.newBuilder().addPathSegment("v1").addPathSegment("upload_to_stage").build())
+                .headers(headers)
+                .put(requestBody)
+                .build();
+        System.out.println("uploading to stage through api: " + request.toString());
+        try {
+            executeInternal(request);
+
+        } catch (IOException e) {
+            throw new IOException("uploadFromStreamAPI failed", e);
+        }
+
+    }
     private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl) throws IOException
     {
         requireNonNull(inputStream, "inputStream is null");
@@ -86,6 +118,14 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
 
             if (response.isSuccessful()) {
                 return response.body();
+            } else if (response.code() == 401) {
+               throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
+            } else if (response.code() >= 503) {
+                cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
+                continue;
+            } else if (response.code() >= 400) {
+                cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
+                continue;
             }
         }
     }
@@ -101,6 +141,18 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
             it = inputStream;
         }
         uploadFromStream(it, headers, presignedUrl);
+    }
+
+    @Override
+    public void presignUpload(File srcFile,  InputStream inputStream, String stageName, String relativePath, String name, boolean uploadFromStream) throws IOException
+    {
+        InputStream it = null;
+        if (!uploadFromStream) {
+            it = Files.newInputStream(srcFile.toPath());
+        } else {
+            it = inputStream;
+        }
+        uploadFromStream(it, stageName, relativePath, name);
     }
 
     @Override
@@ -166,12 +218,11 @@ class InputStreamRequestBody extends RequestBody {
 
     @Override
     public void writeTo(@NonNull BufferedSink sink) throws IOException {
-        Source source = null;
-        try {
-            source = Okio.source(inputStream);
+
+        try ( Source source = Okio.source(inputStream)) {
             sink.writeAll(source);
-        } finally {
-            Util.closeQuietly(source);
+        } catch (IOException e) {
+            throw new IOException("writeTo failed", e);
         }
     }
 }

@@ -61,6 +61,7 @@ abstract class AbstractConnectionProperty<T>
         }
         throw new IllegalArgumentException("value must be 'true' or 'false'");
     };
+    protected static final Converter<Integer> INTEGER_CONVERTER = Integer::parseInt;
     private final String key;
     private final Optional<String> defaultValue;
     private final Predicate<Properties> isRequired;

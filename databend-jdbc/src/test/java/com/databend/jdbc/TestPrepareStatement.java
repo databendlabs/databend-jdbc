@@ -14,6 +14,12 @@ public class TestPrepareStatement
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "root", "root");
     }
+
+    private Connection createConnection(boolean presignDisabled) throws SQLException
+    {
+        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
+        return DriverManager.getConnection(url, "root", "root");
+    }
     @BeforeTest
     public void setUp()
             throws SQLException
@@ -87,6 +93,33 @@ public class TestPrepareStatement
     @Test(groups = "IT")
     public void TestBatchInsertWithComplexDataType() throws SQLException {
         Connection c = createConnection();
+        c.setAutoCommit(false);
+        PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
+        ps.setInt(1, 1);
+        ps.setString(2, "{\"a\": 1,\"b\": 2}");
+        ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
+        ps.setString(4, "hello world, 你好");
+        ps.setString(5, "[1,2,3,4,5]");
+        ps.addBatch();
+        int[] ans = ps.executeBatch();
+        Statement statement = c.createStatement();
+
+        System.out.println("execute select on object");
+        statement.execute("SELECT * from objects_test1");
+        ResultSet r = statement.getResultSet();
+
+        while (r.next()) {
+            System.out.println(r.getInt(1));
+            System.out.println(r.getString(2));
+            System.out.println(r.getTimestamp(3).toString());
+            System.out.println(r.getString(4));
+            System.out.println(r.getString(5));
+        }
+    }
+
+    @Test(groups = "IT")
+    public void TestBatchInsertWithComplexDataTypeWithPresignAPI() throws SQLException {
+        Connection c = createConnection(true);
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
         ps.setInt(1, 1);
