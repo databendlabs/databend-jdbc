@@ -5,7 +5,9 @@ import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
 import java.io.File;
+import java.io.FileInputStream;
 import java.io.FileWriter;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -37,7 +39,7 @@ public class TestDatabendPresignClient
         }
         return csvPath;
     }
-    @Test(groups = {"IT"})
+    @Test(groups = {"Local"})
     public void uploadFileAPI() {
         String filePath = null;
         try (DatabendConnection connection = createConnection().unwrap(DatabendConnection.class)) {
@@ -45,7 +47,9 @@ public class TestDatabendPresignClient
             DatabendPresignClient presignClient = new DatabendPresignClientV1(client, connection.getURI().toString());
             filePath = generateRandomCSV(10);
             File file = new File(filePath);
-            presignClient.presignUpload(file, null, "~", "api/upload/", false);
+            InputStream inputStream = new FileInputStream(file);
+            presignClient.presignUpload(null, inputStream, "~", "api/upload/", "1.csv", true);
+
         } catch (SQLException e) {
             e.printStackTrace();
         } catch (Exception e) {

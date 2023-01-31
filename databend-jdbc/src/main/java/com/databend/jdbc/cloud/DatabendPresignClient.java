@@ -19,5 +19,5 @@ public interface DatabendPresignClient
      * @param uploadFromStream whether the upload is from stream
      * @throws IOException
      */
-    public void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath,  boolean uploadFromStream) throws IOException;
+    public void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath, String name, boolean uploadFromStream) throws IOException;
 }

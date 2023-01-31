@@ -14,6 +14,7 @@ import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.file.Files;
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.ResultSet;
@@ -56,6 +57,12 @@ public class TestFileTransfer
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
+        return DriverManager.getConnection(url, "root", "root");
+    }
+
+    private Connection createConnection(boolean presignDisabled) throws SQLException
+    {
+        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
         return DriverManager.getConnection(url, "root", "root");
     }
 
@@ -116,9 +123,40 @@ public class TestFileTransfer
             byte[] got = streamToByteArray(inputStream);
             byte[] expected = streamToByteArray(new FileInputStream(f));
             Assert.assertEquals(got, expected);
+            inputStream.close();
+            fileInputStream.close();
         }
         catch (Exception e) {
             throw new RuntimeException(e);
+        } finally{
+
+        }
+    }
+    @Test(groups = {"Local"})
+    public void testFileTransferThroughAPI()
+    {
+        String filePath = generateRandomCSV(100000);
+        try {
+            Connection connection = createConnection(true);
+            String stageName = "test_stage";
+            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
+            PresignContext.createStageIfNotExists(databendConnection, stageName);
+            File f = new File(filePath);
+            InputStream fileInputStream = Files.newInputStream(f.toPath());
+            databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
+            InputStream inputStream = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
+            Assert.assertNotNull(inputStream);
+            byte[] got = streamToByteArray(inputStream);
+            byte[] expected = streamToByteArray(Files.newInputStream(f.toPath()));
+            Assert.assertEquals(got, expected);
+            inputStream.close();
+            fileInputStream.close();
+        }
+        catch (Exception e) {
+            throw new RuntimeException(e);
+        } finally{
+            File f = new File(filePath);
+            f.delete();
         }
     }
 

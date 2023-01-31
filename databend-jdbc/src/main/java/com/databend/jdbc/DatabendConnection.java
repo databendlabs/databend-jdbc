@@ -573,8 +573,14 @@ public class DatabendConnection implements Connection, FileTransferAPI
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
-            DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-            cli.presignUpload(null, inputStream, h, presignUrl, true);
+            if (this.driverUri.presignedUrlDisabled()) {
+                DatabendPresignClient cli = new DatabendPresignClientV1(this.getHttpClient(), this.httpUri.toString());
+
+                cli.presignUpload(null, inputStream, s, p + "/", destFileName, true);
+            } else {
+                DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+                cli.presignUpload(null, inputStream, h, presignUrl, true);
+            }
         }
         catch (JsonProcessingException e) {
             throw new SQLException(e);

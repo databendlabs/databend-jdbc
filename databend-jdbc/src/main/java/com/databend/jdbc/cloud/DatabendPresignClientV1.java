@@ -43,13 +43,12 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         this.uri = uri;
     }
 
-    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath) throws IOException
+    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name) throws IOException
     {
-        String uploadStreamName = "test.csv";
         // multipart upload input stream into /v1/upload_to_stage
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
-                .addFormDataPart("upload", uploadStreamName, new InputStreamRequestBody(MediaType.parse("text/csv"), inputStream))
+                .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream))
                 .build();
         Headers headers = new Headers.Builder()
                 .add("stage_name", stageName)
@@ -145,7 +144,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
     }
 
     @Override
-    public void presignUpload(File srcFile,  InputStream inputStream, String stageName, String relativePath, boolean uploadFromStream) throws IOException
+    public void presignUpload(File srcFile,  InputStream inputStream, String stageName, String relativePath, String name, boolean uploadFromStream) throws IOException
     {
         InputStream it = null;
         if (!uploadFromStream) {
@@ -153,7 +152,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         } else {
             it = inputStream;
         }
-        uploadFromStream(it, stageName, relativePath);
+        uploadFromStream(it, stageName, relativePath, name);
     }
 
     @Override
@@ -219,12 +218,11 @@ class InputStreamRequestBody extends RequestBody {
 
     @Override
     public void writeTo(@NonNull BufferedSink sink) throws IOException {
-        Source source = null;
-        try {
-            source = Okio.source(inputStream);
+
+        try ( Source source = Okio.source(inputStream)) {
             sink.writeAll(source);
-        } finally {
-            Util.closeQuietly(source);
+        } catch (IOException e) {
+            throw new IOException("writeTo failed", e);
         }
     }
 }
