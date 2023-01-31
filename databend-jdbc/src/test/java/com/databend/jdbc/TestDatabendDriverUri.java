@@ -1,12 +1,10 @@
 package com.databend.jdbc;
 
 import com.databend.client.PaginationOptions;
-import org.checkerframework.checker.units.qual.A;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
-import java.util.Optional;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;

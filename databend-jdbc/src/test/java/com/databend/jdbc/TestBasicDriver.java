@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -40,9 +41,12 @@ public class TestBasicDriver
         // create table
         Connection c = createConnection();
         c.createStatement().execute("drop database if exists test_basic_driver");
+        c.createStatement().execute("drop database if exists test_basic_driver_2");
         c.createStatement().execute("create database test_basic_driver");
         c.createStatement().execute("create table test_basic_driver.table1(i int)");
         c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
+        c.createStatement().execute("create database test_basic_driver_2");
+
         // json data
     }
     @Test(groups = {"IT"})
@@ -117,7 +121,19 @@ public class TestBasicDriver
 
         }
     }
+    @Test(groups = {"IT"})
+    public void testUpdateSession()
+            throws SQLException
+    {
+        try (Connection connection = createConnection("test_basic_driver")) {
+            connection.createStatement().execute("set max_threads=1");
+            connection.createStatement().execute("use test_basic_driver_2");
+            DatabendSession session = connection.unwrap(DatabendConnection.class).getSession();
+            Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
+            Assert.assertEquals(session.getSettings().get("max_threads"), "1");
 
+        }
+    }
     @Test(groups = {"IT"})
     public void testResultException()
     {

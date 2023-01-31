@@ -5,7 +5,6 @@ import com.databend.jdbc.cloud.DatabendStage;
 
 import java.io.InputStream;
 import java.sql.SQLException;
-import java.util.List;
 
 public interface FileTransferAPI
 {

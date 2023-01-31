@@ -1,8 +1,5 @@
 package com.databend.jdbc.cloud;
 
-import javax.xml.crypto.Data;
-
-import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
@@ -30,6 +27,26 @@ public class DatabendCopyParams
         this.fileOptions = fileOptions;
         this.copyOptions = copyOptions;
     }
+
+    private static void parseParam(Map.Entry<String, String> s, StringBuilder sb) {
+        boolean needQuote = true;
+        try {
+            DatabendParams p = DatabendParams.valueOf(s.getKey().toUpperCase(Locale.US));
+            needQuote = p.needQuote();
+        } catch (IllegalArgumentException e) {
+        }
+        if (needQuote) {
+            sb.append(s.getKey()).append(" = ").append("'").append(s.getValue()).append("'").append(" ");
+        } else {
+            sb.append(s.getKey()).append(" = ").append(s.getValue()).append(" ");
+        }
+    }
+
+    public static DatabendCopyParams.Builder builder()
+    {
+        return new DatabendCopyParams.Builder();
+    }
+
     public List<String> getFiles()
     {
         return files;
@@ -91,25 +108,38 @@ public class DatabendCopyParams
         }
         return sb.toString();
     }
+    public enum DatabendParams {
+        RECORD_DELIMITER("RECORD_DELIMITER", String.class),
+        FIELD_DELIMITER("FIELD_DELIMITER", String.class),
+        SKIP_HEADER("SKIP_HEADER", Integer.class),
+        QUOTE("QUOTE", String.class),
+        ESCAPE("ESCAPE", String.class),
+        NAN_DISPLAY("NAN_DISPLAY", String.class),
+        ROW_TAG("ROW_TAG", String.class),
+        COMPRESSION("COMPRESSION", String.class),
+        SIZE_LIMIT("SIZE_LIMIT", Integer.class),
+        PURGE("PURGE", Boolean.class),
+        FORCE("FORCE", Boolean.class),
+        // on error only support continue/abort without quote
+        ON_ERROR("ON_ERROR", null);
 
-    private static void parseParam(Map.Entry<String, String> s, StringBuilder sb) {
-        boolean needQuote = true;
-        try {
-            DatabendParams p = DatabendParams.valueOf(s.getKey().toUpperCase(Locale.US));
-            needQuote = p.needQuote();
-        } catch (IllegalArgumentException e) {
+
+        private final String name;
+        private final Class<?> type;
+        DatabendParams(String name, Class<?> type)
+        {
+            this.name = name;
+            this.type = type;
         }
-        if (needQuote) {
-            sb.append(s.getKey()).append(" = ").append("'").append(s.getValue()).append("'").append(" ");
-        } else {
-            sb.append(s.getKey()).append(" = ").append(s.getValue()).append(" ");
+        public boolean needQuote()
+        {
+            if (type == null) {
+                return false;
+            }
+            return type == String.class;
         }
     }
 
-    public static DatabendCopyParams.Builder builder()
-    {
-        return new DatabendCopyParams.Builder();
-    }
     public static class Builder
     {
         private List<String> files;
@@ -150,38 +180,6 @@ public class DatabendCopyParams
         public DatabendCopyParams build()
         {
             return new DatabendCopyParams(files, pattern, type, fileOptions, copyOptions);
-        }
-    }
-
-    public enum DatabendParams {
-        RECORD_DELIMITER("RECORD_DELIMITER", String.class),
-        FIELD_DELIMITER("FIELD_DELIMITER", String.class),
-        SKIP_HEADER("SKIP_HEADER", Integer.class),
-        QUOTE("QUOTE", String.class),
-        ESCAPE("ESCAPE", String.class),
-        NAN_DISPLAY("NAN_DISPLAY", String.class),
-        ROW_TAG("ROW_TAG", String.class),
-        COMPRESSION("COMPRESSION", String.class),
-        SIZE_LIMIT("SIZE_LIMIT", Integer.class),
-        PURGE("PURGE", Boolean.class),
-        FORCE("FORCE", Boolean.class),
-        // on error only support continue/abort without quote
-        ON_ERROR("ON_ERROR", null);
-
-
-        private final String name;
-        private final Class<?> type;
-        DatabendParams(String name, Class<?> type)
-        {
-            this.name = name;
-            this.type = type;
-        }
-        public boolean needQuote()
-        {
-            if (type == null) {
-                return false;
-            }
-            return type == String.class;
         }
     }
 }

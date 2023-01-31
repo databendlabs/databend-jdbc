@@ -123,6 +123,34 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         out.append('\'');
     }
 
+    private static StringBuilder columnMetaSqlTemplate() {
+        StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
+                ", table_schema as TABLE_SCHEM" +
+                ", table_name as TABLE_NAME" +
+                ", column_name as COLUMN_NAME" +
+                ", data_type as DATA_TYPE" +
+                ", column_type as TYPE_NAME" +
+                ", 0 as COLUMN_SIZE" +
+                ", 0 as BUFFER_LENGTH" +
+                ", 10 as DECIMAL_DIGITS" +
+                ", 10 as NUM_PREC_RADIX" +
+                ", column_comment as REMARKS" +
+                ", column_default as COLUMN_DEF" +
+                ", 0 as SQL_DATA_TYPE" +
+                ", 0 as SQL_DATETIME_SUB" +
+                ", 0 as CHAR_OCTET_LENGTH" +
+                ", ordinal_position as ORDINAL_POSITION" +
+                ", is_nullable as IS_NULLABLE" +
+                ", null as SCOPE_CATALOG" +
+                ", null as SCOPE_SCHEMA" +
+                ", null as SCOPE_TABLE" +
+                ", null as SOURCE_DATA_TYPE" +
+                ", 'NO' as IS_AUTOINCREMENT" +
+                ", 'NO' as IS_GENERATEDCOLUMN" +
+                " FROM information_schema.columns");
+        return sql;
+    }
+
     @Override
     public boolean allProceduresAreCallable()
             throws SQLException
@@ -1031,33 +1059,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT table_type as TABLE_TYPE FROM information_schema.tables GROUP BY table_type ORDER BY table_type");
     }
-    private static StringBuilder columnMetaSqlTemplate() {
-        StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
-                ", table_schema as TABLE_SCHEM" +
-                ", table_name as TABLE_NAME" +
-                ", column_name as COLUMN_NAME" +
-                ", data_type as DATA_TYPE" +
-                ", column_type as TYPE_NAME" +
-                ", 0 as COLUMN_SIZE" +
-                ", 0 as BUFFER_LENGTH" +
-                ", 10 as DECIMAL_DIGITS" +
-                ", 10 as NUM_PREC_RADIX" +
-                ", column_comment as REMARKS" +
-                ", column_default as COLUMN_DEF" +
-                ", 0 as SQL_DATA_TYPE" +
-                ", 0 as SQL_DATETIME_SUB" +
-                ", 0 as CHAR_OCTET_LENGTH" +
-                ", ordinal_position as ORDINAL_POSITION" +
-                ", is_nullable as IS_NULLABLE" +
-                ", null as SCOPE_CATALOG" +
-                ", null as SCOPE_SCHEMA" +
-                ", null as SCOPE_TABLE" +
-                ", null as SOURCE_DATA_TYPE" +
-                ", 'NO' as IS_AUTOINCREMENT" +
-                ", 'NO' as IS_GENERATEDCOLUMN" +
-                " FROM information_schema.columns");
-        return sql;
-    }
+
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String[] columnNames) throws SQLException {
         StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();

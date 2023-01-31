@@ -1,9 +1,5 @@
 package com.databend.jdbc.cloud;
 
-import com.databend.client.QueryRequest;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-
 // https://databend.rs/doc/sql-commands/dml/dml-copy-into-table#externallocation
 public class ExternalLocationS3
 {
@@ -24,6 +20,10 @@ public class ExternalLocationS3
         this.sessionToken = sessionToken;
         this.region = region;
         this.enableVirtualHostStyle = enableVirtualHostStyle;
+    }
+
+    public static ExternalLocationS3.Builder builder() {
+        return new ExternalLocationS3.Builder();
     }
 
     public String getLocation()
@@ -109,10 +109,6 @@ public class ExternalLocationS3
         sb.append(" ");
         sb.append(")");
         return sb.toString();
-    }
-
-    public static ExternalLocationS3.Builder builder() {
-        return new ExternalLocationS3.Builder();
     }
 
     // builder pattern

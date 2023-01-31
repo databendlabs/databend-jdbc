@@ -11,7 +11,6 @@ import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.annotations.VisibleForTesting;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
@@ -59,6 +58,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     private final OkHttpClient httpClient;
     private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private final DatabendDriverUri driverUri;
+    private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException
     {
@@ -67,6 +67,8 @@ public class DatabendConnection implements Connection, FileTransferAPI
         this.setSchema(uri.getDatabase());
         this.httpClient = httpClient;
         this.driverUri = uri;
+        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
+        this.setSession(session);
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -86,6 +88,34 @@ public class DatabendConnection implements Connection, FileTransferAPI
         if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
             throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
         }
+    }
+
+    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
+    {
+        StringBuilder sb = new StringBuilder();
+        sb.append("COPY INTO ");
+        if (database != null) {
+            sb.append(database).append(".");
+        }
+        sb.append(tableName).append(" ");
+        sb.append("FROM ");
+        sb.append(stage.toString());
+        sb.append(" ");
+        sb.append(params.toString());
+        return sb.toString();
+    }
+
+    public DatabendSession getSession()
+    {
+        return this.session.get();
+    }
+
+    public void setSession(DatabendSession session)
+    {
+        if (session == null) {
+            return;
+        }
+        this.session.set(session);
     }
 
     public OkHttpClient getHttpClient() {
@@ -536,22 +566,19 @@ public class DatabendConnection implements Connection, FileTransferAPI
     {
         return this.httpUri;
     }
+
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
-
-
 
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
@@ -621,20 +648,5 @@ public class DatabendConnection implements Connection, FileTransferAPI
             ResultSet rs = statement.getResultSet();
             while (rs.next()) {
             }
-    }
-
-    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
-    {
-        StringBuilder sb = new StringBuilder();
-        sb.append("COPY INTO ");
-        if (database != null) {
-            sb.append(database).append(".");
-        }
-        sb.append(tableName).append(" ");
-        sb.append("FROM ");
-        sb.append(stage.toString());
-        sb.append(" ");
-        sb.append(params.toString());
-        return sb.toString();
     }
 }

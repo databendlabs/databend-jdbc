@@ -61,19 +61,8 @@ import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractDatabendResultSet implements ResultSet
 {
-    protected final Iterator<List<Object>> results;
-    private final Optional<Statement> statement;
-    private final AtomicReference<List<Object>> row = new AtomicReference<>();
-    private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
-    private final AtomicBoolean wasNull = new AtomicBoolean();
-    private final Map<String, Integer> fieldMap;
-    private final List<ColumnInfo> columnInfoList;
-
-    private final ResultSetMetaData resultSetMetaData;
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
-    private final DateTimeZone resultTimeZone;
     private static final int MAX_DATETIME_PRECISION = 12;
-
     private static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -98,8 +87,16 @@ abstract class AbstractDatabendResultSet implements ResultSet
             "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
             "\\s*(?<timezone>.+)?");
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
-
     private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1901, 1, 1).toEpochDay() * SECONDS_PER_DAY;
+    protected final Iterator<List<Object>> results;
+    private final Optional<Statement> statement;
+    private final AtomicReference<List<Object>> row = new AtomicReference<>();
+    private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
+    private final AtomicBoolean wasNull = new AtomicBoolean();
+    private final Map<String, Integer> fieldMap;
+    private final List<ColumnInfo> columnInfoList;
+    private final ResultSetMetaData resultSetMetaData;
+    private final DateTimeZone resultTimeZone;
     AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
@@ -162,6 +159,167 @@ abstract class AbstractDatabendResultSet implements ResultSet
         QueryErrors error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));
+    }
+
+    private static Date parseDate(String value, DateTimeZone localTimeZone)
+    {
+        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
+        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
+            return new Date(millis);
+        }
+
+        // The chronology used by default by Joda is not historically accurate for dates
+        // preceding the introduction of the Gregorian calendar and is not consistent with
+        // java.sql.Date (the same millisecond value represents a different year/month/day)
+        // before the 20th century. For such dates we are falling back to using the more
+        // expensive GregorianCalendar; note that Joda also has a chronology that works for
+        // older dates, but it uses a slightly different algorithm and yields results that
+        // are not compatible with java.sql.Date.
+        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
+        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
+        calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
+
+        return new Date(calendar.getTimeInMillis());
+    }
+
+    private static long rescale(long value, int fromPrecision, int toPrecision)
+    {
+        if (value < 0) {
+            throw new IllegalArgumentException("value must be >= 0");
+        }
+
+        if (fromPrecision <= toPrecision) {
+            value *= scaleFactor(fromPrecision, toPrecision);
+        }
+        else {
+            value = roundDiv(value, scaleFactor(toPrecision, fromPrecision));
+        }
+
+        return value;
+    }
+
+    private static long scaleFactor(int fromPrecision, int toPrecision)
+    {
+        if (fromPrecision > toPrecision) {
+            throw new IllegalArgumentException("fromPrecision must be <= toPrecision");
+        }
+
+        return POWERS_OF_TEN[toPrecision - fromPrecision];
+    }
+
+    private static long roundDiv(long value, long factor)
+    {
+
+        if (value >= 0) {
+            return (value + (factor / 2)) / factor;
+        }
+
+        return (value - (factor / 2)) / factor;
+    }
+
+    private static Time parseTime(String value, ZoneId localTimeZone)
+    {
+        Matcher matcher = TIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
+
+        if (hour > 23 || minute > 59 || second > 59) {
+            throw new IllegalArgumentException("Invalid time: " + value);
+        }
+
+        int precision = 0;
+        String fraction = matcher.group("fraction");
+        long fractionValue = 0;
+        if (fraction != null) {
+            precision = fraction.length();
+            fractionValue = Long.parseLong(fraction);
+        }
+
+        long picosOfSecond = rescale(fractionValue, precision, 12); // maximum precision
+        // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/trinodb/trino/issues/6205) reconsider
+        int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
+        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, nanosOfSecond, localTimeZone)
+                .toInstant()
+                .toEpochMilli();
+
+        return new Time(epochMilli);
+    }
+
+    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
+    {
+        requireNonNull(localTimeZone, "localTimeZone is null");
+
+        ParsedTimestamp parsed = parseTimestamp(value);
+        return toTimestamp(value, parsed, timezone -> {
+            if (timezone.isPresent()) {
+                throw new IllegalArgumentException("Invalid timestamp: " + value);
+            }
+            return localTimeZone;
+        });
+    }
+
+    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
+    {
+        int year = parsed.year;
+        int month = parsed.month;
+        int day = parsed.day;
+        int hour = parsed.hour;
+        int minute = parsed.minute;
+        int second = parsed.second;
+        long picosOfSecond = parsed.picosOfSecond;
+        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
+
+        long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
+                .atZone(zoneId)
+                .toEpochSecond();
+
+        if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
+            // slower path, but accurate for historical dates
+            GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
+            calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
+            epochSecond = calendar.getTimeInMillis() / MILLISECONDS_PER_SECOND;
+        }
+
+        int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
+        if (nanoOfSecond == NANOSECONDS_PER_SECOND) {
+            epochSecond++;
+            nanoOfSecond = 0;
+        }
+
+        Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
+        timestamp.setNanos(nanoOfSecond);
+        return timestamp;
+    }
+
+    private static ParsedTimestamp parseTimestamp(String value)
+    {
+        Matcher matcher = DATETIME_PATTERN.matcher(value);
+        if (!matcher.matches()) {
+            throw new IllegalArgumentException("Invalid timestamp: " + value);
+        }
+
+        int year = Integer.parseInt(matcher.group("year"));
+        int month = Integer.parseInt(matcher.group("month"));
+        int day = Integer.parseInt(matcher.group("day"));
+        int hour = Integer.parseInt(matcher.group("hour"));
+        int minute = Integer.parseInt(matcher.group("minute"));
+        int second = Integer.parseInt(matcher.group("second"));
+        String fraction = matcher.group("fraction");
+        Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
+
+        long picosOfSecond = 0;
+        if (fraction != null) {
+            int precision = fraction.length();
+            long fractionValue = Long.parseLong(fraction);
+            picosOfSecond = rescale(fractionValue, precision, 12);
+        }
+
+        return new ParsedTimestamp(year, month, day, hour, minute, second, picosOfSecond, timezone);
     }
 
     private void checkOpen()
@@ -357,7 +515,6 @@ abstract class AbstractDatabendResultSet implements ResultSet
         }
     }
 
-
     @Override
     public Time getTime(int columnIndex)
             throws SQLException
@@ -398,6 +555,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
         return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
     }
+
     @Override
     public InputStream getAsciiStream(int columnIndex)
             throws SQLException
@@ -1723,164 +1881,6 @@ abstract class AbstractDatabendResultSet implements ResultSet
             throws SQLException
     {
         return iface.isInstance(this);
-    }
-    private static Date parseDate(String value, DateTimeZone localTimeZone)
-    {
-        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
-            return new Date(millis);
-        }
-
-        // The chronology used by default by Joda is not historically accurate for dates
-        // preceding the introduction of the Gregorian calendar and is not consistent with
-        // java.sql.Date (the same millisecond value represents a different year/month/day)
-        // before the 20th century. For such dates we are falling back to using the more
-        // expensive GregorianCalendar; note that Joda also has a chronology that works for
-        // older dates, but it uses a slightly different algorithm and yields results that
-        // are not compatible with java.sql.Date.
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-        calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
-
-        return new Date(calendar.getTimeInMillis());
-    }
-
-    private static long rescale(long value, int fromPrecision, int toPrecision)
-    {
-        if (value < 0) {
-            throw new IllegalArgumentException("value must be >= 0");
-        }
-
-        if (fromPrecision <= toPrecision) {
-            value *= scaleFactor(fromPrecision, toPrecision);
-        }
-        else {
-            value = roundDiv(value, scaleFactor(toPrecision, fromPrecision));
-        }
-
-        return value;
-    }
-
-    private static long scaleFactor(int fromPrecision, int toPrecision)
-    {
-        if (fromPrecision > toPrecision) {
-            throw new IllegalArgumentException("fromPrecision must be <= toPrecision");
-        }
-
-        return POWERS_OF_TEN[toPrecision - fromPrecision];
-    }
-
-    private static long roundDiv(long value, long factor)
-    {
-
-        if (value >= 0) {
-            return (value + (factor / 2)) / factor;
-        }
-
-        return (value - (factor / 2)) / factor;
-    }
-    private static Time parseTime(String value, ZoneId localTimeZone)
-    {
-        Matcher matcher = TIME_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid time: " + value);
-        }
-
-        int hour = Integer.parseInt(matcher.group("hour"));
-        int minute = Integer.parseInt(matcher.group("minute"));
-        int second = matcher.group("second") == null ? 0 : Integer.parseInt(matcher.group("second"));
-
-        if (hour > 23 || minute > 59 || second > 59) {
-            throw new IllegalArgumentException("Invalid time: " + value);
-        }
-
-        int precision = 0;
-        String fraction = matcher.group("fraction");
-        long fractionValue = 0;
-        if (fraction != null) {
-            precision = fraction.length();
-            fractionValue = Long.parseLong(fraction);
-        }
-
-        long picosOfSecond = rescale(fractionValue, precision, 12); // maximum precision
-        // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/trinodb/trino/issues/6205) reconsider
-        int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
-        long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, nanosOfSecond, localTimeZone)
-                .toInstant()
-                .toEpochMilli();
-
-        return new Time(epochMilli);
-    }
-
-    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
-    {
-        requireNonNull(localTimeZone, "localTimeZone is null");
-
-        ParsedTimestamp parsed = parseTimestamp(value);
-        return toTimestamp(value, parsed, timezone -> {
-            if (timezone.isPresent()) {
-                throw new IllegalArgumentException("Invalid timestamp: " + value);
-            }
-            return localTimeZone;
-        });
-    }
-    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
-    {
-        int year = parsed.year;
-        int month = parsed.month;
-        int day = parsed.day;
-        int hour = parsed.hour;
-        int minute = parsed.minute;
-        int second = parsed.second;
-        long picosOfSecond = parsed.picosOfSecond;
-        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
-
-        long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(zoneId)
-                .toEpochSecond();
-
-        if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
-            // slower path, but accurate for historical dates
-            GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
-            calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
-            epochSecond = calendar.getTimeInMillis() / MILLISECONDS_PER_SECOND;
-        }
-
-        int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
-        if (nanoOfSecond == NANOSECONDS_PER_SECOND) {
-            epochSecond++;
-            nanoOfSecond = 0;
-        }
-
-        Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
-        timestamp.setNanos(nanoOfSecond);
-        return timestamp;
-    }
-
-    private static ParsedTimestamp parseTimestamp(String value)
-    {
-        Matcher matcher = DATETIME_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid timestamp: " + value);
-        }
-
-        int year = Integer.parseInt(matcher.group("year"));
-        int month = Integer.parseInt(matcher.group("month"));
-        int day = Integer.parseInt(matcher.group("day"));
-        int hour = Integer.parseInt(matcher.group("hour"));
-        int minute = Integer.parseInt(matcher.group("minute"));
-        int second = Integer.parseInt(matcher.group("second"));
-        String fraction = matcher.group("fraction");
-        Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
-
-        long picosOfSecond = 0;
-        if (fraction != null) {
-            int precision = fraction.length();
-            long fractionValue = Long.parseLong(fraction);
-            picosOfSecond = rescale(fractionValue, precision, 12);
-        }
-
-        return new ParsedTimestamp(year, month, day, hour, minute, second, picosOfSecond, timezone);
     }
 
     private static class ParsedTimestamp

@@ -14,14 +14,6 @@
 
 package com.databend.client;
 
-import com.fasterxml.jackson.annotation.JsonCreator;
-import com.fasterxml.jackson.annotation.JsonProperty;
-
-import java.util.List;
-import java.util.Map;
-
-import static com.google.common.base.MoreObjects.toStringHelper;
-
 // "schema":[{"name":"column1","type":"UInt8"}]
 // "schema":[{"name":"column2","type":"Nullable(UInt8)"}]
 //public class QuerySchema {
