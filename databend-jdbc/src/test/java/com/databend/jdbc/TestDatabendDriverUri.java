@@ -1,9 +1,12 @@
 package com.databend.jdbc;
 
+import com.databend.client.PaginationOptions;
+import org.checkerframework.checker.units.qual.A;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
+import java.util.Optional;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -146,5 +149,55 @@ public class TestDatabendDriverUri
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
         Assert.assertEquals(uri.getDatabase(), "db3");
         Assert.assertEquals(uri.getUri().getScheme(), "https");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getWaitTimeSecs().intValue(), PaginationOptions.getDefaultWaitTimeSec());
+        Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), PaginationOptions.getDefaultMaxRowsInBuffer());
+        Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), PaginationOptions.getDefaultMaxRowsPerPage());
+        Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
+    }
+
+    @Test(groups = {"unit"})
+    public void testUserDatabasePropFull() throws SQLException
+    {
+        Properties  props = new Properties();
+        props.setProperty("database", "db3");
+        props.setProperty("SSL", "true");
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "db3");
+        Assert.assertEquals(uri.getUri().getScheme(), "https");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 1);
+        Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 10);
+        Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
+        Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
+    }
+
+    @Test(groups = {"unit"})
+    public void testFull() throws SQLException
+    {
+        Properties  props = new Properties();
+        props.setProperty("database", "db3");
+        props.setProperty("SSL", "true");
+        props.setProperty("presigned_url_disabled", "false");
+        props.setProperty("wait_time_secs", "9");
+        props.setProperty("max_rows_in_buffer", "11");
+        props.setProperty("max_rows_per_page", "7");
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+
+        Assert.assertEquals(uri.getProperties().get("user"), "u1");
+        Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getDatabase(), "db3");
+        Assert.assertEquals(uri.getUri().getScheme(), "https");
+        Assert.assertEquals(uri.getUri().getHost(), "localhost");
+        Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 9);
+        Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 11);
+        Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 7);
+        Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
     }
 }

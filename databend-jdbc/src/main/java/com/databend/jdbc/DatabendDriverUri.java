@@ -22,8 +22,10 @@ import static com.databend.client.OkHttpUtils.tokenAuth;
 import static com.databend.jdbc.ConnectionProperties.ACCESS_TOKEN;
 import static com.databend.jdbc.ConnectionProperties.DATABASE;
 import static com.databend.jdbc.ConnectionProperties.PASSWORD;
+import static com.databend.jdbc.ConnectionProperties.PRESIGNED_URL_DISABLED;
 import static com.databend.jdbc.ConnectionProperties.SSL;
 import static com.databend.jdbc.ConnectionProperties.USER;
+import static com.databend.jdbc.ConnectionProperties.WAIT_TIME_SECS;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -44,8 +46,12 @@ public final class DatabendDriverUri
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
+    private final String database;
+    private final boolean presignedUrlDisabled;
+    private final Integer waitTimeSecs;
+    private final Integer maxRowsInBuffer;
+    private final Integer maxRowsPerPage;
 
-    private String database;
 //    private final boolean useSecureConnection;
 
     private DatabendDriverUri(String url, Properties driverProperties)
@@ -57,6 +63,10 @@ public final class DatabendDriverUri
         this.uri = parseFinalURI(uriAndProperties.getKey(), this.useSecureConnection);
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.database = DATABASE.getValue(properties).orElse("default");
+        this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
+        this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
+        this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
+        this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
     }
 
     public static DatabendDriverUri create(String url, Properties properties)
@@ -231,6 +241,26 @@ public final class DatabendDriverUri
     public String getDatabase()
     {
         return database;
+    }
+
+    public Boolean presignedUrlDisabled()
+    {
+        return presignedUrlDisabled;
+    }
+
+    public Integer getWaitTimeSecs()
+    {
+        return waitTimeSecs;
+    }
+
+    public Integer getMaxRowsInBuffer()
+    {
+        return maxRowsInBuffer;
+    }
+
+    public Integer getMaxRowsPerPage()
+    {
+        return maxRowsPerPage;
     }
 
     public HostAndPort getAddress()

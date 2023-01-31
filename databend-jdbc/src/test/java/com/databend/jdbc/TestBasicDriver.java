@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -9,6 +10,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.Properties;
 
 public class TestBasicDriver
 {
@@ -23,6 +25,12 @@ public class TestBasicDriver
     {
         String url = "jdbc:databend://localhost:8000/" + database;
         return DriverManager.getConnection(url, "root", "root");
+    }
+
+    private Connection createConnection(String database, Properties p) throws SQLException
+    {
+        String url = "jdbc:databend://localhost:8000/" + database;
+        return DriverManager.getConnection(url, p);
     }
 
     @BeforeTest
@@ -42,6 +50,10 @@ public class TestBasicDriver
             throws SQLException
     {
         try (Connection connection = createConnection()) {
+            PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
+            Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
+            Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
+            Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
             Statement statement = connection.createStatement();
             statement.execute("SELECT number from numbers(200000) order by number");
             ResultSet r = statement.getResultSet();
@@ -54,6 +66,29 @@ public class TestBasicDriver
         }
         finally {
 
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public  void testBasicWithProperties() throws SQLException
+    {
+        Properties p = new Properties();
+        p.setProperty("wait_time_secs", "10");
+        p.setProperty("max_rows_in_buffer", "100");
+        p.setProperty("max_rows_per_page", "100");
+        p.setProperty("user", "root");
+        p.setProperty("password", "root");
+        //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
+        try (Connection connection = createConnection("test_basic_driver", p)) {
+            PaginationOptions options = connection.unwrap(DatabendConnection.class).getPaginationOptions();
+            Assert.assertEquals(options.getWaitTimeSecs(), 10);
+            Assert.assertEquals(options.getMaxRowsInBuffer(), 100);
+            Assert.assertEquals(options.getMaxRowsPerPage(), 100);
+            Statement statement = connection.createStatement();
+            statement.execute("SELECT 1");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assert.assertEquals(r.getInt(1), 1);
         }
     }
 

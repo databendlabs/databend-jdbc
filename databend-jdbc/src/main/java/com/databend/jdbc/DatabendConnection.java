@@ -58,7 +58,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final OkHttpClient httpClient;
     private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
-
+    private final DatabendDriverUri driverUri;
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException
     {
@@ -66,6 +66,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
         this.httpUri = uri.getUri();
         this.setSchema(uri.getDatabase());
         this.httpClient = httpClient;
+        this.driverUri = uri;
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -518,6 +519,19 @@ public class DatabendConnection implements Connection, FileTransferAPI
         return aClass.isInstance(this);
     }
 
+    public boolean presignedUrlDisabled()
+    {
+        return this.driverUri.presignedUrlDisabled();
+    }
+
+    public PaginationOptions getPaginationOptions() {
+        PaginationOptions.Builder builder = PaginationOptions.builder();
+        builder.setWaitTimeSecs(this.driverUri.getWaitTimeSecs());
+        builder.setMaxRowsInBuffer(this.driverUri.getMaxRowsInBuffer());
+        builder.setMaxRowsPerPage(this.driverUri.getMaxRowsPerPage());
+        return builder.build();
+    }
+
     public URI getURI()
     {
         return this.httpUri;
@@ -525,13 +539,15 @@ public class DatabendConnection implements Connection, FileTransferAPI
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(PaginationOptions.defaultPaginationOptions()).build();
+        PaginationOptions options = getPaginationOptions();
+        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
-        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(PaginationOptions.defaultPaginationOptions()).setStageAttachment(attach).build();
+        PaginationOptions options = getPaginationOptions();
+        ClientSettings s = new ClientSettings.Builder().setSession(session).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
@@ -557,7 +573,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
-            DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient());
+            DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
             cli.presignUpload(null, inputStream, h, presignUrl, true);
         }
         catch (JsonProcessingException e) {
@@ -573,7 +589,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
             throws SQLException
     {
         String s = stageName.replaceAll("/$", "");
-        DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient());
+        DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
         try {
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, sourceFileName);
             Headers h = ctx.getHeaders();

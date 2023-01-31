@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.PaginationOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
@@ -16,12 +17,22 @@ final class ConnectionProperties
     public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
+    public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
+    public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
+
+    public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
+    public static final ConnectionProperty<Integer> MAX_ROWS_PER_PAGE = new MaxRowsPerPage();
+
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
             .add(SSL)
             .add(DATABASE)
             .add(ACCESS_TOKEN)
+            .add(PRESIGNED_URL_DISABLED)
+            .add(WAIT_TIME_SECS)
+            .add(MAX_ROWS_IN_BUFFER)
+            .add(MAX_ROWS_PER_PAGE)
             .build();
     private static final Map<String, String> DEFAULTS;
 
@@ -78,6 +89,42 @@ final class ConnectionProperties
         public AccessToken()
         {
             super("accesstoken", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class PresignedUrlDisabled
+            extends AbstractConnectionProperty<Boolean>
+    {
+        public PresignedUrlDisabled()
+        {
+            super("presigned_url_disabled", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class WaitTimeSecs
+            extends AbstractConnectionProperty<Integer>
+    {
+        public WaitTimeSecs()
+        {
+            super("wait_time_secs", Optional.of(String.valueOf(PaginationOptions.getDefaultWaitTimeSec())), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+        }
+    }
+
+    private static class MaxRowsInBuffer
+            extends AbstractConnectionProperty<Integer>
+    {
+        public MaxRowsInBuffer()
+        {
+            super("max_rows_in_buffer", Optional.of(String.valueOf(PaginationOptions.getDefaultMaxRowsInBuffer())), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+        }
+    }
+
+    private static class MaxRowsPerPage
+            extends AbstractConnectionProperty<Integer>
+    {
+        public MaxRowsPerPage()
+        {
+            super("max_rows_per_page", Optional.of(String.valueOf(PaginationOptions.getDefaultMaxRowsPerPage())), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
         }
     }
 
