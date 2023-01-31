@@ -106,8 +106,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         StringBuilder filter = new StringBuilder();
         filter.append(columnName).append(" LIKE ");
         quoteStringLiteral(filter, pattern);
-        filter.append(" ESCAPE ");
-        quoteStringLiteral(filter, SEARCH_STRING_ESCAPE);
+
         return filter.toString();
     }
 
@@ -1032,11 +1031,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT table_type as TABLE_TYPE FROM information_schema.tables GROUP BY table_type ORDER BY table_type");
     }
-
-    @Override
-    public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
-            throws SQLException
-    {
+    private static StringBuilder columnMetaSqlTemplate() {
         StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
                 ", table_schema as TABLE_SCHEM" +
                 ", table_name as TABLE_NAME" +
@@ -1061,11 +1056,30 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 ", 'NO' as IS_AUTOINCREMENT" +
                 ", 'NO' as IS_GENERATEDCOLUMN" +
                 " FROM information_schema.columns");
+        return sql;
+    }
+    public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String[] columnNames) throws SQLException {
+        StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CAT", catalog);
-        emptyStringLikeFilter(filters, "TABLE_SCHEM", schemaPattern);
-        optionalStringLikeFilter(filters, "TABLE_NAME", tableNamePattern);
-        optionalStringLikeFilter(filters, "COLUMN_NAME", columnNamePattern);
+        emptyStringEqualsFilter(filters, "table_catalog", catalog);
+        emptyStringLikeFilter(filters, "table_schema", schemaPattern);
+        optionalStringLikeFilter(filters, "table_name", tableNamePattern);
+        optionalStringInFilter(filters, "column_name", columnNames);
+        buildFilters(sql, filters);
+        sql.append("\nORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION");
+        return select(sql.toString());
+    }
+
+    @Override
+    public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String columnNamePattern)
+            throws SQLException
+    {
+        StringBuilder sql = columnMetaSqlTemplate();
+        List<String> filters = new ArrayList<>();
+        emptyStringEqualsFilter(filters, "table_catalog", catalog);
+        emptyStringLikeFilter(filters, "table_schema", schemaPattern);
+        optionalStringLikeFilter(filters, "table_name", tableNamePattern);
+        optionalStringLikeFilter(filters, "column_name", columnNamePattern);
         buildFilters(sql, filters);
         sql.append("\nORDER BY TABLE_CAT, TABLE_SCHEM, TABLE_NAME, ORDINAL_POSITION");
         return select(sql.toString());

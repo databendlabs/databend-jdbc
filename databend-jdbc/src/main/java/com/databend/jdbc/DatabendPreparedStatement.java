@@ -44,6 +44,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.function.Consumer;
 
 import static com.databend.jdbc.ObjectCasts.castToBigDecimal;
@@ -161,14 +162,16 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
             DatabendConnection c = (DatabendConnection) getConnection();
             FileInputStream fis = new FileInputStream(saved);
+            String uuid = UUID.randomUUID().toString();
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
-            String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/",
+            String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
                     LocalDateTime.now().getYear(),
                     LocalDateTime.now().getMonthValue(),
                     LocalDateTime.now().getDayOfMonth(),
                     LocalDateTime.now().getHour(),
                     LocalDateTime.now().getMinute(),
-                    LocalDateTime.now().getSecond());
+                    LocalDateTime.now().getSecond(),
+                    uuid);
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stagePath = "@~/" + stagePrefix + fileName;
@@ -193,13 +196,20 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
      * @return true if delete success or resource not found
      */
     private boolean dropStageAttachment(StageAttachment attachment)
-            throws SQLException
     {
         if (attachment == null) {
             return true;
         }
         String sql = String.format("REMOVE %s", attachment.getLocation());
-        return super.execute(sql);
+        try {
+            execute(sql);
+            return true;
+        } catch (SQLException e) {
+            if (e.getErrorCode() == 1003) {
+                return true;
+            }
+            return false;
+        }
     }
 
     @Override
@@ -210,13 +220,14 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             return batchUpdateCounts;
         }
         StageAttachment attachment = uploadBatches();
+        ResultSet r = null;
         if (attachment == null) {
             super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
             super.internalExecute(batchInsertUtils.get().getSql(), attachment);
-            ResultSet r = getResultSet();
+            r = getResultSet();
             while (r.next()) {
 
             }
