@@ -3,13 +3,14 @@ package com.databend.jdbc;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 
+import java.io.File;
 import java.io.InputStream;
 import java.sql.SQLException;
 
 public interface FileTransferAPI
 {
     /**
-     * Upload a file to the databend internal stage, the data would be uploaded as one file with no split.
+     * Upload inputStream to the databend internal stage, the data would be uploaded as one file with no split.
      * Caller should close the input stream after the upload is done.
      * @param stageName the stage which receive uploaded file
      * @param destPrefix the prefix of the file name in the stage

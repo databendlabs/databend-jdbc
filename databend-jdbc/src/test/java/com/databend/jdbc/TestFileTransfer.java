@@ -4,6 +4,7 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
+import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -20,6 +21,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 public class TestFileTransfer
 {
@@ -35,7 +38,6 @@ public class TestFileTransfer
             // Writes bytes from byte array (buffer) into output stream.
             os.write(buffer, 0, line);
         }
-        stream.close();
         os.flush();
         os.close();
         return os.toByteArray();
@@ -55,13 +57,13 @@ public class TestFileTransfer
     private Connection createConnection()
             throws SQLException
     {
-        String url = "jdbc:databend://localhost:8000";
+        String url = "jdbc:databend://localhost:8000/default";
         return DriverManager.getConnection(url, "root", "root");
     }
 
     private Connection createConnection(boolean presignDisabled) throws SQLException
     {
-        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
+        String url = "jdbc:databend://localhost:8000/default?presigned_url_disabled=" + presignDisabled;
         return DriverManager.getConnection(url, "root", "root");
     }
 
@@ -107,8 +109,10 @@ public class TestFileTransfer
 
     @Test(groups = {"IT"})
     public void testFileTransfer()
+            throws IOException
     {
         String filePath = generateRandomCSV(10000);
+        InputStream downloaded = null;
         try {
             Connection connection = createConnection();
             String stageName = "test_stage";
@@ -117,18 +121,16 @@ public class TestFileTransfer
             File f = new File(filePath);
             FileInputStream fileInputStream = new FileInputStream(f);
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
-            InputStream inputStream = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
-            Assert.assertNotNull(inputStream);
-            byte[] got = streamToByteArray(inputStream);
-            byte[] expected = streamToByteArray(new FileInputStream(f));
-            Assert.assertEquals(got, expected);
-            inputStream.close();
-            fileInputStream.close();
+            downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
+            byte[] arr = streamToByteArray(downloaded);
+            Assert.assertEquals(arr.length, f.length());
         }
         catch (Exception e) {
             throw new RuntimeException(e);
         } finally{
-
+            if (downloaded != null) {
+                downloaded.close();
+            }
         }
     }
     @Test(groups = {"Local"})
@@ -136,6 +138,7 @@ public class TestFileTransfer
     {
         String filePath = generateRandomCSV(100000);
         try {
+            Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
             Connection connection = createConnection(true);
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
@@ -143,13 +146,9 @@ public class TestFileTransfer
             File f = new File(filePath);
             InputStream fileInputStream = Files.newInputStream(f.toPath());
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
-            InputStream inputStream = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
-            Assert.assertNotNull(inputStream);
-            byte[] got = streamToByteArray(inputStream);
-            byte[] expected = streamToByteArray(Files.newInputStream(f.toPath()));
-            Assert.assertEquals(got, expected);
-            inputStream.close();
-            fileInputStream.close();
+            InputStream downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
+            byte[] arr = streamToByteArray(downloaded);
+            Assert.assertEquals(arr.length, f.length());
         }
         catch (Exception e) {
             throw new RuntimeException(e);

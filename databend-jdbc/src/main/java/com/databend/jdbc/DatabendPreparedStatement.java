@@ -157,7 +157,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         try {
             saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
             DatabendConnection c = (DatabendConnection) getConnection();
-            FileInputStream fis = new FileInputStream(saved);
             String uuid = UUID.randomUUID().toString();
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
             String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
@@ -169,9 +168,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
+            FileInputStream fis = new FileInputStream(saved);
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            fis.close();
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).build();
             return attachment;
         } catch (Exception e) {
