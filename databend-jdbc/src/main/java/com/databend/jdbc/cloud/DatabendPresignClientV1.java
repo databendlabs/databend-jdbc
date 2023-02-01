@@ -21,6 +21,8 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
@@ -36,10 +38,10 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
     private final String uri;
 
     public DatabendPresignClientV1(OkHttpClient client, String uri) {
+        Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         this.client = client;
         this.uri = uri;
     }
-
     private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name) throws IOException
     {
         // multipart upload input stream into /v1/upload_to_stage
@@ -53,14 +55,19 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
                 .build();
 
         HttpUrl url = HttpUrl.get(this.uri);
+        url = new HttpUrl.Builder()
+                .scheme(url.scheme())
+                .host(url.host())
+                .port(url.port())
+                .encodedPath("/v1/upload_to_stage")
+                .build();
         Request request = new Request.Builder()
-                .url(url.newBuilder().addPathSegment("v1").addPathSegment("upload_to_stage").build())
+                .url(url)
                 .headers(headers)
                 .put(requestBody)
                 .build();
-        System.out.println("uploading to stage through api: " + request.toString());
         try {
-            executeInternal(request);
+            executeInternal(request, true);
 
         } catch (IOException e) {
             throw new IOException("uploadFromStreamAPI failed", e);
@@ -72,13 +79,15 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         requireNonNull(inputStream, "inputStream is null");
         Request r = putRequest(headers, presignedUrl, inputStream);
         try {
-            executeInternal(r);
+            executeInternal(r, true);
         } catch (IOException e) {
             throw new IOException("uploadFromStream failed", e);
+        } finally{
+
         }
     }
 
-    private ResponseBody executeInternal(Request request) throws IOException
+    private ResponseBody executeInternal(Request request, boolean shouldClose) throws IOException
     {
         requireNonNull(request, "request is null");
         long start = System.nanoTime();
@@ -88,6 +97,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (attempts >= MaxRetryAttempts) {
+                    System.out.println("Presign failed" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
 
@@ -104,26 +114,38 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
                 }
             }
             attempts++;
-            Response response;
+            Response response = null;
             try {
                 response = client.newCall(request).execute();
+                if (response.isSuccessful()) {
+                    return response.body();
+                } else if (response.code() == 401) {
+
+                    throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
+                } else if (response.code() >= 503) {
+                    cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
+                    continue;
+                } else if (response.code() >= 400) {
+                    cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
+                    continue;
+                }
             }
             catch (RuntimeException e) {
                 cause = e;
                 continue;
+            } finally{
+                if (shouldClose) {
+                    try {
+                        if (response != null) {
+                            response.close();
+                        }
+                    }
+                    catch (Exception e) {
+                        // ignore
+                    }
+                }
             }
 
-            if (response.isSuccessful()) {
-                return response.body();
-            } else if (response.code() == 401) {
-               throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
-            } else if (response.code() >= 503) {
-                cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
-                continue;
-            } else if (response.code() >= 400) {
-                cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
-                continue;
-            }
         }
     }
     @Override
@@ -143,23 +165,22 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
     @Override
     public void presignUpload(File srcFile,  InputStream inputStream, String stageName, String relativePath, String name, boolean uploadFromStream) throws IOException
     {
-        InputStream it = null;
         if (!uploadFromStream) {
-            it = Files.newInputStream(srcFile.toPath());
+            try (InputStream it = Files.newInputStream(srcFile.toPath())) {
+                uploadFromStream(it, stageName, relativePath, name);
+            }
         } else {
-            it = inputStream;
+            uploadFromStream(inputStream, stageName, relativePath, name);
         }
-        uploadFromStream(it, stageName, relativePath, name);
     }
 
     @Override
     public void presignDownload(String destFileName, Headers headers, String presignedUrl)
     {
         Request r = getRequest(headers, presignedUrl);
-        try {
-            ResponseBody responseBody = executeInternal(r);
+        try (ResponseBody body = executeInternal(r, false)) {
             BufferedSink sink = Okio.buffer(Okio.sink(new File(destFileName)));
-            sink.writeAll(responseBody.source());
+            sink.writeAll(body.source());
             sink.close();
         } catch (IOException e) {
             throw new RuntimeException("presignDownload failed", e);
@@ -171,7 +192,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
     {
         Request r = getRequest(headers, presignedUrl);
         try {
-            ResponseBody responseBody = executeInternal(r);
+            ResponseBody responseBody = executeInternal(r, false);
             return responseBody.byteStream();
         } catch (IOException e) {
             throw new RuntimeException("presignDownloadStream failed", e);

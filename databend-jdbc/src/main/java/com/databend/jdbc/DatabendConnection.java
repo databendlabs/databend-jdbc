@@ -14,6 +14,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
+import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -579,6 +580,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
         ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
+
 
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
