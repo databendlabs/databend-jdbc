@@ -12,7 +12,7 @@ Add following code block as a dependency
 <dependency>
     <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
-    <version>0.0.3</version>
+    <version>0.0.4</version>
 </dependency>
 ```
 
@@ -40,3 +40,6 @@ public class Main {
     }
 }
 ```
+
+For detailed references, please take a look at the following Links:
+1. [Connection Parameters](./docs/Connection.md) : detailed documentation about how to use connection parameters in a jdbc connection
