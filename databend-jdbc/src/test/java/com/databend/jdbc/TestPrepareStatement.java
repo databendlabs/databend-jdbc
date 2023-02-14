@@ -33,7 +33,8 @@ public class TestPrepareStatement
     {
         // create table
         Connection c = createConnection();
-
+        System.out.println("-----------------");
+        System.out.println("drop all existing test table");
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("drop table if exists test_prepare_time");
         c.createStatement().execute("drop table if exists objects_test1");
@@ -149,5 +150,32 @@ public class TestPrepareStatement
             System.out.println(r.getString(4));
             System.out.println(r.getString(5));
         }
+    }
+
+    @Test(groups = "IT")
+    public void TestBatchInsertWithComplexDataTypeWithPresignAPIPlaceHolder() throws SQLException {
+        Connection c = createConnection(true);
+        c.setAutoCommit(false);
+        PreparedStatement ps = c.prepareStatement("insert into objects_test1 values(?,?,?,?,?)");
+        for(int i = 0; i < 500000; i++) {
+            ps.setInt(1, 2);
+            ps.setString(2, "{\"a\": 1,\"b\": 2}");
+            ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
+            ps.setString(4, "hello world, 你好");
+            ps.setString(5, "[1,2,3,4,5]");
+            ps.addBatch();
+        }
+
+        int[] ans = ps.executeBatch();
+        Statement statement = c.createStatement();
+
+        System.out.println("execute select on object");
+        statement.execute("SELECT * from objects_test1");
+        ResultSet r = statement.getResultSet();
+        int count = 0;
+        while (r.next()) {
+            count++;
+        }
+        System.out.println(count);
     }
 }
