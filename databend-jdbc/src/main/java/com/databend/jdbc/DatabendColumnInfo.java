@@ -10,7 +10,7 @@ import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 
-public class ColumnInfo
+public class DatabendColumnInfo
 {
     private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
     private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
@@ -35,7 +35,7 @@ public class ColumnInfo
     private final String schemaName;
     private final String catalogName;
 
-    public ColumnInfo(int columnType, List<Integer> columnParameterTypes, DatabendRawType type, Nullable nullable, boolean currency, boolean signed, int precision, int scale, int columnDisplaySize, String columnLabel, String columnName, String tableName, String schemaName, String catalogName)
+    public DatabendColumnInfo(int columnType, List<Integer> columnParameterTypes, DatabendRawType type, Nullable nullable, boolean currency, boolean signed, int precision, int scale, int columnDisplaySize, String columnLabel, String columnName, String tableName, String schemaName, String catalogName)
     {
         this.columnType = columnType;
         this.columnParameterTypes = columnParameterTypes;
@@ -380,9 +380,9 @@ public class ColumnInfo
             return this;
         }
 
-        public ColumnInfo build()
+        public DatabendColumnInfo build()
         {
-            return new ColumnInfo(
+            return new DatabendColumnInfo(
                     columnType,
                     columnParameterTypes,
                     type,
