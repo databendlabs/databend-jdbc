@@ -10,7 +10,7 @@ import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 
-class ColumnInfo
+public class ColumnInfo
 {
     private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
     private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
