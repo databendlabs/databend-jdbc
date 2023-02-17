@@ -51,7 +51,7 @@ import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.databend.jdbc.ColumnInfo.setTypeInfo;
+import static com.databend.jdbc.DatabendColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.math.RoundingMode.HALF_UP;
@@ -94,16 +94,16 @@ abstract class AbstractDatabendResultSet implements ResultSet
     private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Map<String, Integer> fieldMap;
-    private final List<ColumnInfo> columnInfoList;
+    private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final DateTimeZone resultTimeZone;
     AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results)
     {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
-        this.columnInfoList = getColumnInfo(schema);
+        this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
-        this.resultSetMetaData = new DatabendResultSetMetaData(columnInfoList);
+        this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
         this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
     }
 
@@ -119,11 +119,11 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return ImmutableMap.copyOf(map);
     }
 
-    private static List<ColumnInfo> getColumnInfo(List<QueryRowField> columns)
+    private static List<DatabendColumnInfo> getColumnInfo(List<QueryRowField> columns)
     {
-        ImmutableList.Builder<ColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
+        ImmutableList.Builder<DatabendColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (QueryRowField column : columns) {
-            ColumnInfo.Builder builder = new ColumnInfo.Builder()
+            DatabendColumnInfo.Builder builder = new DatabendColumnInfo.Builder()
                     .setCatalogName("") // TODO
                     .setSchemaName("") // TODO
                     .setTableName("") // TODO

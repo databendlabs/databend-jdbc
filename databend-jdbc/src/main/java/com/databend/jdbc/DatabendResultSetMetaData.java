@@ -14,11 +14,11 @@ import java.util.List;
 
 public class DatabendResultSetMetaData implements ResultSetMetaData
 {
-    private final List<ColumnInfo> columnInfo;
+    private final List<DatabendColumnInfo> databendColumnInfo;
 
-    DatabendResultSetMetaData(List<ColumnInfo> columnInfo)
+    DatabendResultSetMetaData(List<DatabendColumnInfo> databendColumnInfo)
     {
-        this.columnInfo = columnInfo;
+        this.databendColumnInfo = databendColumnInfo;
     }
 
     static String getType(int type)
@@ -70,10 +70,10 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
     public int getColumnCount()
             throws SQLException
     {
-        if (this.columnInfo == null) {
+        if (this.databendColumnInfo == null) {
             return 0;
         }
-        return this.columnInfo.size();
+        return this.databendColumnInfo.size();
     }
 
     @Override
@@ -108,7 +108,7 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
     public int isNullable(int i)
             throws SQLException
     {
-        ColumnInfo.Nullable nullable = column(i).getNullable();
+        DatabendColumnInfo.Nullable nullable = column(i).getNullable();
         switch (nullable) {
             case NO_NULLS:
                 return columnNoNulls;
@@ -239,12 +239,12 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
         return false;
     }
 
-    private ColumnInfo column(int column)
+    private DatabendColumnInfo column(int column)
             throws SQLException
     {
-        if ((column <= 0) || (column > this.columnInfo.size())) {
+        if ((column <= 0) || (column > this.databendColumnInfo.size())) {
             throw new SQLException("Invalid column index: " + column);
         }
-        return this.columnInfo.get(column - 1);
+        return this.databendColumnInfo.get(column - 1);
     }
 }
