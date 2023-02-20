@@ -16,9 +16,8 @@ public class TestStageAttachment {
         String fileName = "test";
         String stagePath = "@~/" + stagePrefix + fileName;
         StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
-                .setFileFormat(StageAttachment.defaultFileFormat)
                 .build();
-        assertEquals("StageAttachment{location=@~/prefix/uuid/test, file_format=( type = CSV ), file_format_options=null, copy_options=null}",attachment.toString());
+        assertEquals("StageAttachment{location=@~/prefix/uuid/test, file_format_options={type=CSV}, copy_options=null}",attachment.toString());
 
     }
 }
