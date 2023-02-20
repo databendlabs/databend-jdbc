@@ -172,7 +172,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stagePath = "@~/" + stagePrefix + fileName;
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
-                    .setFileFormat(StageAttachment.defaultFileFormat)
                     .build();
             return attachment;
         } catch (Exception e) {

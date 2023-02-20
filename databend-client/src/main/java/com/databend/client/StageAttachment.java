@@ -17,6 +17,7 @@ package com.databend.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
@@ -25,26 +26,24 @@ public class StageAttachment {
     /// location of the stage
     /// for example: @stage_name/path/to/file, @~/path/to/file
     private final String location;
-    private final String fileFormat;
     public static final String defaultFileFormat = "CSV";
     private final Map<String, String> fileFormatOptions;
     private final Map<String, String> copyOptions;
 
     @JsonCreator
     public StageAttachment(@JsonProperty("location") String location,
-                           @JsonProperty("file_format") String fileFormat,
                            @JsonProperty("file_format_options") Map<String, String> fileFormatOptions,
                            @JsonProperty("copy_options") Map<String, String> copyOptions) {
         this.location = location;
         StringBuilder sb = new StringBuilder();
         sb.append("( type = ");
-        if (fileFormat != null) {
-            sb.append(fileFormat).append(" )");
+
+        if (fileFormatOptions == null) {
+            this.fileFormatOptions = new HashMap<>();
         } else {
-            sb.append(defaultFileFormat).append(" )");
+            this.fileFormatOptions = fileFormatOptions;
         }
-        this.fileFormat = sb.toString();
-        this.fileFormatOptions = fileFormatOptions;
+        this.fileFormatOptions.put("type", defaultFileFormat);
         this.copyOptions = copyOptions;
     }
 
@@ -53,22 +52,17 @@ public class StageAttachment {
         return new Builder();
     }
 
-    @JsonProperty
+    @JsonProperty("location")
     public String getLocation() {
         return location;
     }
 
-    @JsonProperty
-    public String getFileFormat() {
-        return fileFormat;
-    }
-
-    @JsonProperty
+    @JsonProperty("file_format_options")
     public Map<String, String> getFileFormatOptions() {
         return fileFormatOptions;
     }
 
-    @JsonProperty
+    @JsonProperty("copy_options")
     public Map<String, String> getCopyOptions() {
         return copyOptions;
     }
@@ -77,7 +71,6 @@ public class StageAttachment {
     public String toString() {
         return toStringHelper(this)
                 .add("location", location)
-                .add("file_format", fileFormat)
                 .add("file_format_options", fileFormatOptions)
                 .add("copy_options", copyOptions)
                 .toString();
@@ -85,17 +78,11 @@ public class StageAttachment {
 
     public static final class Builder {
         private String location;
-        private String fileFormat;
         private Map<String, String> fileFormatOptions;
         private Map<String, String> copyOptions;
 
         public Builder setLocation(String location) {
             this.location = location;
-            return this;
-        }
-
-        public Builder setFileFormat(String fileFormat) {
-            this.fileFormat = fileFormat;
             return this;
         }
 
@@ -110,7 +97,7 @@ public class StageAttachment {
         }
 
         public StageAttachment build() {
-            return new StageAttachment(location, fileFormat, fileFormatOptions, copyOptions);
+            return new StageAttachment(location, fileFormatOptions, copyOptions);
         }
     }
 }
