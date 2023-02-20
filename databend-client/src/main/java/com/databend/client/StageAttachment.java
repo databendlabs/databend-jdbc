@@ -21,85 +21,96 @@ import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class StageAttachment
-{
+public class StageAttachment {
     /// location of the stage
     /// for example: @stage_name/path/to/file, @~/path/to/file
     private final String location;
+    private final String fileFormat;
+    public static final String defaultFileFormat = "CSV";
     private final Map<String, String> fileFormatOptions;
     private final Map<String, String> copyOptions;
 
     @JsonCreator
     public StageAttachment(@JsonProperty("location") String location,
-            @JsonProperty("file_format_options") Map<String, String> fileFormatOptions,
-            @JsonProperty("copy_options") Map<String, String> copyOptions)
-    {
+                           @JsonProperty("file_format") String fileFormat,
+                           @JsonProperty("file_format_options") Map<String, String> fileFormatOptions,
+                           @JsonProperty("copy_options") Map<String, String> copyOptions) {
         this.location = location;
+        StringBuilder sb = new StringBuilder();
+        sb.append("( type = ");
+        if (fileFormat != null) {
+            sb.append(fileFormat).append(" )");
+        } else {
+            sb.append(defaultFileFormat).append(" )");
+        }
+        this.fileFormat = sb.toString();
         this.fileFormatOptions = fileFormatOptions;
         this.copyOptions = copyOptions;
     }
 
     // add builder
-    public static Builder builder()
-    {
+    public static Builder builder() {
         return new Builder();
     }
 
     @JsonProperty
-    public String getLocation()
-    {
+    public String getLocation() {
         return location;
     }
 
     @JsonProperty
-    public Map<String, String> getFileFormatOptions()
-    {
+    public String getFileFormat() {
+        return fileFormat;
+    }
+
+    @JsonProperty
+    public Map<String, String> getFileFormatOptions() {
         return fileFormatOptions;
     }
 
     @JsonProperty
-    public Map<String, String> getCopyOptions()
-    {
+    public Map<String, String> getCopyOptions() {
         return copyOptions;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("location", location)
+                .add("file_format", fileFormat)
                 .add("file_format_options", fileFormatOptions)
                 .add("copy_options", copyOptions)
                 .toString();
     }
 
-    public static final class Builder
-    {
+    public static final class Builder {
         private String location;
+        private String fileFormat;
         private Map<String, String> fileFormatOptions;
         private Map<String, String> copyOptions;
 
-        public Builder setLocation(String location)
-        {
+        public Builder setLocation(String location) {
             this.location = location;
             return this;
         }
 
-        public Builder setFileFormatOptions(Map<String, String> fileFormatOptions)
-        {
+        public Builder setFileFormat(String fileFormat) {
+            this.fileFormat = fileFormat;
+            return this;
+        }
+
+        public Builder setFileFormatOptions(Map<String, String> fileFormatOptions) {
             this.fileFormatOptions = fileFormatOptions;
             return this;
         }
 
-        public Builder setCopyOptions(Map<String, String> copyOptions)
-        {
+        public Builder setCopyOptions(Map<String, String> copyOptions) {
             this.copyOptions = copyOptions;
             return this;
         }
 
-        public StageAttachment build()
-        {
-            return new StageAttachment(location, fileFormatOptions, copyOptions);
+        public StageAttachment build() {
+            return new StageAttachment(location, fileFormat, fileFormatOptions, copyOptions);
         }
     }
 }
