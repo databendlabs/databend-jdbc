@@ -42,6 +42,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 import static com.databend.jdbc.ObjectCasts.castToBigDecimal;
 import static com.databend.jdbc.ObjectCasts.castToBinary;
@@ -59,6 +60,7 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement
 {
+    private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
@@ -219,12 +221,15 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         StageAttachment attachment = uploadBatches();
         ResultSet r = null;
         if (attachment == null) {
+            logger.fine("use normal execute instead of batch insert");
             super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
+            logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment, batchInsertUtils.get().getSql()));
             super.internalExecute(batchInsertUtils.get().getSql(), attachment);
             r = getResultSet();
+
             while (r.next()) {
 
             }

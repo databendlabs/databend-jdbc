@@ -1,5 +1,6 @@
 package com.databend.jdbc.parser;
 
+import com.databend.jdbc.DatabendPreparedStatement;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
 
@@ -11,11 +12,15 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 public class BatchInsertUtils
 {
+    private static final Logger logger = Logger.getLogger(BatchInsertUtils.class.getPackage().getName());
+
     private final String sql;
     // prepareValues[i] is null if the i-th value is a placeholder
 
@@ -75,12 +80,14 @@ public class BatchInsertUtils
     }
 
     public File saveBatchToCSV(List<String[]> values, File file) {
+        int rowSize = values.get(0).length;
         // save values to csv file
         try (FileWriter pw = new FileWriter(file)) {
             CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(pw);
             for (String[] row : values) {
                 w.writeRow(row);
             }
+            logger.log(Level.FINE, "save batch insert to csv file: " + file.getAbsolutePath() + "rows: " + values.size() + " columns: " + rowSize);
             return file;
         }
         catch (IOException e) {
