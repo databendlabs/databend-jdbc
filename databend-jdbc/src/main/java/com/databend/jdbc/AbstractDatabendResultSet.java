@@ -59,8 +59,7 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
-abstract class AbstractDatabendResultSet implements ResultSet
-{
+abstract class AbstractDatabendResultSet implements ResultSet {
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     private static final int MAX_DATETIME_PRECISION = 12;
     private static final long[] POWERS_OF_TEN = {
@@ -97,8 +96,8 @@ abstract class AbstractDatabendResultSet implements ResultSet
     private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final DateTimeZone resultTimeZone;
-    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results)
-    {
+
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results) {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
@@ -107,8 +106,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
     }
 
-    private static Map<String, Integer> getFieldMap(List<QueryRowField> columns)
-    {
+    private static Map<String, Integer> getFieldMap(List<QueryRowField> columns) {
         Map<String, Integer> map = Maps.newHashMapWithExpectedSize(columns.size());
         for (int i = 0; i < columns.size(); i++) {
             String name = columns.get(i).getName().toLowerCase(ENGLISH);
@@ -119,8 +117,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return ImmutableMap.copyOf(map);
     }
 
-    private static List<DatabendColumnInfo> getColumnInfo(List<QueryRowField> columns)
-    {
+    private static List<DatabendColumnInfo> getColumnInfo(List<QueryRowField> columns) {
         ImmutableList.Builder<DatabendColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (QueryRowField column : columns) {
             DatabendColumnInfo.Builder builder = new DatabendColumnInfo.Builder()
@@ -137,32 +134,27 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return list.build();
     }
 
-    private static Optional<BigDecimal> toBigDecimal(String value)
-    {
+    private static Optional<BigDecimal> toBigDecimal(String value) {
         try {
             return Optional.of(new BigDecimal(value));
-        }
-        catch (NumberFormatException ne) {
+        } catch (NumberFormatException ne) {
             return Optional.empty();
         }
     }
 
     private static BigDecimal parseBigDecimal(String value)
-            throws SQLException
-    {
+            throws SQLException {
         return toBigDecimal(String.valueOf(value))
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
-    static SQLException resultsException(QueryResults results)
-    {
+    static SQLException resultsException(QueryResults results) {
         QueryErrors error = requireNonNull(results.getError());
         String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));
     }
 
-    private static Date parseDate(String value, DateTimeZone localTimeZone)
-    {
+    private static Date parseDate(String value, DateTimeZone localTimeZone) {
         long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
@@ -182,24 +174,21 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return new Date(calendar.getTimeInMillis());
     }
 
-    private static long rescale(long value, int fromPrecision, int toPrecision)
-    {
+    private static long rescale(long value, int fromPrecision, int toPrecision) {
         if (value < 0) {
             throw new IllegalArgumentException("value must be >= 0");
         }
 
         if (fromPrecision <= toPrecision) {
             value *= scaleFactor(fromPrecision, toPrecision);
-        }
-        else {
+        } else {
             value = roundDiv(value, scaleFactor(toPrecision, fromPrecision));
         }
 
         return value;
     }
 
-    private static long scaleFactor(int fromPrecision, int toPrecision)
-    {
+    private static long scaleFactor(int fromPrecision, int toPrecision) {
         if (fromPrecision > toPrecision) {
             throw new IllegalArgumentException("fromPrecision must be <= toPrecision");
         }
@@ -207,8 +196,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return POWERS_OF_TEN[toPrecision - fromPrecision];
     }
 
-    private static long roundDiv(long value, long factor)
-    {
+    private static long roundDiv(long value, long factor) {
 
         if (value >= 0) {
             return (value + (factor / 2)) / factor;
@@ -217,8 +205,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return (value - (factor / 2)) / factor;
     }
 
-    private static Time parseTime(String value, ZoneId localTimeZone)
-    {
+    private static Time parseTime(String value, ZoneId localTimeZone) {
         Matcher matcher = TIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid time: " + value);
@@ -250,8 +237,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return new Time(epochMilli);
     }
 
-    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone)
-    {
+    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone) {
         requireNonNull(localTimeZone, "localTimeZone is null");
 
         ParsedTimestamp parsed = parseTimestamp(value);
@@ -263,8 +249,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         });
     }
 
-    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser)
-    {
+    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser) {
         int year = parsed.year;
         int month = parsed.month;
         int day = parsed.day;
@@ -296,8 +281,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         return timestamp;
     }
 
-    private static ParsedTimestamp parseTimestamp(String value)
-    {
+    private static ParsedTimestamp parseTimestamp(String value) {
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
@@ -323,16 +307,14 @@ abstract class AbstractDatabendResultSet implements ResultSet
     }
 
     private void checkOpen()
-            throws SQLException
-    {
+            throws SQLException {
         if (isClosed()) {
             throw new SQLException("ResultSet is closed");
         }
     }
 
     @Override
-    public boolean next() throws SQLException
-    {
+    public boolean next() throws SQLException {
         checkOpen();
         try {
             if (!results.hasNext()) {
@@ -343,8 +325,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
             row.set(results.next());
             currentRowNumber.incrementAndGet();
             return true;
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             if (e.getCause() instanceof SQLException) {
                 throw (SQLException) e.getCause();
             }
@@ -353,22 +334,19 @@ abstract class AbstractDatabendResultSet implements ResultSet
     }
 
     @Override
-    public boolean wasNull() throws SQLException
-    {
+    public boolean wasNull() throws SQLException {
         return wasNull.get();
     }
 
     private void checkValidRow()
-            throws SQLException
-    {
+            throws SQLException {
         if (row.get() == null) {
             throw new SQLException("Not on a valid row");
         }
     }
 
     private Object column(int index)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         checkValidRow();
         if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
@@ -381,8 +359,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public String getString(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -392,8 +369,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public boolean getBoolean(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return false;
@@ -403,8 +379,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public byte getByte(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -414,8 +389,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public short getShort(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -425,8 +399,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public int getInt(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -436,8 +409,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public long getLong(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -447,8 +419,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public float getFloat(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -458,8 +429,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public double getDouble(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return 0;
@@ -469,8 +439,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public BigDecimal getBigDecimal(int columnIndex, int scale)
-            throws SQLException
-    {
+            throws SQLException {
         BigDecimal bigDecimal = getBigDecimal(columnIndex);
         if (bigDecimal != null) {
             bigDecimal = bigDecimal.setScale(scale, HALF_UP);
@@ -480,8 +449,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public byte[] getBytes(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         final Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -494,14 +462,12 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public Date getDate(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         return getDate(columnIndex, resultTimeZone);
     }
 
     private Date getDate(int columnIndex, DateTimeZone localTimeZone)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -509,22 +475,19 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
         try {
             return parseDate(String.valueOf(value), localTimeZone);
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }
     }
 
     @Override
     public Time getTime(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         return getTime(columnIndex, resultTimeZone);
     }
 
     private Time getTime(int columnIndex, DateTimeZone localTimeZone)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -532,22 +495,19 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
         try {
             return parseTime((String) value, ZoneId.of(localTimeZone.getID()));
-        }
-        catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException e) {
             throw new SQLException("Invalid time from server: " + value, e);
         }
     }
 
     @Override
     public Timestamp getTimestamp(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         return getTimestamp(columnIndex, resultTimeZone);
     }
 
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -558,8 +518,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public InputStream getAsciiStream(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -574,15 +533,13 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public InputStream getUnicodeStream(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getUnicodeStream");
     }
 
     @Override
     public InputStream getBinaryStream(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         byte[] value = getBytes(columnIndex);
         if (value == null) {
             return null;
@@ -593,8 +550,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
     }
 
     private int columnIndex(String label)
-            throws SQLException
-    {
+            throws SQLException {
         if (label == null) {
             throw new SQLException("Column label is null");
         }
@@ -607,185 +563,159 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public String getString(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getString(columnIndex(columnLabel));
     }
 
     @Override
     public boolean getBoolean(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getBoolean(columnIndex(columnLabel));
     }
 
     @Override
     public byte getByte(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getByte(columnIndex(columnLabel));
     }
 
     @Override
     public short getShort(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getShort(columnIndex(columnLabel));
     }
 
     @Override
     public int getInt(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getInt(columnIndex(columnLabel));
     }
 
     @Override
     public long getLong(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getLong(columnIndex(columnLabel));
     }
 
     @Override
     public float getFloat(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getFloat(columnIndex(columnLabel));
     }
 
     @Override
     public double getDouble(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getDouble(columnIndex(columnLabel));
     }
 
     @Override
     public BigDecimal getBigDecimal(String columnLabel, int scale)
-            throws SQLException
-    {
+            throws SQLException {
         return getBigDecimal(columnIndex(columnLabel), scale);
     }
 
     @Override
     public byte[] getBytes(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getBytes(columnIndex(columnLabel));
     }
 
     @Override
     public Date getDate(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getDate(columnIndex(columnLabel));
     }
 
     @Override
     public Time getTime(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getTime(columnIndex(columnLabel));
     }
 
     @Override
     public Timestamp getTimestamp(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getTimestamp(columnIndex(columnLabel));
     }
 
     @Override
     public InputStream getAsciiStream(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getAsciiStream(columnIndex(columnLabel));
     }
 
     @Override
     public InputStream getUnicodeStream(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getUnicodeStream");
     }
 
     @Override
     public InputStream getBinaryStream(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getBinaryStream(columnIndex(columnLabel));
     }
 
     @Override
     public SQLWarning getWarnings()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return null;
     }
 
     @Override
     public void clearWarnings()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
     }
 
     @Override
     public String getCursorName()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getCursorName");
     }
 
     @Override
     public ResultSetMetaData getMetaData()
-            throws SQLException
-    {
+            throws SQLException {
         return resultSetMetaData;
     }
 
     @Override
     public Object getObject(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         return column(columnIndex);
     }
 
     @Override
     public Object getObject(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getObject(columnIndex(columnLabel));
     }
 
     @Override
     public int findColumn(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return columnIndex(columnLabel);
     }
 
     @Override
     public Reader getCharacterStream(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("ResultSet", "getCharacterStream");
     }
 
     @Override
     public Reader getCharacterStream(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("ResultSet", "getCharacterStream");
     }
 
     @Override
     public BigDecimal getBigDecimal(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
@@ -796,71 +726,61 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public BigDecimal getBigDecimal(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getBigDecimal(columnIndex(columnLabel));
     }
 
     @Override
     public boolean isBeforeFirst()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("isBeforeFirst");
     }
 
     @Override
     public boolean isAfterLast()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("isAfterLast");
     }
 
     @Override
     public boolean isFirst()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("isFirst");
     }
 
     @Override
     public boolean isLast()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("isLast");
     }
 
     @Override
     public void beforeFirst()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("beforeFirst");
     }
 
     @Override
     public void afterLast()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("afterLast");
     }
 
     @Override
     public boolean first()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("first");
     }
 
     @Override
     public boolean last()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("last");
     }
 
     @Override
     public int getRow()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
 
         long rowNumber = currentRowNumber.get();
@@ -873,37 +793,32 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public boolean absolute(int row)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("absolute");
     }
 
     @Override
     public boolean relative(int rows)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("relative");
     }
 
     @Override
     public boolean previous()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("previous");
     }
 
     @Override
     public int getFetchDirection()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return FETCH_FORWARD;
     }
 
     @Override
     public void setFetchDirection(int direction)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (direction != FETCH_FORWARD) {
             throw new SQLException("Fetch direction must be FETCH_FORWARD");
@@ -912,8 +827,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public int getFetchSize()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         // fetch size is ignored
         return 0;
@@ -921,8 +835,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public void setFetchSize(int rows)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (rows < 0) {
             throw new SQLException("Rows is negative");
@@ -932,388 +845,333 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public int getType()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return TYPE_FORWARD_ONLY;
     }
 
     @Override
     public int getConcurrency()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return CONCUR_READ_ONLY;
     }
 
     @Override
     public boolean rowUpdated()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("rowUpdated");
     }
 
     @Override
     public boolean rowInserted()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("rowInserted");
     }
 
     @Override
     public boolean rowDeleted()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("rowDeleted");
     }
 
     @Override
     public void updateNull(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNull");
     }
 
     @Override
     public void updateBoolean(int columnIndex, boolean x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBoolean");
     }
 
     @Override
     public void updateByte(int columnIndex, byte x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateByte");
     }
 
     @Override
     public void updateShort(int columnIndex, short x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateShort");
     }
 
     @Override
     public void updateInt(int columnIndex, int x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateInt");
     }
 
     @Override
     public void updateLong(int columnIndex, long x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateLong");
     }
 
     @Override
     public void updateFloat(int columnIndex, float x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateFloat");
     }
 
     @Override
     public void updateDouble(int columnIndex, double x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateDouble");
     }
 
     @Override
     public void updateBigDecimal(int columnIndex, BigDecimal x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBigDecimal");
     }
 
     @Override
     public void updateString(int columnIndex, String x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateString");
     }
 
     @Override
     public void updateBytes(int columnIndex, byte[] x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBytes");
     }
 
     @Override
     public void updateDate(int columnIndex, Date x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateDate");
     }
 
     @Override
     public void updateTime(int columnIndex, Time x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateTime");
     }
 
     @Override
     public void updateTimestamp(int columnIndex, Timestamp x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateTimestamp");
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateObject(int columnIndex, Object x, int scaleOrLength)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateObject(int columnIndex, Object x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateNull(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNull");
     }
 
     @Override
     public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
-            throws SQLException
-    {
+            throws SQLException {
         this.updateObject(columnIndex, x, targetSqlType, scaleOrLength);
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
-            throws SQLException
-    {
+            throws SQLException {
         this.updateObject(columnLabel, x, targetSqlType, scaleOrLength);
     }
 
     @Override
     public void updateObject(int columnIndex, Object x, SQLType targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         this.updateObject(columnIndex, x, targetSqlType);
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         this.updateObject(columnLabel, x, targetSqlType);
     }
 
     @Override
     public void updateBoolean(String columnLabel, boolean x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBoolean");
     }
 
     @Override
     public void updateByte(String columnLabel, byte x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateByte");
     }
 
     @Override
     public void updateShort(String columnLabel, short x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateShort");
     }
 
     @Override
     public void updateInt(String columnLabel, int x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateInt");
     }
 
     @Override
     public void updateLong(String columnLabel, long x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateLong");
     }
 
     @Override
     public void updateFloat(String columnLabel, float x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateFloat");
     }
 
     @Override
     public void updateDouble(String columnLabel, double x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateDouble");
     }
 
     @Override
     public void updateBigDecimal(String columnLabel, BigDecimal x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBigDecimal");
     }
 
     @Override
     public void updateString(String columnLabel, String x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateString");
     }
 
     @Override
     public void updateBytes(String columnLabel, byte[] x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBytes");
     }
 
     @Override
     public void updateDate(String columnLabel, Date x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateDate");
     }
 
     @Override
     public void updateTime(String columnLabel, Time x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateTime");
     }
 
     @Override
     public void updateTimestamp(String columnLabel, Timestamp x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateTimestamp");
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader, int length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, int scaleOrLength)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateObject(String columnLabel, Object x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void insertRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("insertRow");
     }
 
     @Override
     public void updateRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateRow");
     }
 
     @Override
     public void deleteRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("deleteRow");
     }
 
     @Override
     public void refreshRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("refreshRow");
     }
 
     @Override
     public void cancelRowUpdates()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("cancelRowUpdates");
     }
 
     @Override
     public void moveToInsertRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("moveToInsertRow");
     }
 
     @Override
     public void moveToCurrentRow()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("moveToCurrentRow");
     }
 
     @Override
     public Statement getStatement()
-            throws SQLException
-    {
+            throws SQLException {
         if (statement.isPresent()) {
             return statement.get();
         }
@@ -1323,79 +1181,68 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public Object getObject(int columnIndex, Map<String, Class<?>> map)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getObject");
     }
 
     @Override
     public Ref getRef(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getRef");
     }
 
     @Override
     public Blob getBlob(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getBlob");
     }
 
     @Override
     public Clob getClob(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getClob");
     }
 
     @Override
     public Array getArray(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         // TODO support it
         throw new SQLFeatureNotSupportedException("getArray");
     }
 
     @Override
     public Object getObject(String columnLabel, Map<String, Class<?>> map)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getObject");
     }
 
     @Override
     public Ref getRef(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getRef");
     }
 
     @Override
     public Blob getBlob(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getBlob");
     }
 
     @Override
     public Clob getClob(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getClob");
     }
 
     @Override
     public Array getArray(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         return getArray(columnIndex(columnLabel));
     }
 
     @Override
     public Date getDate(int columnIndex, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         // cal into joda local timezone
         DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
         return getDate(columnIndex, timeZone);
@@ -1403,15 +1250,13 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public Date getDate(String columnLabel, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         return getDate(columnIndex(columnLabel), cal);
     }
 
     @Override
     public Time getTime(int columnIndex, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         // cal into joda local timezone
         DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
         return getTime(columnIndex, timeZone);
@@ -1419,15 +1264,13 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public Time getTime(String columnLabel, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         return getTime(columnIndex(columnLabel), cal);
     }
 
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         // cal into joda local timezone
         DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
         return getTimestamp(columnIndex, timeZone);
@@ -1435,113 +1278,97 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public Timestamp getTimestamp(String columnLabel, Calendar cal)
-            throws SQLException
-    {
+            throws SQLException {
         return getTimestamp(columnIndex(columnLabel), cal);
     }
 
     @Override
     public URL getURL(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getURL");
     }
 
     @Override
     public URL getURL(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getURL");
     }
 
     @Override
     public void updateRef(int columnIndex, Ref x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateRef");
     }
 
     @Override
     public void updateRef(String columnLabel, Ref x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateRef");
     }
 
     @Override
     public void updateBlob(int columnIndex, Blob x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateBlob(String columnLabel, Blob x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateClob(int columnIndex, Clob x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateClob(String columnLabel, Clob x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateArray(int columnIndex, Array x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateArray");
     }
 
     @Override
     public void updateArray(String columnLabel, Array x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateArray");
     }
 
     @Override
     public RowId getRowId(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getRowId");
     }
 
     @Override
     public RowId getRowId(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getRowId");
     }
 
     @Override
     public void updateRowId(int columnIndex, RowId x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateRowId");
     }
 
     @Override
     public void updateRowId(String columnLabel, RowId x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateRowId");
     }
 
     @Override
     public int getHoldability()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return ResultSet.HOLD_CURSORS_OVER_COMMIT;
     }
@@ -1552,302 +1379,259 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public void updateNString(int columnIndex, String nString)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNString");
     }
 
     @Override
     public void updateNString(String columnLabel, String nString)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNString");
     }
 
     @Override
     public void updateNClob(int columnIndex, NClob nClob)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public void updateNClob(String columnLabel, NClob nClob)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public NClob getNClob(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNClob");
     }
 
     @Override
     public NClob getNClob(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNClob");
     }
 
     @Override
     public SQLXML getSQLXML(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getSQLXML");
     }
 
     @Override
     public SQLXML getSQLXML(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getSQLXML");
     }
 
     @Override
     public void updateSQLXML(int columnIndex, SQLXML xmlObject)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateSQLXML");
     }
 
     @Override
     public void updateSQLXML(String columnLabel, SQLXML xmlObject)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateSQLXML");
     }
 
     @Override
     public String getNString(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNString");
     }
 
     @Override
     public String getNString(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNString");
     }
 
     @Override
     public Reader getNCharacterStream(int columnIndex)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNCharacterStream");
     }
 
     @Override
     public Reader getNCharacterStream(String columnLabel)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getNCharacterStream");
     }
 
     @Override
     public void updateNCharacterStream(int columnIndex, Reader x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNCharacterStream");
     }
 
     @Override
     public void updateNCharacterStream(String columnLabel, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNCharacterStream");
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateBlob(int columnIndex, InputStream inputStream, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateBlob(String columnLabel, InputStream inputStream, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateClob(int columnIndex, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateClob(String columnLabel, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateNClob(int columnIndex, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public void updateNClob(String columnLabel, Reader reader, long length)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public void updateNCharacterStream(int columnIndex, Reader x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNCharacterStream");
     }
 
     @Override
     public void updateNCharacterStream(String columnLabel, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNCharacterStream");
     }
 
     @Override
     public void updateAsciiStream(int columnIndex, InputStream x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(int columnIndex, InputStream x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(int columnIndex, Reader x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateAsciiStream(String columnLabel, InputStream x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateAsciiStream");
     }
 
     @Override
     public void updateBinaryStream(String columnLabel, InputStream x)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBinaryStream");
     }
 
     @Override
     public void updateCharacterStream(String columnLabel, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateCharacterStream");
     }
 
     @Override
     public void updateBlob(int columnIndex, InputStream inputStream)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateBlob(String columnLabel, InputStream inputStream)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateBlob");
     }
 
     @Override
     public void updateClob(int columnIndex, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateClob(String columnLabel, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateClob");
     }
 
     @Override
     public void updateNClob(int columnIndex, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public void updateNClob(String columnLabel, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
     @Override
     public <T> T getObject(int columnIndex, Class<T> type)
-            throws SQLException
-    {
+            throws SQLException {
         if (type == null) {
             throw new SQLException("type is null");
         }
@@ -1861,15 +1645,13 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public <T> T getObject(String columnLabel, Class<T> type)
-            throws SQLException
-    {
+            throws SQLException {
         return getObject(columnIndex(columnLabel), type);
     }
 
     @Override
     public <T> T unwrap(Class<T> iface)
-            throws SQLException
-    {
+            throws SQLException {
         if (isWrapperFor(iface)) {
             return (T) this;
         }
@@ -1878,13 +1660,11 @@ abstract class AbstractDatabendResultSet implements ResultSet
 
     @Override
     public boolean isWrapperFor(Class<?> iface)
-            throws SQLException
-    {
+            throws SQLException {
         return iface.isInstance(this);
     }
 
-    private static class ParsedTimestamp
-    {
+    private static class ParsedTimestamp {
         private final int year;
         private final int month;
         private final int day;
@@ -1894,8 +1674,7 @@ abstract class AbstractDatabendResultSet implements ResultSet
         private final long picosOfSecond;
         private final Optional<String> timezone;
 
-        public ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone)
-        {
+        public ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone) {
             this.year = year;
             this.month = month;
             this.day = day;
