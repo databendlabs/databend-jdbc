@@ -1178,7 +1178,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 " TRY_CAST(NULL AS varchar) LITERAL_PREFIX, " +
                 " TRY_CAST(NULL AS varchar) LITERAL_SUFFIX, " +
                 " TRY_CAST(NULL AS varchar) CREATE_PARAMS, " +
-//                " TRY_CAST(NULL AS varchar) NULLABLE, " +
+                " TRY_CAST(NULL AS smallint) NULLABLE, " +
                 " TRY_CAST(NULL AS boolean) CASE_SENSITIVE, " +
                 " TRY_CAST(NULL AS smallint) SEARCHABLE, " +
                 " TRY_CAST(NULL AS boolean) UNSIGNED_ATTRIBUTE, " +
@@ -1375,7 +1375,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 " TRY_CAST(NULL AS int) ATTR_SIZE, " +
                 " TRY_CAST(NULL AS int) DECIMAL_DIGITS, " +
                 " TRY_CAST(NULL AS int) NUM_PREC_RADIX, " +
-//                " TRY_CAST(NULL AS varchar) NULLABLE, " +
+                " TRY_CAST(NULL AS smallint) NULLABLE, " +
                 " TRY_CAST(NULL AS varchar) REMARKS, " +
                 " TRY_CAST(NULL AS varchar) ATTR_DEF, " +
                 " TRY_CAST(NULL AS int) SQL_DATA_TYPE, " +
@@ -1565,7 +1565,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 " TRY_CAST(NULL AS int) LENGTH, " +
                 " TRY_CAST(NULL AS int) SCALE, " +
                 " TRY_CAST(NULL AS int) RADIX, " +
-//                " TRY_CAST(NULL AS varchar) NULLABLE, " +
+                " TRY_CAST(NULL AS smallint) NULLABLE, " +
                 " TRY_CAST(NULL AS varchar) REMARKS, " +
                 " TRY_CAST(NULL AS varchar) CHAR_OCTET_LENGTH, " +
                 " TRY_CAST(NULL AS int) ORDINAL_POSITION, " +
