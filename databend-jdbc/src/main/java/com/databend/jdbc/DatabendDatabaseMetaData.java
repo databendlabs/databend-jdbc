@@ -1016,23 +1016,23 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         // getTables from information_schema.tables
         StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
-                ", table_schema as TABLE_SCHEM" +
+                ", table_schema as TABLE_SCHEMA" +
                 ", table_name as TABLE_NAME" +
                 ", table_type as TABLE_TYPE" +
                 ", table_comment as REMARKS" +
                 ", '' as TYPE_CAT" +
-                ", engine as TYPE_SCHEM" +
+                ", engine as TYPE_SCHEMA" +
                 ", engine as TYPE_NAME" +
                 ", '' as SELF_REFERENCING_COL_NAME" +
                 ", '' as REF_GENERATION" +
                 " FROM information_schema.tables");
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "table_catalog", catalog);
-        emptyStringLikeFilter(filters, "table_schem", schemaPattern);
+        emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringInFilter(filters, "table_type", types);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_type, table_cat, table_schem, table_name");
+        sql.append("\nORDER BY table_type, table_cat, table_schema, table_name");
 
         return select(sql.toString());
     }
@@ -1041,7 +1041,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     public ResultSet getSchemas()
             throws SQLException
     {
-        String sql = "SELECT schema_name as table_schem, catalog_name as table_catalog FROM information_schema.schemata ORDER BY table_catalog, table_schem";
+        String sql = "SELECT schema_name as table_schema, catalog_name as table_catalog FROM information_schema.schemata ORDER BY catalog_name, schema_name";
         return select(sql);
     }
 
@@ -1049,7 +1049,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     public ResultSet getCatalogs()
             throws SQLException
     {
-        String sql = "SELECT catalog_name as table_cat FROM information_schema.schemata ORDER BY table_cat";
+        String sql = "SELECT catalog_name as table_cat FROM information_schema.schemata ORDER BY catalog_name";
         return select(sql);
     }
 
@@ -1064,11 +1064,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "table_cat", catalog);
-        emptyStringLikeFilter(filters, "table_schem", schemaPattern);
+        emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringInFilter(filters, "column_name", columnNames);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_cat, table_schem, table_name, ordinal_position");
+        sql.append("\nORDER BY table_cat, table_schema, table_name, ordinal_position");
         return select(sql.toString());
     }
 
@@ -1079,11 +1079,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "table_cat", catalog);
-        emptyStringLikeFilter(filters, "table_schem", schemaPattern);
+        emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringLikeFilter(filters, "column_name", columnNamePattern);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_cat, table_schem, table_name, ordinal_position");
+        sql.append("\nORDER BY table_cat, table_schema, table_name, ordinal_position");
         return select(sql.toString());
     }
 
@@ -1121,7 +1121,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         String query = "SELECT " +
                 " TRY_CAST(NULL AS varchar) table_cat, " +
-                " TRY_CAST(NULL AS varchar) table_schem, " +
+                " TRY_CAST(NULL AS varchar) table_schema, " +
                 " TRY_CAST(NULL AS varchar) table_name, " +
                 " TRY_CAST(NULL AS varchar) column_name, " +
                 " TRY_CAST(NULL AS smallint) key_seq, " +
@@ -1136,11 +1136,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         String query = "SELECT " +
                 " TRY_CAST(NULL AS varchar) PKTABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) PKTABLE_SCHEM, " +
+                " TRY_CAST(NULL AS varchar) PKTABLE_SCHEMA, " +
                 " TRY_CAST(NULL AS varchar) PKTABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) PKCOLUMN_NAME, " +
                 " TRY_CAST(NULL AS varchar) FKTABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) FKTABLE_SCHEM, " +
+                " TRY_CAST(NULL AS varchar) FKTABLE_SCHEMA, " +
                 " TRY_CAST(NULL AS varchar) FKTABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) FKCOLUMN_NAME, " +
                 " TRY_CAST(NULL AS smallint) KEY_SEQ, " +
@@ -1291,7 +1291,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TYPE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TYPE_SCHEM, " +
+                " TRY_CAST(NULL AS varchar) TYPE_SCHEMA, " +
                 " TRY_CAST(NULL AS varchar) TYPE_NAME, " +
                 " TRY_CAST(NULL AS varchar) CLASS_NAME, " +
                 " TRY_CAST(NULL AS smallint) DATA_TYPE, " +
@@ -1341,10 +1341,10 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " CAST(NULL AS varchar) TYPE_CAT, " +
-                " CAST(NULL AS varchar) TYPE_SCHEM, " +
+                " CAST(NULL AS varchar) TYPE_SCHEMA, " +
                 " CAST(NULL AS varchar) TYPE_NAME, " +
                 " CAST(NULL AS varchar) SUPERTYPE_CAT, " +
-                " CAST(NULL AS varchar) SUPERTYPE_SCHEM, " +
+                " CAST(NULL AS varchar) SUPERTYPE_SCHEMA, " +
                 " CAST(NULL AS varchar) SUPERTYPE_NAME " +
                 "WHERE false");
     }
@@ -1355,7 +1355,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " CAST(NULL AS varchar) TABLE_CAT, " +
-                " CAST(NULL AS varchar) TABLE_SCHEM, " +
+                " CAST(NULL AS varchar) TABLE_SCHEMA, " +
                 " CAST(NULL AS varchar) TABLE_NAME, " +
                 " CAST(NULL AS varchar) SUPERTABLE_NAME " +
                 "WHERE false");
@@ -1367,7 +1367,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TYPE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TYPE_SCHEM, " +
+                " TRY_CAST(NULL AS varchar) TYPE_SCHEMA, " +
                 " TRY_CAST(NULL AS varchar) TYPE_NAME, " +
                 " TRY_CAST(NULL AS varchar) ATTR_NAME, " +
                 " TRY_CAST(NULL AS int) DATA_TYPE, " +
@@ -1375,7 +1375,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 " TRY_CAST(NULL AS int) ATTR_SIZE, " +
                 " TRY_CAST(NULL AS int) DECIMAL_DIGITS, " +
                 " TRY_CAST(NULL AS int) NUM_PREC_RADIX, " +
-                " TRY_CAST(NULL AS int) NULLABLE, " +
+                " TRY_CAST(NULL AS smallint) NULLABLE, " +
                 " TRY_CAST(NULL AS varchar) REMARKS, " +
                 " TRY_CAST(NULL AS varchar) ATTR_DEF, " +
                 " TRY_CAST(NULL AS int) SQL_DATA_TYPE, " +
@@ -1493,14 +1493,14 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         // from information schema
         StringBuilder sql = new StringBuilder("SELECT " +
-                "schema_name as TABLE_SCHEM, " +
+                "schema_name as TABLE_SCHEMA, " +
                 "catalog_name as TABLE_CATALOG " +
                 "FROM information_schema.schemata ");
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "TABLE_CATALOG", catalog);
-        emptyStringEqualsFilter(filters, "TABLE_SCHEM", schemaPattern);
+        emptyStringEqualsFilter(filters, "catalog_name", catalog);
+        emptyStringEqualsFilter(filters, "schema_name", schemaPattern);
         buildFilters(sql, filters);
-        sql.append("\n ORDER BY TABLE_CATALOG, TABLE_SCHEM");
+        sql.append("\n ORDER BY catalog_name, schema_name");
         return select(sql.toString());
     }
 
@@ -1536,16 +1536,16 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         StringBuilder sql = new StringBuilder("SELECT " +
                 " current_database() as FUNCTION_CAT, " +
-                " 'system' as FUNCTION_SCHEM, " +
+                " 'system' as FUNCTION_SCHEMA, " +
                 " name as FUNCTION_NAME, " +
                 " description as REMARKS, " +
                 " 1 as FUNCTION_TYPE, " +
                 " name as SPECIFIC_NAME" +
                 "FROM system.functions");
         List<String> filters = new ArrayList<>();
-        optionalStringLikeFilter(filters, "FUNCTION_NAME", functionNamePattern);
+        optionalStringLikeFilter(filters, "function_name", functionNamePattern);
         buildFilters(sql, filters);
-        sql.append("\n ORDER BY function_cat, function_schem, function_name");
+        sql.append("\n ORDER BY function_cat, function_schema, function_name");
         return select(sql.toString());
     }
 
@@ -1555,7 +1555,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         StringBuilder sql = new StringBuilder("SELECT " +
                 " current_database() as FUNCTION_CAT, " +
-                " 'system' as FUNCTION_SCHEM, " +
+                " 'system' as FUNCTION_SCHEMA, " +
                 " name as FUNCTION_NAME, " +
                 " TRY_CAST(NULL AS varchar) COLUMN_NAME, " +
                 " TRY_CAST(NULL AS smallint) COLUMN_TYPE, " +
@@ -1573,9 +1573,9 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 " TRY_CAST(NULL AS varchar) SPECIFIC_NAME " +
                 "FROM system.functions");
         List<String> filters = new ArrayList<>();
-        optionalStringLikeFilter(filters, "FUNCTION_NAME", functionNamePattern);
+        optionalStringLikeFilter(filters, "function_name", functionNamePattern);
         buildFilters(sql, filters);
-        sql.append("\n ORDER BY function_cat, function_schem, function_name");
+        sql.append("\n ORDER BY function_cat, function_schema, function_name");
         return select(sql.toString());
     }
 
@@ -1585,7 +1585,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TABLE_SCHEM, " +
+                " TRY_CAST(NULL AS varchar) TABLE_SCHEMA, " +
                 " TRY_CAST(NULL AS varchar) TABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) COLUMN_NAME, " +
                 " TRY_CAST(NULL AS smallint) DATA_TYPE, " +
