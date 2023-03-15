@@ -230,8 +230,12 @@ class InputStreamRequestBody extends RequestBody {
     }
 
     @Override
-    public long contentLength() throws IOException {
-        return inputStream.available() == 0 ? -1 : inputStream.available();
+    public long contentLength() {
+        try {
+            return inputStream.available() == 0 ? -1 : inputStream.available();
+        } catch (IOException e) {
+            return 0;
+        }
     }
 
     @Override
