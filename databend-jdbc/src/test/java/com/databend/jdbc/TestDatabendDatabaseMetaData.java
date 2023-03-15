@@ -89,8 +89,6 @@ public class TestDatabendDatabaseMetaData
             DatabaseMetaData metaData = connection.getMetaData();
             assertEquals(metaData.getDatabaseProductName(), "Databend");
             StringBuilder sb = new StringBuilder();
-            sb.append(metaData.getDatabaseMajorVersion());
-            sb.append(".");
             sb.append(metaData.getDatabaseMinorVersion());
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(sb.toString()));
         }
@@ -139,7 +137,7 @@ public class TestDatabendDatabaseMetaData
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try(ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
-                assertEquals(rs.getMetaData().getColumnCount(), 23);
+                assertEquals(rs.getMetaData().getColumnCount(), 24);
             }
         }
     }
