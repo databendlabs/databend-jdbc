@@ -141,6 +141,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
                 ", 0 as CHAR_OCTET_LENGTH" +
                 ", ordinal_position as ORDINAL_POSITION" +
                 ", is_nullable as IS_NULLABLE" +
+                ", nullable as NULLABLE" +
                 ", null as SCOPE_CATALOG" +
                 ", null as SCOPE_SCHEMA" +
                 ", null as SCOPE_TABLE" +
@@ -1391,17 +1392,14 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     }
 
     @Override
-    public boolean supportsResultSetHoldability(int holdability)
-            throws SQLException
-    {
-        return holdability == ResultSet.HOLD_CURSORS_OVER_COMMIT;
+    public boolean supportsResultSetHoldability(int holdability) throws SQLException {
+        return false;
     }
 
     @Override
-    public int getResultSetHoldability()
-            throws SQLException
-    {
-        return ResultSet.HOLD_CURSORS_OVER_COMMIT;
+    public int getResultSetHoldability() throws SQLException {
+        // N/A applicable as we do not support transactions
+        return 0;
     }
 
     // input DatabendQuery v0.8.173-nightly-d66d905(rust-1.67.0-nightly-2023-01-03T08:02:54.266305248Z)
