@@ -6,6 +6,7 @@ import com.databend.client.DatabendClientV1;
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
@@ -84,6 +85,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
         }
     }
 
+    // Databend DOES NOT support transaction now
     private static void checkHoldability(int resultSetHoldability)
             throws SQLFeatureNotSupportedException
     {
@@ -328,21 +330,14 @@ public class DatabendConnection implements Connection, FileTransferAPI
         throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
-    @Override
-    public int getHoldability()
-            throws SQLException
-    {
-        return ResultSet.HOLD_CURSORS_OVER_COMMIT;
+    public int getHoldability() throws SQLException {
+        return 0;
     }
 
     @Override
-    public void setHoldability(int i)
-            throws SQLException
-    {
-        checkOpen();
-        if (i != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
-            throw new SQLFeatureNotSupportedException("Changing holdability not supported");
-        }
+    @NotImplemented
+    public void setHoldability(int holdability) throws SQLException {
+        // No support for transaction
     }
 
     @Override
@@ -379,7 +374,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        checkHoldability(resultSetHoldability);
+//        checkHoldability(resultSetHoldability);
         return createStatement(resultSetType, resultSetConcurrency);
     }
 
@@ -387,7 +382,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        checkHoldability(resultSetHoldability);
+//        checkHoldability(resultSetHoldability);
         return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
@@ -395,7 +390,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException
     {
-        checkHoldability(resultSetHoldability);
+//        checkHoldability(resultSetHoldability);
         return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 

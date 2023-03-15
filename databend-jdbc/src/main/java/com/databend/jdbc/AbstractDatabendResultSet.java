@@ -3,6 +3,8 @@ package com.databend.jdbc;
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.databend.client.errors.QueryErrors;
+import com.databend.jdbc.annotation.NotImplemented;
+import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -1367,10 +1369,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     @Override
-    public int getHoldability()
-            throws SQLException {
-        checkOpen();
-        return ResultSet.HOLD_CURSORS_OVER_COMMIT;
+    @NotImplemented
+    public int getHoldability() throws SQLException {
+        throw new DatabendUnsupportedOperationException();
     }
 
     @Override

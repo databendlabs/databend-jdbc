@@ -4,6 +4,7 @@ import com.databend.client.DatabendClient;
 import com.databend.client.QueryAffect;
 import com.databend.client.QueryResults;
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.annotation.NotImplemented;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -399,10 +400,10 @@ public class DatabendStatement implements Statement
     }
 
     @Override
-    public int getResultSetHoldability()
-            throws SQLException
-    {
-        return ResultSet.CLOSE_CURSORS_AT_COMMIT;
+    @NotImplemented
+    public int getResultSetHoldability() throws SQLException {
+        // N/A applicable as we do not support transactions
+        return 0;
     }
 
     @Override
