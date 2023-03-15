@@ -1017,12 +1017,12 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         // getTables from information_schema.tables
         StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
-                ", table_schema as TABLE_SCHEMA" +
+                ", table_schema as TABLE_SCHEM" +
                 ", table_name as TABLE_NAME" +
                 ", table_type as TABLE_TYPE" +
                 ", table_comment as REMARKS" +
                 ", '' as TYPE_CAT" +
-                ", engine as TYPE_SCHEMA" +
+                ", engine as TYPE_SCHEM" +
                 ", engine as TYPE_NAME" +
                 ", '' as SELF_REFERENCING_COL_NAME" +
                 ", '' as REF_GENERATION" +
@@ -1137,11 +1137,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         String query = "SELECT " +
                 " TRY_CAST(NULL AS varchar) PKTABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) PKTABLE_SCHEMA, " +
+                " TRY_CAST(NULL AS varchar) PKTABLE_SCHEM, " +
                 " TRY_CAST(NULL AS varchar) PKTABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) PKCOLUMN_NAME, " +
                 " TRY_CAST(NULL AS varchar) FKTABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) FKTABLE_SCHEMA, " +
+                " TRY_CAST(NULL AS varchar) FKTABLE_SCHEM, " +
                 " TRY_CAST(NULL AS varchar) FKTABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) FKCOLUMN_NAME, " +
                 " TRY_CAST(NULL AS smallint) KEY_SEQ, " +
@@ -1292,7 +1292,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TYPE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TYPE_SCHEMA, " +
+                " TRY_CAST(NULL AS varchar) TYPE_SCHEM, " +
                 " TRY_CAST(NULL AS varchar) TYPE_NAME, " +
                 " TRY_CAST(NULL AS varchar) CLASS_NAME, " +
                 " TRY_CAST(NULL AS smallint) DATA_TYPE, " +
@@ -1342,10 +1342,10 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " CAST(NULL AS varchar) TYPE_CAT, " +
-                " CAST(NULL AS varchar) TYPE_SCHEMA, " +
+                " CAST(NULL AS varchar) TYPE_SCHEM, " +
                 " CAST(NULL AS varchar) TYPE_NAME, " +
                 " CAST(NULL AS varchar) SUPERTYPE_CAT, " +
-                " CAST(NULL AS varchar) SUPERTYPE_SCHEMA, " +
+                " CAST(NULL AS varchar) SUPERTYPE_SCHEM, " +
                 " CAST(NULL AS varchar) SUPERTYPE_NAME " +
                 "WHERE false");
     }
@@ -1356,7 +1356,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " CAST(NULL AS varchar) TABLE_CAT, " +
-                " CAST(NULL AS varchar) TABLE_SCHEMA, " +
+                " CAST(NULL AS varchar) TABLE_SCHEM, " +
                 " CAST(NULL AS varchar) TABLE_NAME, " +
                 " CAST(NULL AS varchar) SUPERTABLE_NAME " +
                 "WHERE false");
@@ -1368,7 +1368,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TYPE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TYPE_SCHEMA, " +
+                " TRY_CAST(NULL AS varchar) TYPE_SCHEM, " +
                 " TRY_CAST(NULL AS varchar) TYPE_NAME, " +
                 " TRY_CAST(NULL AS varchar) ATTR_NAME, " +
                 " TRY_CAST(NULL AS int) DATA_TYPE, " +
@@ -1491,7 +1491,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         // from information schema
         StringBuilder sql = new StringBuilder("SELECT " +
-                "schema_name as TABLE_SCHEMA, " +
+                "schema_name as TABLE_SCHEM, " +
                 "catalog_name as TABLE_CATALOG " +
                 "FROM information_schema.schemata ");
         List<String> filters = new ArrayList<>();
@@ -1583,7 +1583,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         return select("SELECT " +
                 " TRY_CAST(NULL AS varchar) TABLE_CAT, " +
-                " TRY_CAST(NULL AS varchar) TABLE_SCHEMA, " +
+                " TRY_CAST(NULL AS varchar) TABLE_SCHEM, " +
                 " TRY_CAST(NULL AS varchar) TABLE_NAME, " +
                 " TRY_CAST(NULL AS varchar) COLUMN_NAME, " +
                 " TRY_CAST(NULL AS smallint) DATA_TYPE, " +
