@@ -21,7 +21,7 @@ import org.testng.annotations.Test;
 import java.util.List;
 
 public class TestClientIT {
-    // please setup a local databend cluster before running this test
+    // please setup a local databend cluster before running this test, and create databend
     private static final String DATABEND_HOST = "http://databend:databend@127.0.0.1:8000";
     private static final String DATABASE = "default";
 
