@@ -58,13 +58,13 @@ public class TestFileTransfer
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000/default";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     private Connection createConnection(boolean presignDisabled) throws SQLException
     {
         String url = "jdbc:databend://localhost:8000/default?presigned_url_disabled=" + presignDisabled;
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     // generate a csv file in a temp directory with given lines, return absolute path of the generated csv

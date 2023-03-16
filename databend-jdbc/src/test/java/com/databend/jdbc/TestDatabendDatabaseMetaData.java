@@ -69,7 +69,7 @@ public class TestDatabendDatabaseMetaData
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     @Test(groups = {"IT"})
@@ -100,7 +100,7 @@ public class TestDatabendDatabaseMetaData
     {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            Assert.assertTrue(metaData.getUserName().contains("root"));
+            Assert.assertTrue(metaData.getUserName().contains("databend"));
         }
     }
 

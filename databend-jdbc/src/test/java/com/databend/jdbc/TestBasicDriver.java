@@ -19,13 +19,13 @@ public class TestBasicDriver
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     private Connection createConnection(String database) throws SQLException
     {
         String url = "jdbc:databend://localhost:8000/" + database;
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     private Connection createConnection(String database, Properties p) throws SQLException
@@ -80,8 +80,8 @@ public class TestBasicDriver
         p.setProperty("wait_time_secs", "10");
         p.setProperty("max_rows_in_buffer", "100");
         p.setProperty("max_rows_per_page", "100");
-        p.setProperty("user", "root");
-        p.setProperty("password", "root");
+        p.setProperty("user", "databend");
+        p.setProperty("password", "databend");
         //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
         try (Connection connection = createConnection("test_basic_driver", p)) {
             PaginationOptions options = connection.unwrap(DatabendConnection.class).getPaginationOptions();

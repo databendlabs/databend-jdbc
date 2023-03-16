@@ -19,13 +19,13 @@ public class TestPrepareStatement
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     private Connection createConnection(boolean presignDisabled) throws SQLException
     {
         String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
     @BeforeTest
     public void setUp()
