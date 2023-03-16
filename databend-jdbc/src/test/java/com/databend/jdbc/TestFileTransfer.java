@@ -24,10 +24,8 @@ import java.sql.Statement;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-public class TestFileTransfer
-{
-    private static byte[] streamToByteArray(InputStream stream) throws IOException
-    {
+public class TestFileTransfer {
+    private static byte[] streamToByteArray(InputStream stream) throws IOException {
 
         byte[] buffer = new byte[1024];
         ByteArrayOutputStream os = new ByteArrayOutputStream();
@@ -45,8 +43,7 @@ public class TestFileTransfer
 
     @BeforeTest
     public void setUp()
-            throws SQLException
-    {
+            throws SQLException {
         // create table
         Connection c = createConnection();
 
@@ -55,14 +52,12 @@ public class TestFileTransfer
     }
 
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000/default";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    private Connection createConnection(boolean presignDisabled) throws SQLException
-    {
+    private Connection createConnection(boolean presignDisabled) throws SQLException {
         String url = "jdbc:databend://localhost:8000/default?presigned_url_disabled=" + presignDisabled;
         return DriverManager.getConnection(url, "databend", "databend");
     }
@@ -81,12 +76,12 @@ public class TestFileTransfer
                 writer.write("a,b,c," + num + "\n");
             }
             writer.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return csvPath;
     }
+
     private String generateRandomCSVComplex(int lines) {
         if (lines <= 0) {
             return "";
@@ -100,8 +95,7 @@ public class TestFileTransfer
                 w.writeRow("1", "{\"str_col\": 1, \"int_col\": 2}", "c");
             }
             writer.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return csvPath;
@@ -109,68 +103,58 @@ public class TestFileTransfer
 
     @Test(groups = {"IT"})
     public void testFileTransfer()
-            throws IOException
-    {
+            throws IOException {
         String filePath = generateRandomCSV(10000);
+        File f = new File(filePath);
         InputStream downloaded = null;
-        try {
+        try (FileInputStream fileInputStream = new FileInputStream(f)) {
             Connection connection = createConnection();
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            File f = new File(filePath);
-            FileInputStream fileInputStream = new FileInputStream(f);
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
-            fileInputStream.close();
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
-        } finally{
+        } finally {
             if (downloaded != null) {
                 downloaded.close();
             }
         }
     }
+
     @Test(groups = {"Local"})
-    public void testFileTransferThroughAPI()
-    {
+    public void testFileTransferThroughAPI() {
         String filePath = generateRandomCSV(100000);
-        try {
+        File f = new File(filePath);
+        try (InputStream fileInputStream = Files.newInputStream(f.toPath())) {
             Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
             Connection connection = createConnection(true);
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            File f = new File(filePath);
-            InputStream fileInputStream = Files.newInputStream(f.toPath());
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
-            fileInputStream.close();
             InputStream downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
-        } finally{
-            File f = new File(filePath);
+        } finally {
             f.delete();
         }
     }
 
     @Test(groups = {"IT"})
-    public void testCopyInto()
-    {
+    public void testCopyInto() {
         String filePath = generateRandomCSVComplex(10);
-        try {
+        File f = new File(filePath);
+        try (FileInputStream fileInputStream = new FileInputStream(f)) {
             Connection connection = createConnection();
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            File f = new File(filePath);
-            FileInputStream fileInputStream = new FileInputStream(f);
             databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
             fileInputStream.close();
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
@@ -181,8 +165,7 @@ public class TestFileTransfer
             while (r.next()) {
                 System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }

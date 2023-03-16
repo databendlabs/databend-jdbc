@@ -144,9 +144,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (this.batchValues == null || this.batchValues.size() == 0) {
             return null;
         }
-        File saved = null;
-        try {
-            saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+        File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+        try (FileInputStream fis = new FileInputStream(saved);) {
             DatabendConnection c = (DatabendConnection) getConnection();
             String uuid = UUID.randomUUID().toString();
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
@@ -159,9 +158,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
-            FileInputStream fis = new FileInputStream(saved);
             c.uploadStream(null, stagePrefix, fis, fileName, false);
-            fis.close();
             String stagePath = "@~/" + stagePrefix + fileName;
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
                     .build();
