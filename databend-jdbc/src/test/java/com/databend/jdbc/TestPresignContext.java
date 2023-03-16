@@ -13,7 +13,7 @@ public class TestPresignContext
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
     @Test(groups = {"Unit"})
     public void TestPreisgnUrlBuild() {

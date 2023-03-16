@@ -22,12 +22,12 @@ import java.util.List;
 
 public class TestClientIT {
     // please setup a local databend cluster before running this test
-    private static final String DATABEND_HOST = "http://root:root@127.0.0.1:8000";
+    private static final String DATABEND_HOST = "http://databend:databend@127.0.0.1:8000";
     private static final String DATABASE = "default";
 
     @Test(groups = {"it"})
     public void testBasicQueryPagination() {
-        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("root", "root")).build();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
         DatabendClient cli = new DatabendClientV1(client, "select 1", settings);

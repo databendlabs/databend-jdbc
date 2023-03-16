@@ -18,7 +18,7 @@ public class TestDatabendPresignClient
             throws SQLException
     {
         String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
     private String generateRandomCSV(int lines) {
         if (lines <= 0) {
