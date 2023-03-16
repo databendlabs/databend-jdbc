@@ -2,6 +2,9 @@ package com.databend.jdbc;
 
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
+import com.databend.client.data.ColumnTypeHandler;
+import com.databend.client.data.ColumnTypeHandlerFactory;
+import com.databend.client.data.DatabendRawType;
 import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
@@ -1636,12 +1639,15 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (type == null) {
             throw new SQLException("type is null");
         }
+        String columnTypeStr = this.resultSetMetaData.getColumnTypeName(columnIndex);
+        DatabendRawType databendRawType = new DatabendRawType(columnTypeStr);
+        ColumnTypeHandler columnTypeHandler = ColumnTypeHandlerFactory.getTypeHandler(databendRawType);
+
         Object object = column(columnIndex);
         if (object == null) {
             return null;
         }
-
-        return type.cast(object);
+        return (T) columnTypeHandler.parseValue(object);
     }
 
     @Override
