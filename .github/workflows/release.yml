@@ -44,6 +44,7 @@ jobs:
 
       - name: Verify Service Running
         run: |
+          sleep 30
           cid=$(docker ps -a | grep databend | cut -d' ' -f1)
           docker logs ${cid}
           curl -v http://localhost:8000/v1/health
