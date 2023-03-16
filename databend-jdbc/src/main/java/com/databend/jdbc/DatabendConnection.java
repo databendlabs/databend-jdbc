@@ -117,9 +117,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
     public OkHttpClient getHttpClient() {
-        OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .connectTimeout(this.driverUri.getConnectionTimeout(), TimeUnit.SECONDS);
-        return builder.build();
+        return httpClient;
     }
 
     @Override
