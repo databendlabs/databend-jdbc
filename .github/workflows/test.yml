@@ -1,13 +1,17 @@
-name: Release Workflow
+name: Tests
 
 on:
   push:
-    tags:
-      - '[0-9]+.[0-9]+.[0-9]+'
-      - '[0-9]+.[0-9]+.[0-9]+-rc*'
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
 
 jobs:
-  build-and-release:
+  test:
     runs-on: ubuntu-latest
     services:
       databend:
@@ -36,9 +40,6 @@ jobs:
           distribution: 'temurin'
           java-version: '17'
           cache: 'maven'
-          server-id: ossrh
-          server-username: MAVEN_USERNAME
-          server-password: MAVEN_PASSWORD
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }} # Value of the GPG private key to import
           gpg-passphrase: MAVEN_GPG_PASSPHRASE # env variable for GPG private key passphrase
 
@@ -49,8 +50,6 @@ jobs:
           curl -v http://localhost:8000/v1/health
 
       - name: Run Maven clean deploy with release profile
-        run: mvn clean deploy -P release
+        run: mvn clean test
         env:
-          MAVEN_USERNAME: ${{ secrets.OSSRH_USERNAME }}
-          MAVEN_PASSWORD: ${{ secrets.OSSRH_TOKEN }}
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
