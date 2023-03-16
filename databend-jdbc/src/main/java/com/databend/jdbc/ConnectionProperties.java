@@ -93,7 +93,7 @@ public final class ConnectionProperties {
     private static class ConnectionTimeout
             extends AbstractConnectionProperty<Integer> {
         public ConnectionTimeout() {
-            super("connection_timeout", Optional.of(String.valueOf(10)), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+            super("connection_timeout", Optional.of(String.valueOf(15)), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
         }
     }
 
