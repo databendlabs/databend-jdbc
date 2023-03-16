@@ -1646,6 +1646,6 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
 
             throw e;
         }
-        return resultSet;
+        return (ResultSet) resultSet;
     }
 }
