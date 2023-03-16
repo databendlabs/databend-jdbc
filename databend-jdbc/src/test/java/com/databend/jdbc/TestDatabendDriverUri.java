@@ -9,26 +9,22 @@ import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
-public class TestDatabendDriverUri
-{
+public class TestDatabendDriverUri {
     private static DatabendDriverUri createDriverUri(String url)
-            throws SQLException
-    {
+            throws SQLException {
         Properties properties = new Properties();
 
         return DatabendDriverUri.create(url, properties);
     }
 
-    private static void assertInvalid(String url, String prefix)
-    {
+    private static void assertInvalid(String url, String prefix) {
         assertThatThrownBy(() -> createDriverUri(url))
                 .isInstanceOf(SQLException.class)
                 .hasMessageStartingWith(prefix);
     }
 
     @Test(groups = {"unit"})
-    public void testInvalidUri()
-    {
+    public void testInvalidUri() {
         // missing jdbc: prefix
         assertInvalid("test", "Invalid JDBC URL: test");
 
@@ -40,8 +36,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testBasic() throws SQLException
-    {
+    public void testBasic() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -51,8 +46,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testDefaultSSL() throws SQLException
-    {
+    public void testDefaultSSL() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -62,8 +56,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testSSLSetFalse() throws SQLException
-    {
+    public void testSSLSetFalse() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?SSL=false", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -73,8 +66,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testSSLSetTrue() throws SQLException
-    {
+    public void testSSLSetTrue() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?ssl=true", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -84,8 +76,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testSSLCustomPort() throws SQLException
-    {
+    public void testSSLCustomPort() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:33101", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -95,8 +86,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testSSLCustomPort2() throws SQLException
-    {
+    public void testSSLCustomPort2() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost:33101", null);
 
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
@@ -107,8 +97,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testUser() throws SQLException
-    {
+    public void testUser() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101?password=p1", null);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
@@ -117,8 +106,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testUserDatabase() throws SQLException
-    {
+    public void testUserDatabase() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1", null);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
@@ -127,8 +115,7 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testUserDatabasePath() throws SQLException
-    {
+    public void testUserDatabasePath() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2", null);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
@@ -137,12 +124,11 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testUserDatabaseProp() throws SQLException
-    {
-        Properties  props = new Properties();
+    public void testUserDatabaseProp() throws SQLException {
+        Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2", props);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&connection_timeout=15", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -150,6 +136,7 @@ public class TestDatabendDriverUri
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), PaginationOptions.getDefaultWaitTimeSec());
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), PaginationOptions.getDefaultMaxRowsInBuffer());
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), PaginationOptions.getDefaultMaxRowsPerPage());
@@ -157,12 +144,11 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testUserDatabasePropFull() throws SQLException
-    {
-        Properties  props = new Properties();
+    public void testUserDatabasePropFull() throws SQLException {
+        Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&connection_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -170,6 +156,7 @@ public class TestDatabendDriverUri
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 1);
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 10);
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
@@ -177,16 +164,16 @@ public class TestDatabendDriverUri
     }
 
     @Test(groups = {"unit"})
-    public void testFull() throws SQLException
-    {
-        Properties  props = new Properties();
+    public void testFull() throws SQLException {
+        Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
         props.setProperty("presigned_url_disabled", "false");
         props.setProperty("wait_time_secs", "9");
         props.setProperty("max_rows_in_buffer", "11");
         props.setProperty("max_rows_per_page", "7");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+        props.setProperty("connection_time", "15");
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&connection_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -194,6 +181,7 @@ public class TestDatabendDriverUri
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 9);
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 11);
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 7);

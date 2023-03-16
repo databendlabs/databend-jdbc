@@ -15,17 +15,12 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
+import java.util.concurrent.TimeUnit;
 
 import static com.databend.client.OkHttpUtils.basicAuthInterceptor;
 import static com.databend.client.OkHttpUtils.setupInsecureSsl;
 import static com.databend.client.OkHttpUtils.tokenAuth;
-import static com.databend.jdbc.ConnectionProperties.ACCESS_TOKEN;
-import static com.databend.jdbc.ConnectionProperties.DATABASE;
-import static com.databend.jdbc.ConnectionProperties.PASSWORD;
-import static com.databend.jdbc.ConnectionProperties.PRESIGNED_URL_DISABLED;
-import static com.databend.jdbc.ConnectionProperties.SSL;
-import static com.databend.jdbc.ConnectionProperties.USER;
-import static com.databend.jdbc.ConnectionProperties.WAIT_TIME_SECS;
+import static com.databend.jdbc.ConnectionProperties.*;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -34,8 +29,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Parses and extracts parameters from a databend JDBC URL
  */
-public final class DatabendDriverUri
-{
+public final class DatabendDriverUri {
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "databend://";
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
@@ -48,6 +42,7 @@ public final class DatabendDriverUri
     private final boolean useSecureConnection;
     private final String database;
     private final boolean presignedUrlDisabled;
+    private final Integer connectionTimeout;
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
     private final Integer maxRowsPerPage;
@@ -55,8 +50,7 @@ public final class DatabendDriverUri
 //    private final boolean useSecureConnection;
 
     private DatabendDriverUri(String url, Properties driverProperties)
-            throws SQLException
-    {
+            throws SQLException {
         Map.Entry<URI, Map<String, String>> uriAndProperties = parse(url);
         this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
@@ -65,31 +59,30 @@ public final class DatabendDriverUri
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
+        this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
     }
 
     public static DatabendDriverUri create(String url, Properties properties)
-            throws SQLException
-    {
+            throws SQLException {
         return new DatabendDriverUri(url, firstNonNull(properties, new Properties()));
     }
 
-    private static void initDatabase(URI uri, Map<String, String> uriProperties) throws SQLException
-    {
+    private static void initDatabase(URI uri, Map<String, String> uriProperties) throws SQLException {
         String path = uri.getPath();
-        if(isNullOrEmpty(path) || "/".equals(path)) {
+        if (isNullOrEmpty(path) || "/".equals(path)) {
             return;
         }
-        if(!path.startsWith("/")) {
+        if (!path.startsWith("/")) {
             throw new SQLException(format("Invalid database name '%s'", path));
         }
 
         String db = path.substring(1);
         uriProperties.put(DATABASE.getKey(), db);
     }
-    private static URI parseFinalURI(URI uri, boolean isSSLSecured) throws SQLException
-    {
+
+    private static URI parseFinalURI(URI uri, boolean isSSLSecured) throws SQLException {
         requireNonNull(uri, "uri is null");
         String authority = uri.getAuthority();
         String scheme;
@@ -105,8 +98,7 @@ public final class DatabendDriverUri
                 finalPort = hostAndPort.getPort();
                 return new URI(scheme, uri.getUserInfo(), uri.getHost(), finalPort, uri.getPath(), uri.getQuery(), uri.getFragment());
             }
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             // ignore
         }
         if (finalPort == -1) {
@@ -115,8 +107,7 @@ public final class DatabendDriverUri
         try {
 
             return new URI(scheme, uri.getUserInfo(), uri.getHost(), finalPort, uri.getPath(), uri.getQuery(), uri.getFragment());
-        }
-        catch (URISyntaxException e) {
+        } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + uri, e);
         }
     }
@@ -139,15 +130,13 @@ public final class DatabendDriverUri
         return url;
     }
 
-    private static void setProperties(Properties properties, Map<String, String> values)
-    {
+    private static void setProperties(Properties properties, Map<String, String> values) {
         for (Map.Entry<String, String> entry : values.entrySet()) {
             properties.setProperty(entry.getKey().toLowerCase(Locale.US), entry.getValue());
         }
     }
 
-    private static Properties mergeProperties(URI uri, Map<String, String> uriProperties, Properties driverProperties) throws  SQLException
-    {
+    private static Properties mergeProperties(URI uri, Map<String, String> uriProperties, Properties driverProperties) throws SQLException {
         Map<String, String> defaults = ConnectionProperties.getDefaults();
         Map<String, String> urlProperties = parseParameters(uri.getQuery());
         Map<String, String> suppliedProperties = Maps.fromProperties(driverProperties);
@@ -161,8 +150,7 @@ public final class DatabendDriverUri
 
     // needs to parse possible host, port, username, password, tenant, warehouse, database, etc.
     private static Map.Entry<URI, Map<String, String>> parse(String url)
-            throws SQLException
-    {
+            throws SQLException {
         if (url == null) {
             throw new SQLException("URL is null");
         }
@@ -171,7 +159,7 @@ public final class DatabendDriverUri
         if (pos != 0) {
             throw new SQLException("Invalid JDBC URL: " + url + " URL does not start with " + JDBC_URL_START);
         }
-        Map<String, String> uriProperties =  new LinkedHashMap<>();
+        Map<String, String> uriProperties = new LinkedHashMap<>();
         String raw = url.substring(pos + JDBC_URL_START.length());
         String scheme;
         String host = null;
@@ -207,14 +195,12 @@ public final class DatabendDriverUri
         }
     }
 
-    public static boolean acceptsURL(String url)
-    {
+    public static boolean acceptsURL(String url) {
         return url.startsWith(JDBC_URL_START);
     }
 
     private static Map<String, String> parseParameters(String query)
-            throws SQLException
-    {
+            throws SQLException {
         Map<String, String> result = new HashMap<>();
 
         if (query != null) {
@@ -233,51 +219,46 @@ public final class DatabendDriverUri
         return result;
     }
 
-    public URI getUri()
-    {
+    public URI getUri() {
         return uri;
     }
 
-    public String getDatabase()
-    {
+    public String getDatabase() {
         return database;
     }
 
-    public Boolean presignedUrlDisabled()
-    {
+    public Boolean presignedUrlDisabled() {
         return presignedUrlDisabled;
     }
 
-    public Integer getWaitTimeSecs()
-    {
+    public Integer getConnectionTimeout() {
+        return connectionTimeout;
+    }
+
+    public Integer getWaitTimeSecs() {
         return waitTimeSecs;
     }
 
-    public Integer getMaxRowsInBuffer()
-    {
+    public Integer getMaxRowsInBuffer() {
         return maxRowsInBuffer;
     }
 
-    public Integer getMaxRowsPerPage()
-    {
+    public Integer getMaxRowsPerPage() {
         return maxRowsPerPage;
     }
 
-    public HostAndPort getAddress()
-    {
+    public HostAndPort getAddress() {
         return address;
     }
 
-    public Properties getProperties()
-    {
+    public Properties getProperties() {
         return properties;
     }
 
-    public void setupClient(OkHttpClient.Builder builder) throws SQLException
-    {
+    public void setupClient(OkHttpClient.Builder builder) throws SQLException {
         try {
             String password = PASSWORD.getValue(properties).orElse("");
-            if(!password.isEmpty()) {
+            if (!password.isEmpty()) {
                 builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
             }
             if (useSecureConnection) {
@@ -285,6 +266,9 @@ public final class DatabendDriverUri
             }
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
                 builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
+            }
+            if (CONNECTION_TIMEOUT.getValue(properties).isPresent()) {
+                builder.connectTimeout(CONNECTION_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {
