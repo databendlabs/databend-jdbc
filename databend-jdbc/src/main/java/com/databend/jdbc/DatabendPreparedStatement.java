@@ -58,8 +58,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement
-{
+public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
@@ -89,43 +88,35 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
     }
 
-    private static String formatBooleanLiteral(boolean x)
-    {
+    private static String formatBooleanLiteral(boolean x) {
         return Boolean.toString(x);
     }
 
-    private static String formatByteLiteral(byte x)
-    {
+    private static String formatByteLiteral(byte x) {
         return Byte.toString(x);
     }
 
-    private static String formatShortLiteral(short x)
-    {
+    private static String formatShortLiteral(short x) {
         return Short.toString(x);
     }
 
-    private static String formatIntLiteral(int x)
-    {
+    private static String formatIntLiteral(int x) {
         return Integer.toString(x);
     }
 
-    private static String formatLongLiteral(long x)
-    {
+    private static String formatLongLiteral(long x) {
         return Long.toString(x);
     }
 
-    private static String formatFloatLiteral(float x)
-    {
+    private static String formatFloatLiteral(float x) {
         return Float.toString(x);
     }
 
-    private static String formatDoubleLiteral(double x)
-    {
+    private static String formatDoubleLiteral(double x) {
         return Double.toString(x);
     }
 
-    private static String formatBigDecimalLiteral(BigDecimal x)
-    {
+    private static String formatBigDecimalLiteral(BigDecimal x) {
         if (x == null) {
             return "null";
         }
@@ -134,20 +125,17 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
 
-    private static String formatBytesLiteral(byte[] x)
-    {
+    private static String formatBytesLiteral(byte[] x) {
         return new String(x, StandardCharsets.UTF_8);
     }
 
-    static IllegalArgumentException invalidConversion(Object x, String toType)
-    {
+    static IllegalArgumentException invalidConversion(Object x, String toType) {
         return new IllegalArgumentException(format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
     }
 
     @Override
     public void close()
-            throws SQLException
-    {
+            throws SQLException {
         super.close();
     }
 
@@ -155,9 +143,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (this.batchValues == null || this.batchValues.size() == 0) {
             return null;
         }
-        File saved = null;
-        try {
-            saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+        File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+        try (FileInputStream fis = new FileInputStream(saved);) {
             DatabendConnection c = (DatabendConnection) getConnection();
             String uuid = UUID.randomUUID().toString();
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
@@ -170,16 +157,14 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
-            FileInputStream fis = new FileInputStream(saved);
             c.uploadStream(null, stagePrefix, fis, fileName, false);
-            fis.close();
             String stagePath = "@~/" + stagePrefix + fileName;
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
                     .build();
             return attachment;
         } catch (Exception e) {
             throw new SQLException(e);
-        } finally{
+        } finally {
             try {
                 if (saved != null) {
                     saved.delete();
@@ -192,11 +177,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     /**
      * delete stage file on stage attachment
+     *
      * @param attachment
      * @return true if delete success or resource not found
      */
-    private boolean dropStageAttachment(StageAttachment attachment)
-    {
+    private boolean dropStageAttachment(StageAttachment attachment) {
         if (attachment == null) {
             return true;
         }
@@ -236,189 +221,164 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             }
             Arrays.fill(batchUpdateCounts, 1);
             return batchUpdateCounts;
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw new SQLException(e);
-        } finally{
+        } finally {
             dropStageAttachment(attachment);
         }
     }
 
     @Override
     public ResultSet executeQuery()
-            throws SQLException
-    {
+            throws SQLException {
         this.executeBatch();
         return getResultSet();
     }
 
     @Override
     public int executeUpdate()
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public void setNull(int i, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
     }
 
     @Override
     public void setBoolean(int i, boolean b)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBooleanLiteral(b)));
     }
 
     @Override
     public void setByte(int i, byte b)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatByteLiteral(b)));
     }
 
     @Override
     public void setShort(int i, short i1)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatShortLiteral(i1)));
     }
 
     @Override
     public void setInt(int i, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatIntLiteral(i1)));
     }
 
     @Override
     public void setLong(int i, long l)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatLongLiteral(l)));
     }
 
     @Override
     public void setFloat(int i, float v)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatFloatLiteral(v)));
     }
 
     @Override
     public void setDouble(int i, double v)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatDoubleLiteral(v)));
     }
 
     @Override
     public void setBigDecimal(int i, BigDecimal bigDecimal)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBigDecimalLiteral(bigDecimal)));
     }
 
     @Override
     public void setString(int i, String s)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
     }
 
     @Override
     public void setBytes(int i, byte[] bytes)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBytesLiteral(bytes)));
     }
 
     @Override
     public void setDate(int i, Date date)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (date == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
-        }
-        else {
+        } else {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
         }
     }
 
     @Override
     public void setTime(int i, Time time)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (time == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
-        }
-        else {
+        } else {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
         }
     }
 
     @Override
     public void setTimestamp(int i, Timestamp timestamp)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (timestamp == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
-        }
-        else {
+        } else {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
         }
     }
 
     @Override
     public void setAsciiStream(int i, InputStream inputStream, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setAsciiStream not supported");
     }
 
     @Override
     public void setUnicodeStream(int i, InputStream inputStream, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setUnicodeStream not supported");
     }
 
     @Override
     public void setBinaryStream(int i, InputStream inputStream, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setBinaryStream not supported");
     }
 
     @Override
     public void clearParameters()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         batchInsertUtils.ifPresent(BatchInsertUtils::clean);
     }
 
     @Override
     public void setObject(int parameterIndex, Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (x == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(parameterIndex, null));
@@ -485,74 +445,56 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     @Override
     public void setObject(int parameterIndex, Object x)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (x == null) {
             setNull(parameterIndex, Types.NULL);
-        }
-        else if (x instanceof Boolean) {
+        } else if (x instanceof Boolean) {
             setBoolean(parameterIndex, (Boolean) x);
-        }
-        else if (x instanceof Byte) {
+        } else if (x instanceof Byte) {
             setByte(parameterIndex, (Byte) x);
-        }
-        else if (x instanceof Short) {
+        } else if (x instanceof Short) {
             setShort(parameterIndex, (Short) x);
-        }
-        else if (x instanceof Integer) {
+        } else if (x instanceof Integer) {
             setInt(parameterIndex, (Integer) x);
-        }
-        else if (x instanceof Long) {
+        } else if (x instanceof Long) {
             setLong(parameterIndex, (Long) x);
-        }
-        else if (x instanceof Float) {
+        } else if (x instanceof Float) {
             setFloat(parameterIndex, (Float) x);
-        }
-        else if (x instanceof Double) {
+        } else if (x instanceof Double) {
             setDouble(parameterIndex, (Double) x);
-        }
-        else if (x instanceof BigDecimal) {
+        } else if (x instanceof BigDecimal) {
             setBigDecimal(parameterIndex, (BigDecimal) x);
-        }
-        else if (x instanceof String) {
+        } else if (x instanceof String) {
             setString(parameterIndex, (String) x);
-        }
-        else if (x instanceof byte[]) {
+        } else if (x instanceof byte[]) {
             setBytes(parameterIndex, (byte[]) x);
-        }
-        else if (x instanceof Date) {
+        } else if (x instanceof Date) {
             setDate(parameterIndex, (Date) x);
-        }
-        else if (x instanceof LocalDate) {
+        } else if (x instanceof LocalDate) {
             setString(parameterIndex, toDateLiteral(x));
-        }
-        else if (x instanceof Time) {
+        } else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
         }
         // TODO (https://github.com/trinodb/trino/issues/6299) LocalTime -> setAsTime
         else if (x instanceof OffsetTime) {
             setString(parameterIndex, toTimeWithTimeZoneLiteral(x));
-        }
-        else if (x instanceof Timestamp) {
+        } else if (x instanceof Timestamp) {
             setTimestamp(parameterIndex, (Timestamp) x);
-        }
-        else {
+        } else {
             throw new SQLException("Unsupported object type: " + x.getClass().getName());
         }
     }
 
     @Override
     public boolean execute()
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public void addBatch()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         if (batchInsertUtils.isPresent()) {
             String[] val = batchInsertUtils.get().getValues();
@@ -572,223 +514,191 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     @Override
     public void setCharacterStream(int i, Reader reader, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setCharacterStream");
     }
 
     @Override
     public void setRef(int i, Ref ref)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setRef");
     }
 
     @Override
     public void setBlob(int i, Blob blob)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
     }
 
     @Override
     public void setClob(int i, Clob clob)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
     }
 
     @Override
     public void setArray(int i, Array array)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setArray");
     }
 
     @Override
     public ResultSetMetaData getMetaData()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void setDate(int i, Date date, Calendar calendar)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setDate");
     }
 
     @Override
     public void setTime(int i, Time time, Calendar calendar)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setTime");
     }
 
     @Override
     public void setTimestamp(int i, Timestamp timestamp, Calendar calendar)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setTimestamp");
     }
 
     @Override
     public void setNull(int i, int i1, String s)
-            throws SQLException
-    {
+            throws SQLException {
         setNull(i, i1);
     }
 
     @Override
     public void setURL(int i, URL url)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
     @Override
     public ParameterMetaData getParameterMetaData()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void setRowId(int i, RowId rowId)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setRowId");
     }
 
     @Override
     public void setNString(int i, String s)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNString");
     }
 
     @Override
     public void setNCharacterStream(int i, Reader reader, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNCharacterStream");
     }
 
     @Override
     public void setNClob(int i, NClob nClob)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
 
     @Override
     public void setClob(int i, Reader reader, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
     }
 
     @Override
     public void setBlob(int i, InputStream inputStream, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
     }
 
     @Override
     public void setNClob(int i, Reader reader, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
 
     @Override
     public void setSQLXML(int i, SQLXML sqlxml)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setSQLXML");
     }
 
     @Override
     public void setObject(int i, Object o, int i1, int i2)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setObject");
     }
 
     @Override
     public void setAsciiStream(int i, InputStream inputStream, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setAsciiStream");
     }
 
     @Override
     public void setBinaryStream(int i, InputStream inputStream, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setBinaryStream");
     }
 
     @Override
     public void setCharacterStream(int i, Reader reader, long l)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setCharacterStream");
     }
 
     @Override
     public void setAsciiStream(int i, InputStream inputStream)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setAsciiStream");
     }
 
     @Override
     public void setBinaryStream(int i, InputStream inputStream)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setBinaryStream");
     }
 
     @Override
     public void setCharacterStream(int i, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setCharacterStream");
     }
 
     @Override
     public void setNCharacterStream(int i, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNCharacterStream");
     }
 
     @Override
     public void setClob(int i, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
     }
 
     @Override
     public void setBlob(int i, InputStream inputStream)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
     }
 
     @Override
     public void setNClob(int i, Reader reader)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
 
-    private String toDateLiteral(Object value) throws IllegalArgumentException
-    {
+    private String toDateLiteral(Object value) throws IllegalArgumentException {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
             return DATE_FORMATTER.print(((java.util.Date) value).getTime());
@@ -807,8 +717,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private String toTimeLiteral(Object value)
-            throws IllegalArgumentException
-    {
+            throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
             return TIME_FORMATTER.print(((java.util.Date) value).getTime());
         }
@@ -826,8 +735,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private String toTimestampLiteral(Object value)
-            throws IllegalArgumentException
-    {
+            throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
             return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
         }
@@ -842,8 +750,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private String toTimestampWithTimeZoneLiteral(Object value)
-            throws SQLException
-    {
+            throws SQLException {
         if (value instanceof String) {
             return (String) value;
         }
@@ -851,8 +758,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private String toTimeWithTimeZoneLiteral(Object value)
-            throws SQLException
-    {
+            throws SQLException {
         if (value instanceof OffsetTime) {
             return OFFSET_TIME_FORMATTER.format((OffsetTime) value);
         }
