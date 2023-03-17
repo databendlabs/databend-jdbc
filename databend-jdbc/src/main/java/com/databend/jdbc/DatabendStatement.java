@@ -206,7 +206,6 @@ public class DatabendStatement implements Statement
         try {
             if (attachment == null) {
                 client = connection().startQuery(sql);
-
             }
             else {
                 client = connection().startQuery(sql, attachment);

@@ -150,7 +150,7 @@ public class DatabendClientV1
             attempts++;
             JsonResponse<QueryResults> response;
             try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, this.httpClient, request, materializedJsonSizeLimit);
+                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             }
             catch (RuntimeException e) {
                 cause = e;
