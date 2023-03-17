@@ -41,6 +41,7 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -51,8 +52,7 @@ import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendConnection implements Connection, FileTransferAPI
-{
+public class DatabendConnection implements Connection, FileTransferAPI {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
@@ -63,8 +63,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     private final DatabendDriverUri driverUri;
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
-    DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException
-    {
+    DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
         this.httpUri = uri.getUri();
         this.setSchema(uri.getDatabase());
@@ -75,8 +74,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
-            throws SQLFeatureNotSupportedException
-    {
+            throws SQLFeatureNotSupportedException {
         if (resultSetType != ResultSet.TYPE_FORWARD_ONLY) {
             throw new SQLFeatureNotSupportedException("Result set type must be TYPE_FORWARD_ONLY");
         }
@@ -87,15 +85,13 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     // Databend DOES NOT support transaction now
     private static void checkHoldability(int resultSetHoldability)
-            throws SQLFeatureNotSupportedException
-    {
+            throws SQLFeatureNotSupportedException {
         if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
             throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
         }
     }
 
-    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
-    {
+    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params) {
         StringBuilder sb = new StringBuilder();
         sb.append("COPY INTO ");
         if (database != null) {
@@ -109,13 +105,11 @@ public class DatabendConnection implements Connection, FileTransferAPI
         return sb.toString();
     }
 
-    public DatabendSession getSession()
-    {
+    public DatabendSession getSession() {
         return this.session.get();
     }
 
-    public void setSession(DatabendSession session)
-    {
+    public void setSession(DatabendSession session) {
         if (session == null) {
             return;
         }
@@ -128,55 +122,47 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public Statement createStatement()
-            throws SQLException
-    {
+            throws SQLException {
         return doCreateStatement();
     }
 
-    private DatabendStatement doCreateStatement() throws SQLException
-    {
+    private DatabendStatement doCreateStatement() throws SQLException {
         checkOpen();
         DatabendStatement statement = new DatabendStatement(this, this::unregisterStatement);
         registerStatement(statement);
         return statement;
     }
 
-    private void registerStatement(DatabendStatement statement)
-    {
+    private void registerStatement(DatabendStatement statement) {
         checkState(statements.add(statement), "Statement is already registered");
     }
 
-    private void unregisterStatement(DatabendStatement statement)
-    {
+    private void unregisterStatement(DatabendStatement statement) {
         checkState(statements.remove(statement), "Statement is not registered");
     }
 
     @Override
     public PreparedStatement prepareStatement(String s)
-            throws SQLException
-    {
+            throws SQLException {
 
-        return this.prepareStatement(s,0, 0);
+        return this.prepareStatement(s, 0, 0);
     }
 
     @Override
     public CallableStatement prepareCall(String s)
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public String nativeSQL(String sql)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return sql;
     }
 
     private void checkOpen()
-            throws SQLException
-    {
+            throws SQLException {
         if (isClosed()) {
             throw new SQLException("Connection is closed");
         }
@@ -184,8 +170,7 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public void commit()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         // currently not support commit
         return;
@@ -193,23 +178,20 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public boolean getAutoCommit()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return autoCommit.get();
     }
 
     @Override
     public void setAutoCommit(boolean b)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public void rollback()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         // currently not support rollback
         return;
@@ -217,93 +199,80 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public void close()
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public boolean isClosed()
-            throws SQLException
-    {
+            throws SQLException {
         return closed.get();
     }
 
     @Override
     public DatabaseMetaData getMetaData()
-            throws SQLException
-    {
+            throws SQLException {
         return new DatabendDatabaseMetaData(this);
     }
 
     @Override
     public boolean isReadOnly()
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public void setReadOnly(boolean b)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public String getCatalog()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void setCatalog(String s)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public int getTransactionIsolation()
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public void setTransactionIsolation(int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public SQLWarning getWarnings()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void clearWarnings()
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency)
-            throws SQLException
-    {
+            throws SQLException {
         checkResultSet(resultSetType, resultSetConcurrency);
         return createStatement();
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, int i, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         DatabendPreparedStatement statement = new DatabendPreparedStatement(this, this::unregisterStatement, "test", s);
         registerStatement(statement);
         return statement;
@@ -311,22 +280,19 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public CallableStatement prepareCall(String s, int i, int i1)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("prepareCall");
     }
 
     @Override
     public Map<String, Class<?>> getTypeMap()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getTypeMap");
     }
 
     @Override
     public void setTypeMap(Map<String, Class<?>> map)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setTypeMap");
     }
 
@@ -342,197 +308,170 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public Savepoint setSavepoint()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public Savepoint setSavepoint(String s)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("setSavepoint");
     }
 
     @Override
     public void rollback(Savepoint savepoint)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("rollback");
 
     }
 
     @Override
     public void releaseSavepoint(Savepoint savepoint)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("releaseSavepoint");
 
     }
 
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
-            throws SQLException
-    {
+            throws SQLException {
 //        checkHoldability(resultSetHoldability);
         return createStatement(resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
-            throws SQLException
-    {
+            throws SQLException {
 //        checkHoldability(resultSetHoldability);
         return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
-            throws SQLException
-    {
+            throws SQLException {
 //        checkHoldability(resultSetHoldability);
         return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, int autoGeneratedKeys)
-            throws SQLException
-    {
+            throws SQLException {
         return prepareStatement(s);
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, int[] ints)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, String[] strings)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("prepareStatement");
     }
 
     @Override
     public Clob createClob()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createClob");
     }
 
     @Override
     public Blob createBlob()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createBlob");
     }
 
     @Override
     public NClob createNClob()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createNClob");
     }
 
     @Override
     public SQLXML createSQLXML()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createSQLXML");
     }
 
     @Override
     public boolean isValid(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return !isClosed();
     }
 
     @Override
     public void setClientInfo(String s, String s1)
-            throws SQLClientInfoException
-    {
+            throws SQLClientInfoException {
 
     }
 
     @Override
     public String getClientInfo(String s)
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public Properties getClientInfo()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void setClientInfo(Properties properties)
-            throws SQLClientInfoException
-    {
+            throws SQLClientInfoException {
 
     }
 
     @Override
     public Array createArrayOf(String s, Object[] objects)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createArrayOf");
     }
 
     @Override
     public Struct createStruct(String s, Object[] objects)
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("createStruct");
     }
 
     @Override
     public String getSchema()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return schema.get();
     }
 
     @Override
     public void setSchema(String schema)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         this.schema.set(schema);
     }
 
     @Override
     public void abort(Executor executor)
-            throws SQLException
-    {
+            throws SQLException {
         close();
     }
 
     @Override
     public void setNetworkTimeout(Executor executor, int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public int getNetworkTimeout()
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public <T> T unwrap(Class<T> aClass)
-            throws SQLException
-    {
+            throws SQLException {
         if (isWrapperFor(aClass)) {
             return (T) this;
         }
@@ -541,13 +480,11 @@ public class DatabendConnection implements Connection, FileTransferAPI
 
     @Override
     public boolean isWrapperFor(Class<?> aClass)
-            throws SQLException
-    {
+            throws SQLException {
         return aClass.isInstance(this);
     }
 
-    public boolean presignedUrlDisabled()
-    {
+    public boolean presignedUrlDisabled() {
         return this.driverUri.presignedUrlDisabled();
     }
 
@@ -559,29 +496,27 @@ public class DatabendConnection implements Connection, FileTransferAPI
         return builder.build();
     }
 
-    public URI getURI()
-    {
+    public URI getURI() {
         return this.httpUri;
     }
 
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).build();
+        ClientSettings s = new ClientSettings.Builder().setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).setConnectionTimeout(this.driverUri.getConnectionTimeout()).setSession(this.session.get()).setHost(this.getURI().toString()).setPaginationOptions(options).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).setPaginationOptions(options).setStageAttachment(attach).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).setConnectionTimeout(this.driverUri.getConnectionTimeout()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
 
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
-            throws SQLException
-    {
+            throws SQLException {
         // TODO(zhihanz) handle compress data
         // remove / in the end of stage name
         // remove / in the beginning of destPrefix and end of destPrefix
@@ -594,31 +529,28 @@ public class DatabendConnection implements Connection, FileTransferAPI
         String p = destPrefix.replaceAll("^/", "").replaceAll("/$", "");
         String dest = p + "/" + destFileName;
         try {
-            logger.log(Level.FINE,  "presign to @" + s + "/" + dest);
+            logger.log(Level.FINE, "presign to @" + s + "/" + dest);
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
             if (this.driverUri.presignedUrlDisabled()) {
-                DatabendPresignClient cli = new DatabendPresignClientV1(this.getHttpClient(), this.httpUri.toString());
+                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
 
                 cli.presignUpload(null, inputStream, s, p + "/", destFileName, true);
             } else {
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
                 cli.presignUpload(null, inputStream, h, presignUrl, true);
             }
-        }
-        catch (JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             throw new SQLException(e);
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new SQLException("failed to upload input stream", e);
         }
     }
 
     @Override
     public InputStream downloadStream(String stageName, String sourceFileName, boolean decompress)
-            throws SQLException
-    {
+            throws SQLException {
         String s = stageName.replaceAll("/$", "");
         DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
         try {
@@ -626,25 +558,23 @@ public class DatabendConnection implements Connection, FileTransferAPI
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
             return cli.presignDownloadStream(h, presignUrl);
-        }
-        catch (JsonProcessingException e) {
+        } catch (JsonProcessingException e) {
             throw new SQLException(e);
         }
     }
 
     @Override
     public void copyIntoTable(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
-            throws SQLException
-    {
-            requireNonNull(tableName, "tableName is null");
-            requireNonNull(stage, "stage is null");
-            DatabendCopyParams p = params == null ? DatabendCopyParams.builder().build() : params;
-            String sql = getCopyIntoSql(database, tableName, stage, p);
-            System.out.println(sql);
-            Statement statement = this.createStatement();
-            statement.execute(sql);
-            ResultSet rs = statement.getResultSet();
-            while (rs.next()) {
-            }
+            throws SQLException {
+        requireNonNull(tableName, "tableName is null");
+        requireNonNull(stage, "stage is null");
+        DatabendCopyParams p = params == null ? DatabendCopyParams.builder().build() : params;
+        String sql = getCopyIntoSql(database, tableName, stage, p);
+        System.out.println(sql);
+        Statement statement = this.createStatement();
+        statement.execute(sql);
+        ResultSet rs = statement.getResultSet();
+        while (rs.next()) {
+        }
     }
 }
