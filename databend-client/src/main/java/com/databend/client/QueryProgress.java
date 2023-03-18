@@ -17,28 +17,30 @@ package com.databend.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.math.BigInteger;
+
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class QueryProgress {
-    private final int rows;
-    private final int bytes;
+    private final BigInteger rows;
+    private final BigInteger bytes;
 
     @JsonCreator
     public QueryProgress(
-            @JsonProperty("rows") int rows,
-            @JsonProperty("bytes") int bytes) {
+            @JsonProperty("rows") BigInteger rows,
+            @JsonProperty("bytes") BigInteger bytes) {
         this.rows = rows;
         this.bytes = bytes;
     }
 
     // add builder
     @JsonProperty
-    public int getRows() {
+    public BigInteger getRows() {
         return rows;
     }
 
     @JsonProperty
-    public int getBytes() {
+    public BigInteger getBytes() {
         return bytes;
     }
 
