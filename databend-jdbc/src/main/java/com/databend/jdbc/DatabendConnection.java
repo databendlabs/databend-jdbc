@@ -538,11 +538,11 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 cli.presignUpload(null, inputStream, h, presignUrl, true);
             }
         } catch (JsonProcessingException e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
             // For datax batch insert test, do not throw exception
 //            throw new SQLException(e);
         } catch (IOException e) {
-            System.out.println(e);
+            System.out.println(e.getMessage());
 //            throw new SQLException("failed to upload input stream", e);
         }
     }
