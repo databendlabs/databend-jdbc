@@ -158,8 +158,8 @@ public class TestFileTransfer {
             databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
             fileInputStream.close();
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
-            DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").build();
-            databendConnection.copyIntoTable(null, "copy_into", s, p);
+            DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").setDatabaseTableName("copy_into").setDatabendStage(s).build();
+            databendConnection.copyIntoTable(null, "copy_into", p);
             Statement stmt = connection.createStatement();
             ResultSet r = stmt.executeQuery("SELECT * FROM copy_into");
             while (r.next()) {

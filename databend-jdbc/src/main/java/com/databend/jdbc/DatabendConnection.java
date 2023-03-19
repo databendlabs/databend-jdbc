@@ -10,12 +10,10 @@ import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
-import com.databend.jdbc.cloud.DatabendStage;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
-import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -41,7 +39,6 @@ import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
@@ -91,15 +88,15 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         }
     }
 
-    public static String getCopyIntoSql(String database, String tableName, DatabendStage stage, DatabendCopyParams params) {
+    public static String getCopyIntoSql(String database,  DatabendCopyParams params) {
         StringBuilder sb = new StringBuilder();
         sb.append("COPY INTO ");
         if (database != null) {
             sb.append(database).append(".");
         }
-        sb.append(tableName).append(" ");
+        sb.append(params.getDatabaseTableName()).append(" ");
         sb.append("FROM ");
-        sb.append(stage.toString());
+        sb.append(params.getDatabendStage().toString());
         sb.append(" ");
         sb.append(params.toString());
         return sb.toString();
@@ -564,12 +561,12 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
     @Override
-    public void copyIntoTable(String database, String tableName, DatabendStage stage, DatabendCopyParams params)
+    public void copyIntoTable(String database, String tableName, DatabendCopyParams params)
             throws SQLException {
-        requireNonNull(tableName, "tableName is null");
-        requireNonNull(stage, "stage is null");
         DatabendCopyParams p = params == null ? DatabendCopyParams.builder().build() : params;
-        String sql = getCopyIntoSql(database, tableName, stage, p);
+        requireNonNull(p.getDatabaseTableName(), "tableName is null");
+        requireNonNull(p.getDatabendStage(), "stage is null");
+        String sql = getCopyIntoSql(database, p);
         System.out.println(sql);
         Statement statement = this.createStatement();
         statement.execute(sql);

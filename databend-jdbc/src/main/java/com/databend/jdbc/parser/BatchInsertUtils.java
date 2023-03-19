@@ -16,39 +16,52 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
-public class BatchInsertUtils
-{
+public class BatchInsertUtils {
     private static final Logger logger = Logger.getLogger(BatchInsertUtils.class.getPackage().getName());
 
     private final String sql;
+
+    private String databaseTableName;
     // prepareValues[i] is null if the i-th value is a placeholder
 
     private TreeMap<Integer, String> placeHolderEntries;
-    private BatchInsertUtils(String sql)
-    {
+
+    private BatchInsertUtils(String sql) {
         this.sql = sql;
         // sort key in ascending order
         this.placeHolderEntries = new TreeMap<>();
+        this.databaseTableName = getDatabaseTableName();
     }
 
     /**
      * Parse the sql to get insert AST
+     *
      * @param sql candidate sql
      * @return BatchInertUtils if the sql is a batch insert sql
      */
-    public static Optional<BatchInsertUtils> tryParseInsertSql(String sql)
-    {
+    public static Optional<BatchInsertUtils> tryParseInsertSql(String sql) {
         return Optional.of(new BatchInsertUtils(sql));
     }
 
-    public String getSql()
-    {
+    public String getSql() {
         return sql;
     }
 
-    public void setPlaceHolderValue(int index, String value) throws IllegalArgumentException
-    {
+    public String getDatabaseTableName() {
+        Pattern pattern = Pattern.compile("(?i)^INSERT INTO\\s+\\x60?([\\w.^\\(]+)\\x60?\\s*(\\([^\\)]*\\))?");
+        Matcher matcher = pattern.matcher(sql);
+
+        if (matcher.find()) {
+            databaseTableName = matcher.group(1);
+        }
+
+        return databaseTableName;
+    }
+
+    public void setPlaceHolderValue(int index, String value) throws IllegalArgumentException {
         int i = index - 1;
 
         placeHolderEntries.put(i, value);
@@ -89,8 +102,7 @@ public class BatchInsertUtils
             }
             logger.log(Level.FINE, "save batch insert to csv file: " + file.getAbsolutePath() + "rows: " + values.size() + " columns: " + rowSize);
             return file;
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new RuntimeException(e);
         }
     }

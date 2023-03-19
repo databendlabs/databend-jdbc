@@ -1,6 +1,8 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import com.databend.jdbc.cloud.DatabendCopyParams;
+import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -140,6 +142,42 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         super.close();
     }
 
+    private DatabendCopyParams uploadBatchesForCopyInto() throws SQLException {
+        if (this.batchValues == null || this.batchValues.size() == 0) {
+            return null;
+        }
+        File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
+        try (FileInputStream fis = new FileInputStream(saved);) {
+            DatabendConnection c = (DatabendConnection) getConnection();
+            String uuid = UUID.randomUUID().toString();
+            // format %Y/%m/%d/%H/%M/%S/fileName.csv
+            String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
+                    LocalDateTime.now().getYear(),
+                    LocalDateTime.now().getMonthValue(),
+                    LocalDateTime.now().getDayOfMonth(),
+                    LocalDateTime.now().getHour(),
+                    LocalDateTime.now().getMinute(),
+                    LocalDateTime.now().getSecond(),
+                    uuid);
+            String fileName = saved.getName();
+            c.uploadStream(null, stagePrefix, fis, fileName, false);
+            String stageName = "~";
+            DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
+            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setPattern(fileName).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
+            return databendCopyParams;
+        } catch (Exception e) {
+            throw new SQLException(e);
+        } finally {
+            try {
+                if (saved != null) {
+                    saved.delete();
+                }
+            } catch (Exception e) {
+                // ignore
+            }
+        }
+    }
+
     private StageAttachment uploadBatches() throws SQLException {
         if (this.batchValues == null || this.batchValues.size() == 0) {
             return null;
@@ -205,18 +243,18 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             super.execute(this.originalSql);
             return batchUpdateCounts;
         }
-        StageAttachment attachment = uploadBatches();
+        DatabendCopyParams databendCopyParams = uploadBatchesForCopyInto();
         ResultSet r = null;
-        if (attachment == null) {
+        if (databendCopyParams == null) {
             logger.fine("use normal execute instead of batch insert");
             super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
-            logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment, batchInsertUtils.get().getSql()));
-            super.internalExecute(batchInsertUtils.get().getSql(), attachment);
+            String sql = DatabendConnection.getCopyIntoSql(null, databendCopyParams);
+            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s, sql"));
+            super.internalExecute(sql, null);
             r = getResultSet();
-
             while (r.next()) {
 
             }
@@ -224,8 +262,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             return batchUpdateCounts;
         } catch (RuntimeException e) {
             throw new SQLException(e);
-        } finally {
-            dropStageAttachment(attachment);
         }
     }
 

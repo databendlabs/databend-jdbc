@@ -1,9 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.jdbc.cloud.DatabendCopyParams;
-import com.databend.jdbc.cloud.DatabendStage;
 
-import java.io.File;
 import java.io.InputStream;
 import java.sql.SQLException;
 
@@ -34,11 +32,11 @@ public interface FileTransferAPI
     /**
      * Copy into the target table from files on the internal stage
      * Documentation: https://databend.rs/doc/sql-commands/dml/dml-copy-into-table
+     *
      * @param database the target table's database
      * @param tableName the target table name
-     * @param stage the stage which contains the files
      * @param params copy options and file options
      * @throws SQLException
      */
-    public void copyIntoTable(String database, String tableName, DatabendStage stage, DatabendCopyParams params) throws SQLException;
+    public void copyIntoTable(String database, String tableName,  DatabendCopyParams params) throws SQLException;
 }
