@@ -252,7 +252,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
         try {
             String sql = DatabendConnection.getCopyIntoSql(null, databendCopyParams);
-            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s, sql"));
+            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s", sql));
             super.internalExecute(sql, null);
             r = getResultSet();
             while (r.next()) {
