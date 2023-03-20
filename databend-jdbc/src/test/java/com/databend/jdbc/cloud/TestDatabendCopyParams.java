@@ -9,11 +9,9 @@ import java.util.Map;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestDatabendCopyParams
-{
+public class TestDatabendCopyParams {
     @Test(groups = {"Unit"})
-    public void testDatabendStage()
-    {
+    public void testDatabendStage() {
         DatabendCopyParams prms = DatabendCopyParams.builder()
                 .setPattern("*.csv")
                 .setType("XML")
@@ -41,8 +39,11 @@ public class TestDatabendCopyParams
         copyOptions.put("PURGE", "true");
         copyOptions.put("FORCE", "true");
         copyOptions.put("SIZE_LIMIT", "1000");
-        prms = DatabendCopyParams.builder().setFiles(files).setPattern("a.txt").setType("parquet")
+        DatabendStage s = DatabendStage.builder().stageName("~").path("jdbc/c2/").build();
+        prms = DatabendCopyParams.builder().setFiles(files).setDatabendStage(s).setPattern("a.txt").setType("parquet")
                 .setCopyOptions(copyOptions).setFileOptions(fileOptions).build();
+        assertEquals(prms.getDatabendStage().getStageName(),"~");
+        assertEquals(prms.getDatabendStage().getPath(),"jdbc/c2/");
         assertEquals(prms.getPattern(), "a.txt");
         assertEquals(prms.getType(), "parquet");
         assertEquals(prms.getFiles().size(), 2);
