@@ -18,6 +18,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     public static final ConnectionProperty<Integer> CONNECTION_TIMEOUT = new ConnectionTimeout();
+    public static final ConnectionProperty<Integer> SOCKET_TIMEOUT = new SocketTimeout();
 
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
@@ -33,6 +34,7 @@ public final class ConnectionProperties {
             .add(ACCESS_TOKEN)
             .add(PRESIGNED_URL_DISABLED)
             .add(CONNECTION_TIMEOUT)
+            .add(SOCKET_TIMEOUT)
             .add(WAIT_TIME_SECS)
             .add(MAX_ROWS_IN_BUFFER)
             .add(MAX_ROWS_PER_PAGE)
@@ -94,6 +96,12 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<Integer> {
         public ConnectionTimeout() {
             super("connection_timeout", Optional.of(String.valueOf(15)), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+        }
+    }
+
+    private static class SocketTimeout extends AbstractConnectionProperty<Integer> {
+        public SocketTimeout() {
+            super("socket_timeout", Optional.of(String.valueOf(15)), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
         }
     }
 

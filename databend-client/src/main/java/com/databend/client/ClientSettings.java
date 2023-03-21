@@ -20,11 +20,13 @@ import java.util.Map;
 public class ClientSettings {
     public static final Duration DEFAULT_QUERY_TIMEOUT = Duration.ofSeconds(60);
     public static final Integer DEFAULT_CONNECTION_TIMEOUT = 15; // seconds
+    public static final Integer DEFAULT_SOCKET_TIMEOUT = 15;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     private final String host;
     private final DatabendSession session;
     private final Duration queryTimeoutNanos;
     private final Integer connectionTimeout;
+    private final Integer socketTimeout;
 
     private final PaginationOptions paginationOptions;
 
@@ -35,7 +37,7 @@ public class ClientSettings {
     // TODO(zhihanz) timezone and locale info
 
     public ClientSettings(String host) {
-        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, PaginationOptions.defaultPaginationOptions(), null, null, DEFAULT_RETRY_ATTEMPTS);
+        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), null, null, DEFAULT_RETRY_ATTEMPTS);
     }
 
     public ClientSettings(String host, String database) {
@@ -44,6 +46,7 @@ public class ClientSettings {
         this.session = session;
         this.queryTimeoutNanos = DEFAULT_QUERY_TIMEOUT;
         this.connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
+        this.socketTimeout = DEFAULT_SOCKET_TIMEOUT;
         this.paginationOptions = PaginationOptions.defaultPaginationOptions();
         this.additionalHeaders = null;
         this.stageAttachment = null;
@@ -53,6 +56,7 @@ public class ClientSettings {
     public ClientSettings(String host, DatabendSession session,
                           Duration queryTimeoutNanos,
                           Integer connectionTimeout,
+                          Integer socketTimeout,
                           PaginationOptions paginationOptions,
                           Map<String, String> additionalHeaders,
                           StageAttachment stageAttachment,
@@ -61,6 +65,7 @@ public class ClientSettings {
         this.session = session;
         this.queryTimeoutNanos = queryTimeoutNanos;
         this.connectionTimeout = connectionTimeout;
+        this.socketTimeout = socketTimeout;
         this.paginationOptions = paginationOptions;
         this.additionalHeaders = additionalHeaders;
         this.stageAttachment = stageAttachment;
@@ -87,6 +92,10 @@ public class ClientSettings {
         return connectionTimeout;
     }
 
+    public Integer getSocketTimeout() {
+        return socketTimeout;
+    }
+
     public PaginationOptions getPaginationOptions() {
         return paginationOptions;
     }
@@ -111,6 +120,7 @@ public class ClientSettings {
         private String host;
         private Duration queryTimeoutNanos;
         private Integer connectionTimeout;
+        private Integer socketTimeout;
 
         private PaginationOptions paginationOptions;
         private StageAttachment stageAttachment;
@@ -130,6 +140,11 @@ public class ClientSettings {
 
         public Builder setConnectionTimeout(Integer timeout) {
             this.connectionTimeout = timeout;
+            return this;
+        }
+
+        public Builder setSocketTimeout(Integer timeout) {
+            this.socketTimeout = timeout;
             return this;
         }
 
@@ -159,7 +174,7 @@ public class ClientSettings {
         }
 
         public ClientSettings build() {
-            return new ClientSettings(host, session, queryTimeoutNanos, connectionTimeout, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
+            return new ClientSettings(host, session, queryTimeoutNanos, connectionTimeout, socketTimeout, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
         }
     }
 
