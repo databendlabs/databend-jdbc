@@ -38,12 +38,7 @@ import java.time.LocalTime;
 import java.time.OffsetTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatterBuilder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Calendar;
-import java.util.List;
-import java.util.Optional;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
@@ -162,8 +157,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, false);
             String stageName = "~";
+            Map<String, String> copyOptions = new HashMap<>();
+            copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
-            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setPattern(fileName).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
+            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setPattern(fileName).setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
             return databendCopyParams;
         } catch (Exception e) {
             throw new SQLException(e);
