@@ -34,5 +34,7 @@ public class TestBatchInsertUtils {
         Assert.assertEquals("db.tb_test", b1.getDatabaseTableName());
         BatchInsertUtils b2 = BatchInsertUtils.tryParseInsertSql("INSERT INTO tb01  (id,d,x,x,x,x,xt,col1) VALUES").get();
         Assert.assertEquals("tb01", b2.getDatabaseTableName());
+        BatchInsertUtils b3 = BatchInsertUtils.tryParseInsertSql("insert into tb01 values").get();
+        Assert.assertEquals("tb01", b3.getDatabaseTableName());
     }
 }
