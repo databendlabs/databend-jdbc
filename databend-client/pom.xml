@@ -6,12 +6,12 @@
     <parent>
         <groupId>com.databend</groupId>
         <artifactId>databend-base</artifactId>
-        <version>0.0.5-rc4</version>
+        <version>0.0.5-rc5</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-client</artifactId>
-    <version>0.0.5-rc4</version>
+    <version>0.0.5-rc5</version>
 
     <properties>
         <!--suppress UnresolvedMavenProperty -->
