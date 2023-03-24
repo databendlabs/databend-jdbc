@@ -485,6 +485,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.presignedUrlDisabled();
     }
 
+    public boolean copyPurge() {
+        return this.driverUri.copyPurge();
+    }
+
     public PaginationOptions getPaginationOptions() {
         PaginationOptions.Builder builder = PaginationOptions.builder();
         builder.setWaitTimeSecs(this.driverUri.getWaitTimeSecs());

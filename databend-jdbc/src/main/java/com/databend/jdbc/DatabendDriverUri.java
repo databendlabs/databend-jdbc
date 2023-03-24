@@ -40,6 +40,7 @@ public final class DatabendDriverUri {
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
+    private final boolean copyPurge;
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
@@ -58,6 +59,7 @@ public final class DatabendDriverUri {
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
+        this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
@@ -229,6 +231,10 @@ public final class DatabendDriverUri {
 
     public Boolean presignedUrlDisabled() {
         return presignedUrlDisabled;
+    }
+
+    public Boolean copyPurge() {
+        return copyPurge;
     }
 
     public Integer getConnectionTimeout() {
