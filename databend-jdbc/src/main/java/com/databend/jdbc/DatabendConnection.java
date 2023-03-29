@@ -516,7 +516,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
 
     @Override
-    public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
+    public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData)
             throws SQLException {
         // TODO(zhihanz) handle compress data
         // remove / in the end of stage name
@@ -536,10 +536,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             String presignUrl = ctx.getUrl();
             if (this.driverUri.presignedUrlDisabled()) {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
-                cli.presignUpload(null, inputStream, s, p + "/", destFileName, true);
+                cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
             } else {
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-                cli.presignUpload(null, inputStream, h, presignUrl, true);
+                cli.presignUpload(null, inputStream, h, presignUrl, ctx.getFileSize(), true);
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());

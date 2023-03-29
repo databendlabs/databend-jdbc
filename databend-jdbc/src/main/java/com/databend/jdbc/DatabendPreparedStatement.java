@@ -155,7 +155,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
-            c.uploadStream(null, stagePrefix, fis, fileName, false);
+            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stageName = "~";
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
@@ -193,7 +193,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
-            c.uploadStream(null, stagePrefix, fis, fileName, false);
+            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
                     .build();

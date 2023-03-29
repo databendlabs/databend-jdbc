@@ -12,14 +12,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-public class TestDatabendPresignClient
-{
+public class TestDatabendPresignClient {
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
+
     private String generateRandomCSV(int lines) {
         if (lines <= 0) {
             return "";
@@ -33,12 +32,12 @@ public class TestDatabendPresignClient
                 writer.write("a,b,c," + num + "\n");
             }
             writer.close();
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
         return csvPath;
     }
+
     @Test(groups = {"Local"})
     public void uploadFileAPI() {
         String filePath = null;
@@ -48,7 +47,7 @@ public class TestDatabendPresignClient
             filePath = generateRandomCSV(10);
             File file = new File(filePath);
             InputStream inputStream = new FileInputStream(file);
-            presignClient.presignUpload(null, inputStream, "~", "api/upload/", "1.csv", true);
+            presignClient.presignUpload(null, inputStream, "~", "api/upload/", "1.csv", file.length(), true);
 
         } catch (SQLException e) {
             e.printStackTrace();

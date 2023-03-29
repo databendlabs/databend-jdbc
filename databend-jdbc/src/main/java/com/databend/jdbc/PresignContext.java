@@ -12,18 +12,19 @@ import java.util.Map;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class PresignContext
-{
-    private final  PresignMethod method;
-    private final  String stageName;
-    private final  String fileName;
-    private final  Headers headers;
-    private final  String url;
-    private PresignContext(PresignMethod method, String stageName, String fileName, Headers headers, String url)
-    {
+public final class PresignContext {
+    private final PresignMethod method;
+    private final String stageName;
+    private final String fileName;
+    private final Long fileSize;
+    private final Headers headers;
+    private final String url;
+
+    private PresignContext(PresignMethod method, String stageName, String fileName, Long fileSize, Headers headers, String url) {
         this.method = method;
         this.stageName = stageName;
         this.fileName = fileName;
+        this.fileSize = fileSize;
         this.headers = headers;
         this.url = url;
     }
@@ -41,8 +42,7 @@ public final class PresignContext
     }
 
     public static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
-            throws SQLException, JsonProcessingException
-    {
+            throws SQLException, JsonProcessingException {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");
         Statement statement = connection.createStatement();
@@ -58,16 +58,13 @@ public final class PresignContext
                         .headers(headers)
                         .url(url)
                         .build();
-            }
-            else {
+            } else {
                 throw new SQLException("Failed to get presign url");
             }
-        }
-        catch (Throwable e) {
+        } catch (Throwable e) {
             try {
                 statement.close();
-            }
-            catch (Throwable closeException) {
+            } catch (Throwable closeException) {
                 if (closeException != e) {
                     e.addSuppressed(closeException);
                 }
@@ -77,18 +74,18 @@ public final class PresignContext
     }
 
     public static String buildRequestSQL(PresignMethod method, String stageName, String fileName) {
-       StringBuilder sql = new StringBuilder("PRESIGN ");
-       sql.append(presignMethod(method));
-       sql.append(" ");
-       sql.append("@");
-       if (stageName != null) {
-           sql.append(stageName);
-           sql.append("/");
-       } else {
-           sql.append("~/");
-       }
-       sql.append(fileName);
-       return sql.toString();
+        StringBuilder sql = new StringBuilder("PRESIGN ");
+        sql.append(presignMethod(method));
+        sql.append(" ");
+        sql.append("@");
+        if (stageName != null) {
+            sql.append(stageName);
+            sql.append("/");
+        } else {
+            sql.append("~/");
+        }
+        sql.append(fileName);
+        return sql.toString();
     }
 
     private static String presignMethod(PresignMethod method) {
@@ -102,8 +99,7 @@ public final class PresignContext
     }
 
     private static Headers getHeaders(String headers)
-            throws JsonProcessingException
-    {
+            throws JsonProcessingException {
         Map<String, Object> resp = new ObjectMapper().readValue(headers, HashMap.class);
         Headers.Builder builder = new Headers.Builder();
         for (Map.Entry<String, Object> entry : resp.entrySet()) {
@@ -117,39 +113,38 @@ public final class PresignContext
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("method", method)
                 .add("stageName", stageName)
                 .add("fileName", fileName)
+                .add("fileSize", fileSize)
                 .add("headers", headers)
                 .add("url", url)
                 .toString();
     }
 
-    public PresignMethod getMethod()
-    {
+    public PresignMethod getMethod() {
         return method;
     }
 
-    public String getStageName()
-    {
+    public String getStageName() {
         return stageName;
     }
 
-    public String getFileName()
-    {
+    public String getFileName() {
         return fileName;
     }
 
-    public Headers getHeaders()
-    {
+    public Long getFileSize() {
+        return fileSize;
+    }
+
+    public Headers getHeaders() {
         return headers;
     }
 
-    public String getUrl()
-    {
+    public String getUrl() {
         return url;
     }
 
@@ -163,6 +158,7 @@ public final class PresignContext
         private PresignMethod method;
         private String stageName;
         private String fileName;
+        private long fileSize;
         private Headers headers;
         private String url;
 
@@ -181,6 +177,11 @@ public final class PresignContext
             return this;
         }
 
+        public Builder fileSize(Long fileSize) {
+            this.fileSize = fileSize;
+            return this;
+        }
+
         public Builder headers(Headers headers) {
             this.headers = headers;
             return this;
@@ -192,7 +193,7 @@ public final class PresignContext
         }
 
         public PresignContext build() {
-            return new PresignContext(method, stageName, fileName, headers, url);
+            return new PresignContext(method, stageName, fileName, fileSize, headers, url);
         }
     }
 
