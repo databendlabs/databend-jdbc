@@ -56,7 +56,7 @@ public class TestFileTransfer {
     private Connection createConnection()
             throws SQLException {
         String url = "jdbc:databend://localhost:8000/default";
-        return DriverManager.getConnection(url, "root", "root");
+        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     private Connection createConnection(boolean presignDisabled) throws SQLException {
