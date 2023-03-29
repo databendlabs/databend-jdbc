@@ -539,7 +539,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
             } else {
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-                cli.presignUpload(null, inputStream, h, presignUrl, ctx.getFileSize(), true);
+                cli.presignUpload(null, inputStream, h, presignUrl, fileSize, true);
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());

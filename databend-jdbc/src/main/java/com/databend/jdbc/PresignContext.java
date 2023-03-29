@@ -16,15 +16,13 @@ public final class PresignContext {
     private final PresignMethod method;
     private final String stageName;
     private final String fileName;
-    private final Long fileSize;
     private final Headers headers;
     private final String url;
 
-    private PresignContext(PresignMethod method, String stageName, String fileName, Long fileSize, Headers headers, String url) {
+    private PresignContext(PresignMethod method, String stageName, String fileName, Headers headers, String url) {
         this.method = method;
         this.stageName = stageName;
         this.fileName = fileName;
-        this.fileSize = fileSize;
         this.headers = headers;
         this.url = url;
     }
@@ -118,7 +116,6 @@ public final class PresignContext {
                 .add("method", method)
                 .add("stageName", stageName)
                 .add("fileName", fileName)
-                .add("fileSize", fileSize)
                 .add("headers", headers)
                 .add("url", url)
                 .toString();
@@ -134,10 +131,6 @@ public final class PresignContext {
 
     public String getFileName() {
         return fileName;
-    }
-
-    public Long getFileSize() {
-        return fileSize;
     }
 
     public Headers getHeaders() {
@@ -193,7 +186,7 @@ public final class PresignContext {
         }
 
         public PresignContext build() {
-            return new PresignContext(method, stageName, fileName, fileSize, headers, url);
+            return new PresignContext(method, stageName, fileName, headers, url);
         }
     }
 
