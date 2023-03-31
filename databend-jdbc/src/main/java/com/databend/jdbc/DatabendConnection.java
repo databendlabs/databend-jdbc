@@ -544,10 +544,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());
             // For datax batch insert test, do not throw exception
-//            throw new SQLException(e);
+            throw new SQLException(e);
         } catch (IOException e) {
             System.out.println(e.getMessage());
-//            throw new SQLException("failed to upload input stream", e);
+            throw new SQLException("failed to upload input stream", e);
         }
     }
 
