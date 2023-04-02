@@ -94,7 +94,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.getSeconds() >= 30) {
+                if (sinceStart.getSeconds() >= 60) {
                     System.out.println("Presign failed" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
