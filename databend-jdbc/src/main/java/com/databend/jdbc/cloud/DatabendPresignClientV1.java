@@ -94,6 +94,10 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.getSeconds() >= 30) {
+                    System.out.println("Presign failed" + cause.toString());
+                    throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 if (attempts >= MaxRetryAttempts) {
                     System.out.println("Presign failed" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
@@ -222,7 +226,7 @@ class InputStreamRequestBody extends RequestBody {
 
     @Override
     public long contentLength() throws IOException {
-        return fileSize;
+        return inputStream.available() == 0 ? -1 : inputStream.available();
     }
 
     @Override
