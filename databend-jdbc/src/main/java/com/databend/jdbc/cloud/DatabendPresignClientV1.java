@@ -94,6 +94,10 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.getSeconds() >= 60) {
+                    System.out.println("Presign failed" + cause.toString());
+                    throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 if (attempts >= MaxRetryAttempts) {
                     System.out.println("Presign failed" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
@@ -120,14 +124,11 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
                     throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
                 } else if (response.code() >= 503) {
                     cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
-                    continue;
                 } else if (response.code() >= 400) {
                     cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
-                    continue;
                 }
             } catch (RuntimeException e) {
                 cause = e;
-                continue;
             } finally {
                 if (shouldClose) {
                     try {
@@ -222,7 +223,7 @@ class InputStreamRequestBody extends RequestBody {
 
     @Override
     public long contentLength() throws IOException {
-        return fileSize;
+        return inputStream.available() == 0 ? -1 : inputStream.available();
     }
 
     @Override
