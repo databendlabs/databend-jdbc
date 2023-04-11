@@ -52,7 +52,7 @@ public class BatchInsertUtils {
 
     public String getDatabaseTableName() {
         Pattern pattern = Pattern.compile("^INSERT INTO\\s+((?:[\\w-]+\\.)?([\\w-]+))(?:\\s*\\((?:[^()]|\\([^()]*\\))*\\))?", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(sql);
+        Matcher matcher = pattern.matcher(sql.replace("`", ""));
 
         if (matcher.find()) {
             databaseTableName = matcher.group(1);
