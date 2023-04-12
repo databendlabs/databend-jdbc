@@ -160,7 +160,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
-            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setPattern(fileName).setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
+            List<String> files = new ArrayList<>();
+            files.add(fileName);
+            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setFiles(files).setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
             return databendCopyParams;
         } catch (Exception e) {
             throw new SQLException(e);
