@@ -19,8 +19,8 @@ import java.util.Map;
 
 public class ClientSettings {
     public static final Duration DEFAULT_QUERY_TIMEOUT = Duration.ofSeconds(60);
-    public static final Integer DEFAULT_CONNECTION_TIMEOUT = 15; // seconds
-    public static final Integer DEFAULT_SOCKET_TIMEOUT = 15;
+    public static final Integer DEFAULT_CONNECTION_TIMEOUT = 0; // seconds
+    public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     private final String host;
     private final DatabendSession session;
