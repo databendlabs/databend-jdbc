@@ -21,9 +21,11 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Files;
 import java.time.Duration;
+import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.databend.jdbc.ConnectionProperties.SOCKET_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -38,6 +40,11 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
 
     public DatabendPresignClientV1(OkHttpClient client, String uri) {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
+        OkHttpClient.Builder builder = client.newBuilder();
+        builder
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .readTimeout(90, TimeUnit.SECONDS)
+                .writeTimeout(90, TimeUnit.SECONDS);
         this.client = client;
         this.uri = uri;
     }

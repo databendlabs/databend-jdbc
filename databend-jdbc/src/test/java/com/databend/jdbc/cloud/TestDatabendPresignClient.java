@@ -43,7 +43,7 @@ public class TestDatabendPresignClient {
         String filePath = null;
         try (DatabendConnection connection = createConnection().unwrap(DatabendConnection.class)) {
             OkHttpClient client = connection.getHttpClient();
-            DatabendPresignClient presignClient = new DatabendPresignClientV1(client, connection.getURI().toString());
+            DatabendPresignClient presignClient = new DatabendPresignClientV1(new OkHttpClient(), connection.getURI().toString());
             filePath = generateRandomCSV(10);
             File file = new File(filePath);
             InputStream inputStream = new FileInputStream(file);
