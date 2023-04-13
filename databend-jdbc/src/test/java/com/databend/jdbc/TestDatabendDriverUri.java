@@ -164,7 +164,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 10);
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
         Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
-        Assert.assertFalse(uri.copyPurge().booleanValue());
+        Assert.assertTrue(uri.copyPurge().booleanValue());
     }
 
     @Test(groups = {"unit"})
