@@ -275,6 +275,8 @@ public final class DatabendDriverUri {
             }
             if (CONNECTION_TIMEOUT.getValue(properties).isPresent()) {
                 builder.connectTimeout(CONNECTION_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
+            } else {
+                builder.connectTimeout(60, TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {

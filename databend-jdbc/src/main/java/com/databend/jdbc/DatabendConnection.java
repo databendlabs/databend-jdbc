@@ -538,7 +538,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
                 cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
             } else {
-                DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
                 cli.presignUpload(null, inputStream, h, presignUrl, fileSize, true);
             }
         } catch (JsonProcessingException e) {
@@ -555,7 +555,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     public InputStream downloadStream(String stageName, String sourceFileName, boolean decompress)
             throws SQLException {
         String s = stageName.replaceAll("/$", "");
-        DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+        DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
         try {
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, sourceFileName);
             Headers h = ctx.getHeaders();
