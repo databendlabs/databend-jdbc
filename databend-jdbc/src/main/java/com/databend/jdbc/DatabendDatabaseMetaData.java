@@ -1033,7 +1033,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringInFilter(filters, "table_type", types);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_type, table_cat, table_schema, table_name");
+        sql.append("\nORDER BY table_type, table_catalog, table_schema, table_name");
 
         return select(sql.toString());
     }
@@ -1064,12 +1064,12 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String[] columnNames) throws SQLException {
         StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "table_cat", catalog);
+        emptyStringEqualsFilter(filters, "table_catalog", catalog);
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringInFilter(filters, "column_name", columnNames);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_cat, table_schema, table_name, ordinal_position");
+        sql.append("\nORDER BY table_catalog, table_schema, table_name, ordinal_position");
         return select(sql.toString());
     }
 
@@ -1079,12 +1079,12 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     {
         StringBuilder sql = columnMetaSqlTemplate();
         List<String> filters = new ArrayList<>();
-        emptyStringEqualsFilter(filters, "table_cat", catalog);
+        emptyStringEqualsFilter(filters, "table_catalog", catalog);
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
         optionalStringLikeFilter(filters, "column_name", columnNamePattern);
         buildFilters(sql, filters);
-        sql.append("\nORDER BY table_cat, table_schema, table_name, ordinal_position");
+        sql.append("\nORDER BY table_catalog, table_schema, table_name, ordinal_position");
         return select(sql.toString());
     }
 

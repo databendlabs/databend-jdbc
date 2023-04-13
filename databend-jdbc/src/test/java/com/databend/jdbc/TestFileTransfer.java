@@ -21,6 +21,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -112,7 +114,7 @@ public class TestFileTransfer {
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
+            databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
@@ -135,7 +137,7 @@ public class TestFileTransfer {
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", false);
+            databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             InputStream downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
@@ -155,7 +157,7 @@ public class TestFileTransfer {
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
-            databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", false);
+            databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", f.length(), false);
             fileInputStream.close();
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
             DatabendCopyParams p = DatabendCopyParams.builder().setPattern("complex.csv").setDatabaseTableName("copy_into").setDatabendStage(s).build();

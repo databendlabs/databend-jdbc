@@ -21,6 +21,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Integer> SOCKET_TIMEOUT = new SocketTimeout();
 
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
+    public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
 
     public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
@@ -89,6 +90,11 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<Boolean> {
         public PresignedUrlDisabled() {
             super("presigned_url_disabled", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+    private static class CopyPurge extends AbstractConnectionProperty<Boolean> {
+        public CopyPurge() {
+            super("copy_purge", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

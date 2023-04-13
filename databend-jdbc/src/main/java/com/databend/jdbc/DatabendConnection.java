@@ -485,6 +485,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.presignedUrlDisabled();
     }
 
+    public boolean copyPurge() {
+        return this.driverUri.copyPurge();
+    }
+
     public PaginationOptions getPaginationOptions() {
         PaginationOptions.Builder builder = PaginationOptions.builder();
         builder.setWaitTimeSecs(this.driverUri.getWaitTimeSecs());
@@ -518,7 +522,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
 
     @Override
-    public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, boolean compressData)
+    public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData)
             throws SQLException {
         // TODO(zhihanz) handle compress data
         // remove / in the end of stage name
@@ -538,18 +542,18 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             String presignUrl = ctx.getUrl();
             if (this.driverUri.presignedUrlDisabled()) {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
-                cli.presignUpload(null, inputStream, s, p + "/", destFileName, true);
+                cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
             } else {
-                DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-                cli.presignUpload(null, inputStream, h, presignUrl, true);
+                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
+                cli.presignUpload(null, inputStream, h, presignUrl, fileSize, true);
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());
             // For datax batch insert test, do not throw exception
-//            throw new SQLException(e);
+            throw new SQLException(e);
         } catch (IOException e) {
             System.out.println(e.getMessage());
-//            throw new SQLException("failed to upload input stream", e);
+            throw new SQLException("failed to upload input stream", e);
         }
     }
 
@@ -557,7 +561,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     public InputStream downloadStream(String stageName, String sourceFileName, boolean decompress)
             throws SQLException {
         String s = stageName.replaceAll("/$", "");
-        DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+        DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
         try {
             PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, sourceFileName);
             Headers h = ctx.getHeaders();

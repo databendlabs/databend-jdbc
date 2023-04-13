@@ -40,6 +40,7 @@ public final class DatabendDriverUri {
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
+    private final boolean copyPurge;
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
@@ -59,6 +60,7 @@ public final class DatabendDriverUri {
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
+        this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
@@ -233,6 +235,10 @@ public final class DatabendDriverUri {
         return presignedUrlDisabled;
     }
 
+    public Boolean copyPurge() {
+        return copyPurge;
+    }
+
     public Integer getConnectionTimeout() {
         return connectionTimeout;
     }
@@ -275,6 +281,8 @@ public final class DatabendDriverUri {
             }
             if (CONNECTION_TIMEOUT.getValue(properties).isPresent()) {
                 builder.connectTimeout(CONNECTION_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
+            } else {
+                builder.connectTimeout(60, TimeUnit.SECONDS);
             }
             if (SOCKET_TIMEOUT.getValue(properties).isPresent()) {
                 builder.readTimeout(SOCKET_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);

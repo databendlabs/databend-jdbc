@@ -28,8 +28,7 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class DatabendPresignClientV1 implements DatabendPresignClient
-{
+public class DatabendPresignClientV1 implements DatabendPresignClient {
 
     private static final int MaxRetryAttempts = 5;
 
@@ -42,12 +41,12 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         this.client = client;
         this.uri = uri;
     }
-    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name) throws IOException
-    {
+
+    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name, long fileSize) throws IOException {
         // multipart upload input stream into /v1/upload_to_stage
         RequestBody requestBody = new MultipartBody.Builder()
                 .setType(MultipartBody.FORM)
-                .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream))
+                .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream, fileSize))
                 .build();
         Headers headers = new Headers.Builder()
                 .add("stage_name", stageName)
@@ -74,21 +73,20 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         }
 
     }
-    private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl) throws IOException
-    {
+
+    private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl, long fileSize) throws IOException {
         requireNonNull(inputStream, "inputStream is null");
-        Request r = putRequest(headers, presignedUrl, inputStream);
+        Request r = putRequest(headers, presignedUrl, inputStream, fileSize);
         try {
             executeInternal(r, true);
         } catch (IOException e) {
             throw new IOException("uploadFromStream failed", e);
-        } finally{
+        } finally {
 
         }
     }
 
-    private ResponseBody executeInternal(Request request, boolean shouldClose) throws IOException
-    {
+    private ResponseBody executeInternal(Request request, boolean shouldClose) throws IOException {
         requireNonNull(request, "request is null");
         long start = System.nanoTime();
         long attempts = 0;
@@ -96,6 +94,10 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.getSeconds() >= 60) {
+                    System.out.println("Presign failed" + cause.toString());
+                    throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                }
                 if (attempts >= MaxRetryAttempts) {
                     System.out.println("Presign failed" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
@@ -103,11 +105,9 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
 
                 try {
                     MILLISECONDS.sleep(attempts * 100);
-                }
-                catch (InterruptedException e) {
+                } catch (InterruptedException e) {
                     try {
-                    }
-                    finally {
+                    } finally {
                         Thread.currentThread().interrupt();
                     }
                     throw new RuntimeException("StatementClient thread was interrupted");
@@ -124,23 +124,18 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
                     throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
                 } else if (response.code() >= 503) {
                     cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
-                    continue;
                 } else if (response.code() >= 400) {
                     cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
-                    continue;
                 }
-            }
-            catch (RuntimeException e) {
+            } catch (RuntimeException e) {
                 cause = e;
-                continue;
-            } finally{
+            } finally {
                 if (shouldClose) {
                     try {
                         if (response != null) {
                             response.close();
                         }
-                    }
-                    catch (Exception e) {
+                    } catch (Exception e) {
                         // ignore
                     }
                 }
@@ -148,10 +143,10 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
 
         }
     }
+
     @Override
-    public void presignUpload(File srcFile,  InputStream inputStream, Headers headers,
-            String presignedUrl, boolean uploadFromStream) throws IOException
-    {
+    public void presignUpload(File srcFile, InputStream inputStream, Headers headers,
+                              String presignedUrl, long fileSize, boolean uploadFromStream) throws IOException {
 
         InputStream it = null;
         if (!uploadFromStream) {
@@ -159,24 +154,22 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         } else {
             it = inputStream;
         }
-        uploadFromStream(it, headers, presignedUrl);
+        uploadFromStream(it, headers, presignedUrl, fileSize);
     }
 
     @Override
-    public void presignUpload(File srcFile,  InputStream inputStream, String stageName, String relativePath, String name, boolean uploadFromStream) throws IOException
-    {
+    public void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath, String name, long fileSize, boolean uploadFromStream) throws IOException {
         if (!uploadFromStream) {
             try (InputStream it = Files.newInputStream(srcFile.toPath())) {
-                uploadFromStream(it, stageName, relativePath, name);
+                uploadFromStream(it, stageName, relativePath, name, fileSize);
             }
         } else {
-            uploadFromStream(inputStream, stageName, relativePath, name);
+            uploadFromStream(inputStream, stageName, relativePath, name, fileSize);
         }
     }
 
     @Override
-    public void presignDownload(String destFileName, Headers headers, String presignedUrl)
-    {
+    public void presignDownload(String destFileName, Headers headers, String presignedUrl) {
         Request r = getRequest(headers, presignedUrl);
         try (ResponseBody body = executeInternal(r, false)) {
             BufferedSink sink = Okio.buffer(Okio.sink(new File(destFileName)));
@@ -188,8 +181,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
     }
 
     @Override
-    public InputStream presignDownloadStream(Headers headers, String presignedUrl)
-    {
+    public InputStream presignDownloadStream(Headers headers, String presignedUrl) {
         Request r = getRequest(headers, presignedUrl);
         try {
             ResponseBody responseBody = executeInternal(r, false);
@@ -199,15 +191,13 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
         }
     }
 
-    private Request getRequest(Headers headers, String url)
-    {
+    private Request getRequest(Headers headers, String url) {
         return new Request.Builder().headers(headers).url(url).get().build();
     }
 
-    private Request putRequest(Headers headers, String url, InputStream inputStream)
-            throws IOException
-    {
-        RequestBody input = new InputStreamRequestBody(null, inputStream);
+    private Request putRequest(Headers headers, String url, InputStream inputStream, long fileSize)
+            throws IOException {
+        RequestBody input = new InputStreamRequestBody(null, inputStream, fileSize);
         return new Request.Builder().headers(headers).url(url).put(input).build();
     }
 
@@ -216,11 +206,13 @@ public class DatabendPresignClientV1 implements DatabendPresignClient
 class InputStreamRequestBody extends RequestBody {
     private final InputStream inputStream;
     private final MediaType contentType;
+    private final long fileSize;
 
-    public InputStreamRequestBody(MediaType contentType, InputStream inputStream) {
+    public InputStreamRequestBody(MediaType contentType, InputStream inputStream, long fileSize) {
         if (inputStream == null) throw new NullPointerException("inputStream == null");
         this.contentType = contentType;
         this.inputStream = inputStream;
+        this.fileSize = fileSize;
     }
 
     @Nullable
@@ -230,18 +222,14 @@ class InputStreamRequestBody extends RequestBody {
     }
 
     @Override
-    public long contentLength() {
-        try {
-            return inputStream.available() == 0 ? -1 : inputStream.available();
-        } catch (IOException e) {
-            return 0;
-        }
+    public long contentLength() throws IOException {
+        return inputStream.available() == 0 ? -1 : inputStream.available();
     }
 
     @Override
     public void writeTo(@NonNull BufferedSink sink) throws IOException {
 
-        try ( Source source = Okio.source(inputStream)) {
+        try (Source source = Okio.source(inputStream)) {
             sink.writeAll(source);
         } catch (IOException e) {
             throw new IOException("writeTo failed", e);
