@@ -44,6 +44,7 @@ public final class DatabendDriverUri {
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
+    private final Integer socketTimeout;
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
     private final Integer maxRowsPerPage;
@@ -62,6 +63,7 @@ public final class DatabendDriverUri {
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
+        this.socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
     }
@@ -241,6 +243,10 @@ public final class DatabendDriverUri {
         return connectionTimeout;
     }
 
+    public Integer getSocketTimeout() {
+        return socketTimeout;
+    }
+
     public Integer getWaitTimeSecs() {
         return waitTimeSecs;
     }
@@ -275,8 +281,9 @@ public final class DatabendDriverUri {
             }
             if (CONNECTION_TIMEOUT.getValue(properties).isPresent()) {
                 builder.connectTimeout(CONNECTION_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
-            } else {
-                builder.connectTimeout(60, TimeUnit.SECONDS);
+            }
+            if (SOCKET_TIMEOUT.getValue(properties).isPresent()) {
+                builder.readTimeout(SOCKET_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
             }
 
         } catch (Exception e) {
