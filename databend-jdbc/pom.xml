@@ -17,8 +17,8 @@
         <!--suppress UnresolvedMavenProperty -->
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
-        <dep.okhttp.version>4.10.0</dep.okhttp.version>
-        <dep.okio.version>3.0.0</dep.okio.version>
+        <dep.okhttp.version>5.0.0-alpha.11</dep.okhttp.version>
+        <dep.okio.version>3.1.0</dep.okio.version>
     </properties>
     <dependencies>
         <dependency>
