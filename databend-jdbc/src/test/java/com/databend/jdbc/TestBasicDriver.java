@@ -131,7 +131,6 @@ public class TestBasicDriver
             DatabendSession session = connection.unwrap(DatabendConnection.class).getSession();
             Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
             Assert.assertEquals(session.getSettings().get("max_threads"), "1");
-
         }
     }
     @Test(groups = {"IT"})
