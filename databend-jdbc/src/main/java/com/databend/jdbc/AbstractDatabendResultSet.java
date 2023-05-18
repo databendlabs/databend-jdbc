@@ -409,7 +409,17 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return 0;
         }
-        return ((Number) value).intValue();
+        try {
+            return ((Number) value).intValue();
+        } catch (ClassCastException e) {
+            // try to parse Number
+            try {
+                return Integer.parseInt(value.toString());
+            } catch (NumberFormatException ex) {
+                // handler exception
+                throw new SQLException("Value at columnIndex " + columnIndex + " is not a number.");
+            }
+        }
     }
 
     @Override
@@ -419,7 +429,16 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return 0;
         }
-        return ((Number) value).longValue();
+        try {
+            return ((Number) value).longValue();
+        } catch (ClassCastException e) {
+            // try to parse Long
+            try {
+                return Long.parseLong(value.toString());
+            } catch (NumberFormatException ex) {
+                throw new SQLException("Value at columnIndex " + columnIndex + " is not a valid long.");
+            }
+        }
     }
 
     @Override
@@ -429,7 +448,16 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return 0;
         }
-        return ((Number) value).floatValue();
+        try {
+            return ((Number) value).floatValue();
+        } catch (ClassCastException e) {
+            // try to parse Float
+            try {
+                return Float.parseFloat(value.toString());
+            } catch (NumberFormatException ex) {
+                throw new SQLException("Value at columnIndex " + columnIndex + " is not a valid float.");
+            }
+        }
     }
 
     @Override
@@ -439,17 +467,37 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return 0;
         }
-        return ((Number) value).doubleValue();
+        try {
+            return ((Number) value).doubleValue();
+        } catch (ClassCastException e) {
+            // try to parse Double
+            try {
+                return Double.parseDouble(value.toString());
+            } catch (NumberFormatException ex) {
+                throw new SQLException("Value at columnIndex " + columnIndex + " is not a valid double.");
+            }
+        }
     }
 
     @Override
     public BigDecimal getBigDecimal(int columnIndex, int scale)
             throws SQLException {
-        BigDecimal bigDecimal = getBigDecimal(columnIndex);
-        if (bigDecimal != null) {
-            bigDecimal = bigDecimal.setScale(scale, HALF_UP);
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
         }
-        return bigDecimal;
+        try {
+            BigDecimal bigDecimal = (BigDecimal) value;
+            return bigDecimal.setScale(scale, BigDecimal.ROUND_HALF_UP);
+        } catch (ClassCastException e) {
+            // try to parse bigDecimal
+            try {
+                BigDecimal bigDecimal = new BigDecimal(value.toString());
+                return bigDecimal.setScale(scale, BigDecimal.ROUND_HALF_UP);
+            } catch (NumberFormatException ex) {
+                throw new SQLException("Value at columnIndex " + columnIndex + " is not a valid BigDecimal.");
+            }
+        }
     }
 
     @Override
