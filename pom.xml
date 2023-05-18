@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.0.7</version>
+    <version>0.0.8</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
@@ -47,7 +47,7 @@
         <air.modernizer.java-version>8</air.modernizer.java-version>
         <dep.airlift.version>219</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
-        <dep.okhttp.version>4.10.0</dep.okhttp.version>
+        <dep.okhttp.version>5.0.0-alpha.11</dep.okhttp.version>
         <dep.okio.version>3.0.0</dep.okio.version>
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
