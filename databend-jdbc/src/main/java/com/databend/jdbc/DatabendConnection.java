@@ -505,7 +505,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     DatabendClient startQuery(String sql) throws SQLException {
         PaginationOptions options = getPaginationOptions();
         ClientSettings s = new ClientSettings.Builder().
-                setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).
+                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
                 setConnectionTimeout(this.driverUri.getConnectionTimeout()).
                 setSocketTimeout(this.driverUri.getSocketTimeout()).
                 setSession(this.session.get()).
@@ -516,7 +516,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setQueryTimeoutNanos(DEFAULT_QUERY_TIMEOUT).setConnectionTimeout(this.driverUri.getConnectionTimeout()).setSocketTimeout(this.driverUri.getSocketTimeout()).setPaginationOptions(options).setStageAttachment(attach).build();
+        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).setConnectionTimeout(this.driverUri.getConnectionTimeout()).setSocketTimeout(this.driverUri.getSocketTimeout()).setPaginationOptions(options).setStageAttachment(attach).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 

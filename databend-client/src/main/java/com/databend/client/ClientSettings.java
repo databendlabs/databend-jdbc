@@ -14,17 +14,16 @@
 
 package com.databend.client;
 
-import java.time.Duration;
 import java.util.Map;
 
 public class ClientSettings {
-    public static final Duration DEFAULT_QUERY_TIMEOUT = Duration.ofSeconds(60);
+    public static final Integer DEFAULT_QUERY_TIMEOUT = 90;
     public static final Integer DEFAULT_CONNECTION_TIMEOUT = 0; // seconds
     public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     private final String host;
     private final DatabendSession session;
-    private final Duration queryTimeoutNanos;
+    private final Integer queryTimeoutSecs;
     private final Integer connectionTimeout;
     private final Integer socketTimeout;
 
@@ -44,7 +43,7 @@ public class ClientSettings {
         DatabendSession session = new DatabendSession.Builder().setDatabase(database).build();
         this.host = host;
         this.session = session;
-        this.queryTimeoutNanos = DEFAULT_QUERY_TIMEOUT;
+        this.queryTimeoutSecs = DEFAULT_QUERY_TIMEOUT;
         this.connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
         this.socketTimeout = DEFAULT_SOCKET_TIMEOUT;
         this.paginationOptions = PaginationOptions.defaultPaginationOptions();
@@ -54,7 +53,7 @@ public class ClientSettings {
     }
 
     public ClientSettings(String host, DatabendSession session,
-                          Duration queryTimeoutNanos,
+                          Integer queryTimeoutSecs,
                           Integer connectionTimeout,
                           Integer socketTimeout,
                           PaginationOptions paginationOptions,
@@ -63,7 +62,7 @@ public class ClientSettings {
                           int retryAttempts) {
         this.host = host;
         this.session = session;
-        this.queryTimeoutNanos = queryTimeoutNanos;
+        this.queryTimeoutSecs = queryTimeoutSecs;
         this.connectionTimeout = connectionTimeout;
         this.socketTimeout = socketTimeout;
         this.paginationOptions = paginationOptions;
@@ -84,8 +83,8 @@ public class ClientSettings {
         return host;
     }
 
-    public Duration getQueryTimeoutNanos() {
-        return queryTimeoutNanos;
+    public Integer getQueryTimeoutSecs() {
+        return queryTimeoutSecs;
     }
 
     public Integer getConnectionTimeout() {
@@ -118,7 +117,7 @@ public class ClientSettings {
     public static class Builder {
         private DatabendSession session;
         private String host;
-        private Duration queryTimeoutNanos;
+        private Integer queryTimeoutSecs;
         private Integer connectionTimeout;
         private Integer socketTimeout;
 
@@ -148,8 +147,11 @@ public class ClientSettings {
             return this;
         }
 
-        public Builder setQueryTimeoutNanos(Duration queryTimeoutNanos) {
-            this.queryTimeoutNanos = queryTimeoutNanos;
+        public Builder setQueryTimeoutSecs(Integer queryTimeoutSecs) {
+            if (queryTimeoutSecs <= 0) {
+                queryTimeoutSecs = DEFAULT_QUERY_TIMEOUT;
+            }
+            this.queryTimeoutSecs = queryTimeoutSecs;
             return this;
         }
 
@@ -174,7 +176,7 @@ public class ClientSettings {
         }
 
         public ClientSettings build() {
-            return new ClientSettings(host, session, queryTimeoutNanos, connectionTimeout, socketTimeout, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
+            return new ClientSettings(host, session, queryTimeoutSecs, connectionTimeout, socketTimeout, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
         }
     }
 

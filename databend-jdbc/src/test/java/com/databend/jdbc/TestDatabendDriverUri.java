@@ -128,7 +128,7 @@ public class TestDatabendDriverUri {
         Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&connection_timeout=15&socket_timeout=15", props);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&query_timeout=120&connection_timeout=15&socket_timeout=15", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -137,6 +137,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
         Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
+        Assert.assertEquals(uri.getQueryTimeout().intValue(), 120);
         Assert.assertEquals(uri.getSocketTimeout().intValue(), 15);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), PaginationOptions.getDefaultWaitTimeSec());
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), PaginationOptions.getDefaultMaxRowsInBuffer());
@@ -150,7 +151,7 @@ public class TestDatabendDriverUri {
         Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&connection_timeout=15&socket_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&query_timeout=120&connection_timeout=15&socket_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -158,6 +159,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
+        Assert.assertEquals(uri.getQueryTimeout().intValue(), 120);
         Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
         Assert.assertEquals(uri.getSocketTimeout().intValue(), 15);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 1);

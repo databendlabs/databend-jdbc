@@ -56,7 +56,7 @@ public class DatabendClientV1
     private final int maxRetryAttempts;
     private final PaginationOptions paginationOptions;
     // request with retry timeout
-    private final Duration requestTimeoutNanos;
+    private final Integer requestTimeoutSecs;
     private final Map<String, String> additonalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
@@ -72,7 +72,7 @@ public class DatabendClientV1
         this.query = sql;
         this.host = settings.getHost();
         this.paginationOptions = settings.getPaginationOptions();
-        this.requestTimeoutNanos = settings.getQueryTimeoutNanos();
+        this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
         this.additonalHeaders = settings.getAdditionalHeaders();
         this.maxRetryAttempts = settings.getRetryAttempts();
         // need atomic reference since it may get updated when query returned.
@@ -130,8 +130,8 @@ public class DatabendClientV1
         {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.compareTo(requestTimeoutNanos) > 0) {
-                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
+                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart.getSeconds()), cause);
                 }
 
                 try {
