@@ -18,6 +18,8 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     public static final ConnectionProperty<Integer> CONNECTION_TIMEOUT = new ConnectionTimeout();
+
+    public static final ConnectionProperty<Integer> QUERY_TIMEOUT = new QueryTimeout();
     public static final ConnectionProperty<Integer> SOCKET_TIMEOUT = new SocketTimeout();
 
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
@@ -34,6 +36,7 @@ public final class ConnectionProperties {
             .add(DATABASE)
             .add(ACCESS_TOKEN)
             .add(PRESIGNED_URL_DISABLED)
+            .add(QUERY_TIMEOUT)
             .add(CONNECTION_TIMEOUT)
             .add(SOCKET_TIMEOUT)
             .add(WAIT_TIME_SECS)
@@ -92,9 +95,17 @@ public final class ConnectionProperties {
             super("presigned_url_disabled", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
+
     private static class CopyPurge extends AbstractConnectionProperty<Boolean> {
         public CopyPurge() {
             super("copy_purge", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class QueryTimeout
+            extends AbstractConnectionProperty<Integer> {
+        public QueryTimeout() {
+            super("query_timeout", Optional.of(String.valueOf(0)), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
         }
     }
 

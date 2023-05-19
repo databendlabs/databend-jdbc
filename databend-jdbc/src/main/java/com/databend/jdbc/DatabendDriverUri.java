@@ -44,6 +44,7 @@ public final class DatabendDriverUri {
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
+    private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
@@ -63,6 +64,7 @@ public final class DatabendDriverUri {
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
+        this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);
         this.socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
@@ -241,6 +243,10 @@ public final class DatabendDriverUri {
 
     public Integer getConnectionTimeout() {
         return connectionTimeout;
+    }
+
+    public Integer getQueryTimeout() {
+        return queryTimeout;
     }
 
     public Integer getSocketTimeout() {
