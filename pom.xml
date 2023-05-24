@@ -132,6 +132,10 @@
                             </dependencyReducedPomLocation>
                             <relocations>
                                 <relocation>
+                                    <pattern>com.google.common</pattern>
+                                    <shadedPattern>com.google.shaded.common</shadedPattern>
+                                </relocation>
+                                <relocation>
                                     <pattern>com.acme.coyote</pattern>
                                     <shadedPattern>hidden.coyote</shadedPattern>
                                 </relocation>
