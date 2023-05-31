@@ -536,10 +536,6 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         String p = destPrefix.replaceAll("^/", "").replaceAll("/$", "");
         String dest = p + "/" + destFileName;
         try {
-//            logger.log(Level.FINE, "presign to @" + s + "/" + dest);
-//            PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
-//            Headers h = ctx.getHeaders();
-//            String presignUrl = ctx.getUrl();
             if (this.driverUri.presignedUrlDisabled()) {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
                 cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
