@@ -245,7 +245,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         ResultSet r = null;
         if (attachment == null) {
 //            logger.fine("use normal execute instead of batch insert");
-//            throw new SQLException("the attachment is null, sjh debug");
 //            super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
