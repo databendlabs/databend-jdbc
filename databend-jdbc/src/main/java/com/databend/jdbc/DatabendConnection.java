@@ -197,7 +197,9 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     @Override
     public void close()
             throws SQLException {
-
+        for (Statement stmt : statements) {
+            stmt.close();
+        }
     }
 
     @Override
