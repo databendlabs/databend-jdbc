@@ -238,14 +238,15 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public int[] executeBatchByAttachment() throws SQLException {
         int[] batchUpdateCounts = new int[batchValues.size()];
         if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-            super.execute(this.originalSql);
+//            super.execute(this.originalSql);
             return batchUpdateCounts;
         }
         StageAttachment attachment = uploadBatches();
         ResultSet r = null;
         if (attachment == null) {
-            logger.fine("use normal execute instead of batch insert");
-            super.execute(batchInsertUtils.get().getSql());
+//            logger.fine("use normal execute instead of batch insert");
+//            throw new SQLException("the attachment is null, sjh debug");
+//            super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
@@ -293,7 +294,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     @Override
     public int[] executeBatch() throws SQLException {
-        return executeBatchByCopyInto();
+        return executeBatchByAttachment();
     }
 
     @Override
