@@ -13,24 +13,21 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 
-public class TestPrepareStatement
-{
+public class TestPrepareStatement {
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    private Connection createConnection(boolean presignDisabled) throws SQLException
-    {
+    private Connection createConnection(boolean presignDisabled) throws SQLException {
         String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
         return DriverManager.getConnection(url, "databend", "databend");
     }
+
     @BeforeTest
     public void setUp()
-            throws SQLException
-    {
+            throws SQLException {
         // create table
         Connection c = createConnection();
         System.out.println("-----------------");
@@ -43,6 +40,7 @@ public class TestPrepareStatement
         // json data
         c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
     }
+
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
         Connection c = createConnection();
@@ -157,7 +155,7 @@ public class TestPrepareStatement
         Connection c = createConnection(true);
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values(?,?,?,?,?)");
-        for(int i = 0; i < 500000; i++) {
+        for (int i = 0; i < 500000; i++) {
             ps.setInt(1, 2);
             ps.setString(2, "{\"a\": 1,\"b\": 2}");
             ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
@@ -177,5 +175,39 @@ public class TestPrepareStatement
             count++;
         }
         System.out.println(count);
+    }
+
+    @Test(groups = "IT")
+    public void TestBatchReplaceInto() throws SQLException {
+        Connection c = createConnection();
+        c.setAutoCommit(false);
+        PreparedStatement ps1 = c.prepareStatement("insert into test_prepare_statement values");
+        ps1.setInt(1, 1);
+        ps1.setInt(2, 2);
+        ps1.addBatch();
+        ps1.executeBatch();
+
+        PreparedStatement ps = c.prepareStatement("replace into test_prepare_statement on(a) values");
+        ps.setInt(1, 1);
+        ps.setInt(2, 2);
+        ps.addBatch();
+        ps.setInt(1, 3);
+        ps.setInt(2, 4);
+        ps.addBatch();
+        System.out.println("execute batch replace into");
+        int[] ans = ps.executeBatch();
+        Assert.assertEquals(ans.length, 2);
+        Assert.assertEquals(ans[0], 1);
+        Assert.assertEquals(ans[1], 1);
+        Statement statement = c.createStatement();
+
+        System.out.println("execute select");
+        statement.execute("SELECT * from test_prepare_statement");
+        ResultSet r = statement.getResultSet();
+
+        while (r.next()) {
+            System.out.println(r.getInt(1));
+            System.out.println(r.getInt(2));
+        }
     }
 }
