@@ -259,6 +259,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         } catch (RuntimeException e) {
             throw new SQLException(e);
         } finally {
+            clearBatch();
             dropStageAttachment(attachment);
         }
     }
