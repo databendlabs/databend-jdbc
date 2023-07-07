@@ -15,11 +15,9 @@ import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestDatabendDatabaseMetaData
-{
+public class TestDatabendDatabaseMetaData {
     private static void assertTableMetadata(ResultSet rs)
-            throws SQLException
-    {
+            throws SQLException {
         ResultSetMetaData metadata = rs.getMetaData();
         assertEquals(metadata.getColumnCount(), 10);
 
@@ -56,8 +54,7 @@ public class TestDatabendDatabaseMetaData
 
     @BeforeTest
     public void setUp()
-            throws SQLException
-    {
+            throws SQLException {
         // create table
         Connection c = createConnection();
         c.createStatement().execute("drop table if exists test_column_meta");
@@ -66,15 +63,14 @@ public class TestDatabendDatabaseMetaData
     }
 
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
     @Test(groups = {"IT"})
-    public void testGetUrl() throws SQLException{
-        try(Connection c = createConnection()) {
+    public void testGetUrl() throws SQLException {
+        try (Connection c = createConnection()) {
             DatabaseMetaData metaData = c.getMetaData();
             String url = metaData.getURL();
             Assert.assertEquals(url, "jdbc:databend://http://localhost:8000");
@@ -83,8 +79,7 @@ public class TestDatabendDatabaseMetaData
 
     @Test(groups = {"IT"})
     public void testGetDatabaseProductVersion()
-            throws Exception
-    {
+            throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             assertEquals(metaData.getDatabaseProductName(), "Databend");
@@ -96,8 +91,7 @@ public class TestDatabendDatabaseMetaData
 
     @Test(groups = {"IT"})
     public void testGetUserName()
-            throws Exception
-    {
+            throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             Assert.assertTrue(metaData.getUserName().contains("databend"));
@@ -105,26 +99,24 @@ public class TestDatabendDatabaseMetaData
     }
 
     @Test(groups = {"IT"})
-    public void testGetTables() throws Exception
-    {
+    public void testGetTables() throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try(ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
                 assertTableMetadata(rs);
             }
         }
     }
 
     @Test(groups = {"IT"})
-    public  void testGetSchemas() throws Exception
-    {
+    public void testGetSchemas() throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try(ResultSet rs = connection.getMetaData().getSchemas()) {
+            try (ResultSet rs = connection.getMetaData().getSchemas()) {
                 ResultSetMetaData metaData1 = rs.getMetaData();
                 assertEquals(metaData1.getColumnCount(), 2);
             }
-            try(ResultSet rs = connection.getMetaData().getCatalogs()) {
+            try (ResultSet rs = connection.getMetaData().getCatalogs()) {
                 ResultSetMetaData metaData1 = rs.getMetaData();
                 assertEquals(metaData1.getColumnCount(), 1);
             }
@@ -132,21 +124,19 @@ public class TestDatabendDatabaseMetaData
     }
 
     @Test(groups = {"IT"})
-    public void testGetColumns() throws Exception
-    {
+    public void testGetColumns() throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try(ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 24);
             }
         }
     }
 
     @Test(groups = {"IT"})
-    public void testColumnsMeta() throws Exception
-    {
+    public void testColumnsMeta() throws Exception {
         try (Connection connection = createConnection()) {
-            try(ResultSet rs = connection.getMetaData().getColumns(null, "default", "test_column_meta", null)) {
+            try (ResultSet rs = connection.getMetaData().getColumns(null, "default", "test_column_meta", null)) {
                 while (rs.next()) {
                     String tableSchem = rs.getString("table_schem");
                     String tableName = rs.getString("table_name");
@@ -157,7 +147,7 @@ public class TestDatabendDatabaseMetaData
                 }
             }
             System.out.println("====================================");
-            try(ResultSet rs = connection.getMetaData().unwrap(DatabendDatabaseMetaData.class).getColumns(null, "default", "test_column_meta", new String[]{"v1", "u1"})) {
+            try (ResultSet rs = connection.getMetaData().unwrap(DatabendDatabaseMetaData.class).getColumns(null, "default", "test_column_meta", new String[]{"v1", "u1"})) {
                 while (rs.next()) {
                     String tableSchem = rs.getString("table_schem");
                     String tableName = rs.getString("table_name");
@@ -171,8 +161,7 @@ public class TestDatabendDatabaseMetaData
     }
 
     @Test(groups = {"IT"})
-    public void testGetColumnTypesBySelectEmpty() throws Exception
-    {
+    public void testGetColumnTypesBySelectEmpty() throws Exception {
         try (Connection connection = createConnection()) {
             ResultSet rs = connection.createStatement().executeQuery("select * from test_column_meta where 1=2");
             ResultSetMetaData metaData = rs.getMetaData();
@@ -182,12 +171,12 @@ public class TestDatabendDatabaseMetaData
             }
         }
     }
+
     @Test(groups = {"IT"})
-    public void testGetPrimaryKeys() throws Exception
-    {
+    public void testGetPrimaryKeys() throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try(ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, null)) {
+            try (ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 6);
             }
         }

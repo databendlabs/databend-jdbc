@@ -602,7 +602,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return new ByteArrayInputStream(value);
     }
 
-    private int columnIndex(String label)
+    public int columnIndex(String label)
             throws SQLException {
         if (label == null) {
             throw new SQLException("Column label is null");
