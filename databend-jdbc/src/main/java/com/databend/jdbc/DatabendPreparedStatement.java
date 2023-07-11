@@ -4,6 +4,7 @@ import com.databend.client.StageAttachment;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
+import com.solidfire.gson.Gson;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -550,9 +551,38 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             setString(parameterIndex, toTimeWithTimeZoneLiteral(x));
         } else if (x instanceof Timestamp) {
             setTimestamp(parameterIndex, (Timestamp) x);
+        } else if (x instanceof Map) {
+            setString(parameterIndex, convertToJsonString((Map<?, ?>) x));
+        } else if (x instanceof Array) {
+            setString(parameterIndex, convertArrayToString((Array) x));
+        } else if (x instanceof ArrayList) {
+            setString(parameterIndex, convertArrayListToString((ArrayList<?>) x));
         } else {
             throw new SQLException("Unsupported object type: " + x.getClass().getName());
         }
+    }
+
+    public static String convertToJsonString(Map<?, ?> map) {
+        Gson gson = new Gson();
+        return gson.toJson(map);
+    }
+
+    public static String convertArrayToString(Array array) {
+        return array.toString();
+    }
+
+    public static String convertArrayListToString(ArrayList<?> arrayList) {
+        StringBuilder builder = new StringBuilder();
+        builder.append("[");
+        for (int i = 0; i < arrayList.size(); i++) {
+            builder.append(arrayList.get(i));
+            if (i < arrayList.size() - 1) {
+                builder.append(", ");
+            }
+        }
+        builder.append("]");
+
+        return builder.toString();
     }
 
     @Override
