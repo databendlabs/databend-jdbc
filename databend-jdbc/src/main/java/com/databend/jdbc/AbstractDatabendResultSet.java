@@ -287,9 +287,6 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     private static ParsedTimestamp parseTimestamp(String value) {
-        if (value.equalsIgnoreCase("null")) {
-             return new ParsedTimestamp(1970, 1, 1, 0, 0, 0, 0, Optional.of("UTC"));
-        }
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
@@ -565,8 +562,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
-        if (value == null) {
-            return null;
+        if (value == null || value.toString().equalsIgnoreCase("null")) {
+            return new Timestamp(0);
         }
 
         return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
