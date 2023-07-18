@@ -287,6 +287,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     private static ParsedTimestamp parseTimestamp(String value) {
+        if (value.equalsIgnoreCase("null")) {
+             return new ParsedTimestamp(1970, 1, 1, 0, 0, 0, 0, Optional.of("UTC"));
+        }
         Matcher matcher = DATETIME_PATTERN.matcher(value);
         if (!matcher.matches()) {
             throw new IllegalArgumentException("Invalid timestamp: " + value);
