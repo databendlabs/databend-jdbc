@@ -562,8 +562,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
-        if (value == null) {
-            return null;
+        if (value == null || value.toString().equalsIgnoreCase("null")) {
+            return new Timestamp(0);
         }
 
         return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
