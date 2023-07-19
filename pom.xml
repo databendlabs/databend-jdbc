@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.0.9</version>
+    <version>0.1.0</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
@@ -177,13 +177,6 @@
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
-                <artifactId>maven-gpg-plugin</artifactId>
-                <configuration>
-                    <skip>true</skip>
-                </configuration>
-            </plugin>
-            <plugin>
-                <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-javadoc-plugin</artifactId>
                 <version>2.9.1</version>
                 <configuration>
@@ -211,6 +204,13 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+	    	<plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-gpg-plugin</artifactId>
+                <configuration>
+                    <skip>true</skip>
+                </configuration>
             </plugin>
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
