@@ -160,6 +160,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String stageName = "~";
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
+            copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
             DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
             List<String> files = new ArrayList<>();
             files.add(fileName);
@@ -198,7 +199,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
+            Map<String, String> copyOptions = new HashMap<>();
+            copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
+            copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
+            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).setCopyOptions(copyOptions)
                     .build();
             return attachment;
         } catch (Exception e) {

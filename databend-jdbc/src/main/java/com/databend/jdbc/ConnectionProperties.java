@@ -24,6 +24,7 @@ public final class ConnectionProperties {
 
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
     public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
+    public static final ConnectionProperty<String> NULL_DISPLAY = new NullDisplay();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
 
     public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
@@ -99,6 +100,13 @@ public final class ConnectionProperties {
     private static class CopyPurge extends AbstractConnectionProperty<Boolean> {
         public CopyPurge() {
             super("copy_purge", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class NullDisplay
+            extends AbstractConnectionProperty<String> {
+        public NullDisplay() {
+            super("null_display", Optional.of("\\N"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
