@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.google.common.base.Joiner;
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -10,6 +11,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -18,6 +20,7 @@ import static com.databend.jdbc.DriverInfo.DRIVER_NAME;
 import static com.databend.jdbc.DriverInfo.DRIVER_VERSION;
 import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
+import static com.databend.jdbc.metadata.MetadataColumns.*;
 import static java.util.Objects.requireNonNull;
 
 public class DatabendDatabaseMetaData implements DatabaseMetaData
