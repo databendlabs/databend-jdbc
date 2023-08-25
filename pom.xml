@@ -146,6 +146,10 @@
                                     <pattern>com.acme.coyote</pattern>
                                     <shadedPattern>hidden.coyote</shadedPattern>
                                 </relocation>
+                                <relocation>
+                                    <pattern>com.fasterxml.jackson</pattern>
+                                    <shadedPattern>com.databend.jdbc.com.fasterxml.jackson</shadedPattern>
+                                </relocation>
                             </relocations>
                         </configuration>
                     </execution>
@@ -205,7 +209,7 @@
                     </execution>
                 </executions>
             </plugin>
-	    	<plugin>
+            <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-gpg-plugin</artifactId>
                 <configuration>
