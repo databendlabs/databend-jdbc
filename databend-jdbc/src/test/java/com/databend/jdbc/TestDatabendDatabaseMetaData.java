@@ -11,9 +11,12 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 public class TestDatabendDatabaseMetaData {
     private static void assertTableMetadata(ResultSet rs)
@@ -178,6 +181,24 @@ public class TestDatabendDatabaseMetaData {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 6);
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testTableTypes() throws Exception {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = metaData.getTableTypes()) {
+                assertEquals(rs.getMetaData().getColumnCount(), 1);
+                List<String> totalTableTypes = new ArrayList<>();
+                while (rs.next()) {
+                    totalTableTypes.add(rs.getString(1));
+                }
+                assertEquals(totalTableTypes.size(), 3);
+                assertTrue(totalTableTypes.contains("TABLE"));
+                assertTrue(totalTableTypes.contains("VIEW"));
+                assertTrue(totalTableTypes.contains("SYSTEM TABLE"));
             }
         }
     }
