@@ -566,12 +566,15 @@ class BooleanHandler implements ColumnTypeHandler {
         }
     }
 
+    private static final String TRUE_NUM = "1";
+    private static final String TRUE_STRING = "true";
+
     private Boolean parseNullableValue(Object value) {
         if (value == null || value.equals("NULL")) {
             return null;
         }
         if (value instanceof String) {
-            return Boolean.parseBoolean((String) value);
+            return TRUE_NUM.equals(value) || TRUE_STRING.equals(value);
         }
         if (value instanceof Number) {
             return ((Number) value).intValue() != 0;
@@ -584,7 +587,7 @@ class BooleanHandler implements ColumnTypeHandler {
             throw new IllegalArgumentException("Boolean type is not nullable");
         }
         if (value instanceof String) {
-            return Boolean.parseBoolean((String) value);
+            return TRUE_NUM.equals(value) || TRUE_STRING.equals(value);
         }
         if (value instanceof Number) {
             return ((Number) value).intValue() != 0;
