@@ -566,6 +566,10 @@ class BooleanHandler implements ColumnTypeHandler {
         }
     }
 
+    /**
+     * If boolean column is string, only "1" and "true" will be judged as true,
+     * otherwise it is false.
+     */
     private static final String TRUE_NUM = "1";
     private static final String TRUE_STRING = "true";
 
