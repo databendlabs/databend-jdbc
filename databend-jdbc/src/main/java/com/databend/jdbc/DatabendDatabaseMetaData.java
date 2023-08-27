@@ -1,5 +1,7 @@
 package com.databend.jdbc;
 
+import com.databend.client.QueryRowField;
+import com.databend.client.data.DatabendRawType;
 import com.google.common.base.Joiner;
 
 import java.sql.Connection;
@@ -10,7 +12,9 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -1031,6 +1035,17 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         emptyStringEqualsFilter(filters, "table_catalog", catalog);
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         optionalStringLikeFilter(filters, "table_name", tableNamePattern);
+        if (types != null) {
+            // replace `TABLE` to `BASE TABLE`, `SYSTEM VIEW` to `SYSTEM TABLE`
+            for (int i = 0 , size = types.length; i < size ; i ++) {
+                String type = types[i];
+                if ("TABLE".equals(type)) {
+                    types[i] = "BASE TABLE";
+                } else if ("SYSTEM VIEW".equals(type)) {
+                    types[i] = "SYSTEM TABLE";
+                }
+            }
+        }
         optionalStringInFilter(filters, "table_type", types);
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_type, table_catalog, table_schema, table_name");
@@ -1058,7 +1073,16 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
     public ResultSet getTableTypes()
             throws SQLException
     {
-        return select("SELECT table_type as table_type FROM information_schema.tables GROUP BY table_type ORDER BY table_type");
+        // Base on https://github.com/datafuselabs/databend/blob/main/src/query/storages/information-schema/src/tables_table.rs#L35
+        // We just return 3 types: TABLE(BASE TABLE), VIEW, SYSTEM TABLE(SYSTEM VIEW)
+        List<QueryRowField> schema = new ArrayList<>();
+        schema.add(new QueryRowField("TABLE_TYPE", new DatabendRawType("String")));
+        List<List<Object>> results = new ArrayList<>();
+        results.add(Collections.singletonList("TABLE"));
+        results.add(Collections.singletonList("VIEW"));
+        results.add(Collections.singletonList("SYSTEM TABLE"));
+        // Create NoQueryResultSet
+        return new DatabendUnboundQueryResultSet(Optional.ofNullable(connection.createStatement()), schema, results.iterator());
     }
 
     public ResultSet getColumns(String catalog, String schemaPattern, String tableNamePattern, String[] columnNames) throws SQLException {
