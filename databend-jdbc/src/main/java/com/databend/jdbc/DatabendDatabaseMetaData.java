@@ -1633,6 +1633,10 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData
         DatabendResultSet resultSet;
         try {
             resultSet = (DatabendResultSet) statement.executeQuery(sql);
+            // MetaData generally returns only a ResultSet object.
+            // Therefore, the Statement is hidden in the ResultSet class and can not be invoked normally.
+            // Close Statement when closing ResultSet, so that we can clear it in Connection
+            resultSet.setCloseStatementOnClose();
         }
         catch (Throwable e) {
             try {
