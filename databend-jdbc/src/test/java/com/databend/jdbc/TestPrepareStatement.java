@@ -12,6 +12,8 @@ import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TestPrepareStatement {
     private Connection createConnection()
@@ -68,6 +70,76 @@ public class TestPrepareStatement {
             System.out.println(r.getInt(1));
             System.out.println(r.getInt(2));
         }
+    }
+
+    @Test(groups = "IT")
+    public void TestConvertSQLWithBatchValues() throws SQLException {
+        List<String[]> batchValues = new ArrayList<>();
+        // Add string arrays to batchValues
+        String[] values1 = {"1"};
+        String[] values2 = {"2"};
+        batchValues.add(values1);
+        batchValues.add(values2);
+
+        String originalSql = "delete from table where id = ?";
+        String expectedSql = "delete from table where id = 1;\ndelete from table where id = 2;\n";
+        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql, batchValues), expectedSql);
+
+        List<String[]> batchValues1 = new ArrayList<>();
+        // Add string arrays to batchValues
+        String[] values3 = {"1","2"};
+        String[] values4 = {"3","4"};
+        batchValues1.add(values3);
+        batchValues1.add(values4);
+
+        String originalSql1 = "delete from table where id = ? and uuid = ?";
+        String expectedSql1 = "delete from table where id = 1 and uuid = 2;\ndelete from table where id = 3 and uuid = 4;\n";
+        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql1, batchValues1), expectedSql1);
+    }
+
+    @Test(groups = "IT")
+    public void TestBatchDelete() throws SQLException {
+        Connection c = createConnection();
+        c.setAutoCommit(false);
+
+        PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
+        ps.setInt(1, 1);
+        ps.setInt(2, 2);
+        ps.addBatch();
+        ps.setInt(1, 3);
+        ps.setInt(2, 4);
+        ps.addBatch();
+        System.out.println("execute batch insert");
+        int[] ans = ps.executeBatch();
+        Assert.assertEquals(ans.length, 2);
+        Assert.assertEquals(ans[0], 1);
+        Assert.assertEquals(ans[1], 1);
+        Statement statement = c.createStatement();
+
+        System.out.println("execute select");
+        statement.execute("SELECT * from test_prepare_statement");
+        ResultSet r = statement.getResultSet();
+
+        while (r.next()) {
+            System.out.println(r.getInt(1));
+            System.out.println(r.getInt(2));
+        }
+
+        PreparedStatement deletePs = c.prepareStatement("delete from test_prepare_statement where a = ?");
+        deletePs.setInt(1, 1);
+        deletePs.addBatch();
+        int[] ansDel = deletePs.executeBatch();
+        System.out.println(ansDel);
+
+        System.out.println("execute select");
+        statement.execute("SELECT * from test_prepare_statement");
+        ResultSet r1 = statement.getResultSet();
+
+        int resultCount = 0;
+        while (r1.next()) {
+            resultCount += 1;
+        }
+        Assert.assertEquals(resultCount, 1);
     }
 
     @Test(groups = "IT")

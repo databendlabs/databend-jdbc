@@ -297,8 +297,49 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
     }
 
+    public int[] executeBatchDelete() throws SQLException {
+        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
+            return new int[]{};
+        }
+        int[] batchUpdateCounts = new int[batchValues.size()];
+        try {
+            String sql = convertSQLWithBatchValues(this.originalSql, this.batchValues);
+            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s", sql));
+            super.internalExecute(sql, null);
+            ResultSet r = getResultSet();
+            while (r.next()) {
+
+            }
+            return batchUpdateCounts;
+        } catch (RuntimeException e) {
+            throw new SQLException(e);
+        }
+    }
+
+    public static String convertSQLWithBatchValues(String baseSql, List<String[]> batchValues) {
+        StringBuilder convertedSqlBuilder = new StringBuilder();
+
+        if (batchValues != null && !batchValues.isEmpty()) {
+            for (String[] values : batchValues) {
+                if (values != null && values.length > 0) {
+                    String convertedSql = baseSql;
+                    for (int i = 0; i < values.length; i++) {
+                        convertedSql = convertedSql.replaceFirst("\\?", values[i]);
+                    }
+                    convertedSqlBuilder.append(convertedSql).append(";\n");
+                }
+            }
+        }
+
+        return convertedSqlBuilder.toString();
+    }
+
+
     @Override
     public int[] executeBatch() throws SQLException {
+        if (originalSql.toLowerCase().contains("delete from")) {
+            return executeBatchDelete();
+        }
         return executeBatchByAttachment();
     }
 
