@@ -24,7 +24,7 @@ import java.util.List;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class QueryResults {
-    private final String id;
+    private final String queryId;
     private final String sessionId;
     private final DatabendSession session;
     private final List<QueryRowField> schema;
@@ -41,7 +41,7 @@ public class QueryResults {
 
     @JsonCreator
     public QueryResults(
-            @JsonProperty("id") String id,
+            @JsonProperty("id") String queryId,
             @JsonProperty("session_id") String sessionId,
             @JsonProperty("session") DatabendSession session,
             @JsonProperty("schema") List<QueryRowField> schema,
@@ -54,7 +54,7 @@ public class QueryResults {
             @JsonProperty("final_uri") URI finalUri,
             @JsonProperty("next_uri") URI nextUri,
             @JsonProperty("kill_uri") URI killUri) {
-        this.id = id;
+        this.queryId = queryId;
         this.sessionId = sessionId;
         this.session = session;
         this.schema = schema;
@@ -72,8 +72,8 @@ public class QueryResults {
     // add builder
 
     @JsonProperty
-    public String getId() {
-        return id;
+    public String getQueryId() {
+        return queryId;
     }
 
     @JsonProperty
@@ -139,7 +139,7 @@ public class QueryResults {
     @Override
     public String toString() {
         return toStringHelper(this)
-                .add("id", id)
+                .add("id", queryId)
                 .add("sessionId", sessionId)
                 .add("session", session)
                 .add("schema", schema)

@@ -59,7 +59,6 @@ import java.util.regex.Pattern;
 import static com.databend.jdbc.DatabendColumnInfo.setTypeInfo;
 import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
-import static java.math.RoundingMode.HALF_UP;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
@@ -155,7 +154,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
 
     static SQLException resultsException(QueryResults results) {
         QueryErrors error = requireNonNull(results.getError());
-        String message = format("Query failed (#%s): %s", results.getId(), error.getMessage());
+        String message = format("Query failed (#%s): %s", results.getQueryId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));
     }
 
