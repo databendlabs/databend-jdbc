@@ -34,6 +34,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
@@ -516,13 +517,23 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 setSocketTimeout(this.driverUri.getSocketTimeout()).
                 setSession(this.session.get()).
                 setHost(this.getURI().toString()).
+                setAdditionalHeaders(new HashMap<>()).
                 setPaginationOptions(options).build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        ClientSettings s = new ClientSettings.Builder().setSession(this.session.get()).setHost(this.getURI().toString()).setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).setConnectionTimeout(this.driverUri.getConnectionTimeout()).setSocketTimeout(this.driverUri.getSocketTimeout()).setPaginationOptions(options).setStageAttachment(attach).build();
+        ClientSettings s = new ClientSettings.Builder().
+                setSession(this.session.get()).
+                setHost(this.getURI().toString()).
+                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
+                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
+                setSocketTimeout(this.driverUri.getSocketTimeout()).
+                setPaginationOptions(options).
+                setAdditionalHeaders(new HashMap<>()).
+                setStageAttachment(attach).
+                build();
         return new DatabendClientV1(httpClient, sql, s);
     }
 

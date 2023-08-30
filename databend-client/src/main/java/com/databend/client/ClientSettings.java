@@ -14,6 +14,7 @@
 
 package com.databend.client;
 
+import java.util.HashMap;
 import java.util.Map;
 
 public class ClientSettings {
@@ -36,7 +37,7 @@ public class ClientSettings {
     // TODO(zhihanz) timezone and locale info
 
     public ClientSettings(String host) {
-        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), null, null, DEFAULT_RETRY_ATTEMPTS);
+        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), new HashMap<String, String>(), null, DEFAULT_RETRY_ATTEMPTS);
     }
 
     public ClientSettings(String host, String database) {
@@ -47,7 +48,7 @@ public class ClientSettings {
         this.connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
         this.socketTimeout = DEFAULT_SOCKET_TIMEOUT;
         this.paginationOptions = PaginationOptions.defaultPaginationOptions();
-        this.additionalHeaders = null;
+        this.additionalHeaders = new HashMap<>();
         this.stageAttachment = null;
         this.retryAttempts = DEFAULT_RETRY_ATTEMPTS;
     }
