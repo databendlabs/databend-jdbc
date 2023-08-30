@@ -183,7 +183,7 @@ public class DatabendClientV1
             databendSession.set(results.getSession());
         }
         if (results.getQueryId() != null) {
-            this.additonalHeaders.put("Query_Id", results.getQueryId());
+            this.additonalHeaders.put("X-Databend-Query-Id ", results.getQueryId());
         }
         currentResults.set(results);
     }
