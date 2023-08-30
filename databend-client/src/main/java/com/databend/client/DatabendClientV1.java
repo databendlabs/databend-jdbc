@@ -45,6 +45,7 @@ public class DatabendClientV1
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final String XDatabendQueryIDHeader = "X-Databend-Query-Id";
 
     private static final String QUERY_PATH = "/v1/query";
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
@@ -183,7 +184,7 @@ public class DatabendClientV1
             databendSession.set(results.getSession());
         }
         if (results.getQueryId() != null) {
-            this.additonalHeaders.put("X-Databend-Query-Id", results.getQueryId());
+            this.additonalHeaders.put(XDatabendQueryIDHeader, results.getQueryId());
         }
         currentResults.set(results);
     }
