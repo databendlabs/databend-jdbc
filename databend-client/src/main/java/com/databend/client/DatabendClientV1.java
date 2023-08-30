@@ -252,7 +252,6 @@ public class DatabendClientV1
         Request r = prepareRequst(url).get().build();
         try {
             httpClient.newCall(r).execute().close();
-            ;
         } catch (IOException ignored) {
 
         }
