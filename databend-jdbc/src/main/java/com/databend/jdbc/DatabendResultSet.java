@@ -43,7 +43,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client),maxRows), client));
         this.statement = statement;
         this.client = client;
-        this.queryId = client.getResults().getId();
+        this.queryId = client.getResults().getQueryId();
     }
 
     static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows)

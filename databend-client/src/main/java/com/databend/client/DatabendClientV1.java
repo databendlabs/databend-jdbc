@@ -39,13 +39,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class DatabendClientV1
-        implements DatabendClient
-{
+        implements DatabendClient {
     private static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    private static final String XDatabendQueryIDHeader = "X-Databend-Query-Id";
 
     private static final String QUERY_PATH = "/v1/query";
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
@@ -62,8 +62,7 @@ public class DatabendClientV1
     private final AtomicReference<DatabendSession> databendSession;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings)
-    {
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -84,8 +83,7 @@ public class DatabendClientV1
         }
     }
 
-    private Request.Builder prepareRequst(HttpUrl url)
-    {
+    private Request.Builder prepareRequst(HttpUrl url) {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
@@ -97,8 +95,7 @@ public class DatabendClientV1
         return builder;
     }
 
-    private Request buildQueryRequest(String query, ClientSettings settings)
-    {
+    private Request buildQueryRequest(String query, ClientSettings settings) {
         HttpUrl url = HttpUrl.get(settings.getHost());
         if (url == null) {
             // TODO(zhihanz) use custom exception
@@ -116,8 +113,7 @@ public class DatabendClientV1
     }
 
     @Override
-    public String getQuery()
-    {
+    public String getQuery() {
         return query;
     }
 
@@ -126,8 +122,7 @@ public class DatabendClientV1
         long start = System.nanoTime();
         long attempts = 0;
         Exception cause = null;
-        while (true)
-        {
+        while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
@@ -136,12 +131,10 @@ public class DatabendClientV1
 
                 try {
                     MILLISECONDS.sleep(attempts * 100);
-                }
-                catch (InterruptedException e) {
+                } catch (InterruptedException e) {
                     try {
                         close();
-                    }
-                    finally {
+                    } finally {
                         Thread.currentThread().interrupt();
                     }
                     throw new RuntimeException("StatementClient thread was interrupted");
@@ -151,8 +144,7 @@ public class DatabendClientV1
             JsonResponse<QueryResults> response;
             try {
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
-            }
-            catch (RuntimeException e) {
+            } catch (RuntimeException e) {
                 cause = e;
                 continue;
             }
@@ -181,22 +173,24 @@ public class DatabendClientV1
             return false;
         }
     }
+
     @Override
-    public boolean execute(Request request)
-    {
+    public boolean execute(Request request) {
         return executeInternal(request, OptionalLong.empty());
     }
 
-    private void processResponse(Headers headers, QueryResults results)
-    {
+    private void processResponse(Headers headers, QueryResults results) {
         if (results.getSession() != null) {
             databendSession.set(results.getSession());
+        }
+        if (results.getQueryId() != null) {
+            this.additonalHeaders.put(XDatabendQueryIDHeader, results.getQueryId());
         }
         currentResults.set(results);
     }
 
     @Override
-    public boolean next(){
+    public boolean next() {
         requireNonNull(this.host, "host is null");
         requireNonNull(this.currentResults.get(), "currentResults is null");
         if (this.currentResults.get().getNextUri() == null) {
@@ -213,8 +207,7 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean isRunning()
-    {
+    public boolean isRunning() {
         QueryResults results = this.currentResults.get();
         if (results == null) {
             return false;
@@ -227,31 +220,26 @@ public class DatabendClientV1
         return results.getNextUri() != null;
     }
 
-    public Map<String, String> getAdditionalHeaders()
-    {
+    public Map<String, String> getAdditionalHeaders() {
         return additonalHeaders;
     }
 
     @Override
-    public QueryResults getResults()
-    {
+    public QueryResults getResults() {
         return currentResults.get();
     }
 
     @Override
-    public DatabendSession getSession()
-    {
+    public DatabendSession getSession() {
         return databendSession.get();
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         killQuery();
     }
 
-    private void killQuery()
-    {
+    private void killQuery() {
         QueryResults q = this.currentResults.get();
         if (q == null) {
             return;
@@ -263,10 +251,10 @@ public class DatabendClientV1
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(killUriPath).build();
         Request r = prepareRequst(url).get().build();
-       try {
-           httpClient.newCall(r).execute().close();;
-       } catch (IOException ignored) {
+        try {
+            httpClient.newCall(r).execute().close();
+        } catch (IOException ignored) {
 
-       }
+        }
     }
 }
