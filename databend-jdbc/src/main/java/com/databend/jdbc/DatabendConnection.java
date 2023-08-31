@@ -149,7 +149,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     @Override
     public CallableStatement prepareCall(String s)
             throws SQLException {
-        return null;
+        throw new SQLFeatureNotSupportedException("prepareCall");
     }
 
     @Override
@@ -349,7 +349,6 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     @Override
     public CallableStatement prepareCall(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException {
-//        checkHoldability(resultSetHoldability);
         return prepareCall(sql, resultSetType, resultSetConcurrency);
     }
 
