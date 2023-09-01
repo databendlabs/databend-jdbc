@@ -183,7 +183,7 @@ public class DatabendClientV1
         if (results.getSession() != null) {
             databendSession.set(results.getSession());
         }
-        if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID).isEmpty()) {
+        if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID).equals(null)) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
         currentResults.set(results);
