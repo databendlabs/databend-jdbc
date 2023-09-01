@@ -17,6 +17,7 @@ package com.databend.client;
 import okhttp3.Request;
 
 import java.io.Closeable;
+import java.util.Map;
 
 public interface DatabendClient extends Closeable {
     String getQuery();
@@ -24,6 +25,7 @@ public interface DatabendClient extends Closeable {
     void close();
 
     DatabendSession getSession();
+    Map<String, String> getAdditionalHeaders();
     QueryResults getResults();
     // execute Restful query request for the first time.
     // @param request the request to be executed

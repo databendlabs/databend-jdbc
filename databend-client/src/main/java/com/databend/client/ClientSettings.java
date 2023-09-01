@@ -22,6 +22,7 @@ public class ClientSettings {
     public static final Integer DEFAULT_CONNECTION_TIMEOUT = 0; // seconds
     public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
+    public static final String X_Databend_Query_ID = "X-DATABEND-QUERY-ID";
     private final String host;
     private final DatabendSession session;
     private final Integer queryTimeoutSecs;
@@ -31,7 +32,7 @@ public class ClientSettings {
     private final PaginationOptions paginationOptions;
 
     private final StageAttachment stageAttachment;
-    private final Map<String, String> additionalHeaders;
+    private Map<String, String> additionalHeaders;
 
     private final int retryAttempts;
     // TODO(zhihanz) timezone and locale info
