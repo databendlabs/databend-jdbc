@@ -83,7 +83,7 @@ public class DatabendClientV1
         }
     }
 
-    private Request.Builder prepareRequst(HttpUrl url) {
+    public Request.Builder prepareRequst(HttpUrl url) {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
@@ -183,8 +183,8 @@ public class DatabendClientV1
         if (results.getSession() != null) {
             databendSession.set(results.getSession());
         }
-        if (results.getQueryId() != null) {
-            this.additonalHeaders.put(XDatabendQueryIDHeader, results.getQueryId());
+        if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID).isEmpty()) {
+            this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
         currentResults.set(results);
     }
@@ -220,6 +220,7 @@ public class DatabendClientV1
         return results.getNextUri() != null;
     }
 
+    @Override
     public Map<String, String> getAdditionalHeaders() {
         return additonalHeaders;
     }
