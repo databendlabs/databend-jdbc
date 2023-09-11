@@ -144,7 +144,7 @@ public class TestDatabendDatabaseMetaData {
                     String tableSchem = rs.getString("table_schem");
                     String tableName = rs.getString("table_name");
                     String columnName = rs.getString("COLUMN_NAME");
-                    String dataType = rs.getString("data_type");
+                    int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
                     System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
@@ -155,7 +155,7 @@ public class TestDatabendDatabaseMetaData {
                     String tableSchem = rs.getString("table_schem");
                     String tableName = rs.getString("table_name");
                     String columnName = rs.getString("COLUMN_NAME");
-                    String dataType = rs.getString("data_type");
+                    int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
                     System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
