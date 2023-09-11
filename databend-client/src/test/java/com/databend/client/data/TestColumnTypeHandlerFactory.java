@@ -39,8 +39,8 @@ public class TestColumnTypeHandlerFactory
         assertTypeHandler("Nullable(DateTime64)", StringHandler.class, true);
         assertTypeHandler("Timestamp", StringHandler.class, false);
         assertTypeHandler("Nullable(Timestamp)", StringHandler.class, true);
-        assertTypeHandler("Array", StringHandler.class, false);
-        assertTypeHandler("Nullable(Array)", StringHandler.class, true);
+        assertTypeHandler("Array(String)", StringHandler.class, false);
+        assertTypeHandler("Nullable(Array(Int32))", StringHandler.class, true);
         assertTypeHandler("Struct", StringHandler.class, false);
         assertTypeHandler("Nullable(Struct)", StringHandler.class, true);
         assertTypeHandler("Null", StringHandler.class, false);
