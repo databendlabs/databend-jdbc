@@ -26,11 +26,11 @@ public enum DatabendDataType {
     UNSIGNED_INT_16(Types.SMALLINT, DatabendTypes.UINT16, false, 5, false, "UInt16", "SMALLINT UNSIGNED"),
 
     // int32 -> INT -> -2147483648~2147483647
-    INT_32(Types.INTEGER, DatabendTypes.INT32, true, 0, false, "Int32", "INTEGER"),
+    INT_32(Types.INTEGER, DatabendTypes.INT32, true, 10, false, "Int32", "INTEGER"),
     UNSIGNED_INT_32(Types.INTEGER, DatabendTypes.UINT32, false, 10, false, "UInt32", "INTEGER UNSIGNED"),
 
     // INT64 -> BIGINT -> -9223372036854775808~9223372036854775807
-    INT_64(Types.INTEGER, DatabendTypes.INT64, true, 19, false, "Int64", "BIGINT"),
+    INT_64(Types.BIGINT, DatabendTypes.INT64, true, 19, false, "Int64", "BIGINT"),
     UNSIGNED_INT_64(Types.BIGINT, DatabendTypes.UINT64, false, 20, false, "UInt64", "BIGINT UNSIGNED"),
 
     DOUBLE(Types.DOUBLE, DatabendTypes.FLOAT64, true, 22, false, "Float64", "DOUBLE"),
