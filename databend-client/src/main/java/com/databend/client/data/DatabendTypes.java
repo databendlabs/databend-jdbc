@@ -36,8 +36,12 @@ public final class DatabendTypes
     public static final String STRING = "string";
     public static final String STRUCT = "struct";
     public static final String ARRAY = "array";
+    public static final String TUPLE = "tuple";
+    public static final String MAP = "map";
+    public static final String BITMAP = "bitmap";
     public static final String VARIANT = "variant";
     public static final String VARIANT_ARRAY = "variantarray";
     public static final String VARIANT_OBJECT = "variantobject";
     public static final String INTERVAL = "interval";
+    public static final String DECIMAL = "Decimal";
 }
