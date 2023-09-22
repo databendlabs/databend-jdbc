@@ -146,4 +146,22 @@ public class TestBasicDriver
             Assert.assertTrue(e.getMessage().contains("Query failed"));
         }
     }
+
+    @Test(groups = {"IT"})
+    public void testMultiStatement()
+            throws SQLException
+    {
+        try (Connection connection = createConnection()) {
+            Statement statement = connection.createStatement();
+            statement.executeQuery("use test_basic_driver");
+            statement.executeQuery("show full columns from table1");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            r.getObject(1);
+            connection.close();
+        }
+        finally {
+
+        }
+    }
 }

@@ -151,6 +151,11 @@ public class DatabendResultSet extends AbstractDatabendResultSet
                     finished = true;
                 }
             });
+            for(;;){
+                if(this.future.isDone() || this.future.isCancelled()){
+                    break;
+                }
+            }
         }
 
         public void cancel()
