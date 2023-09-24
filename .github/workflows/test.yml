@@ -48,7 +48,7 @@ jobs:
           sleep 30
           cid=$(docker ps -a | grep databend | cut -d' ' -f1)
           docker logs ${cid}
-          curl -v http://localhost:8000/v1/health
+          curl -u databend:databend  --request POST localhost:8000/v1/query --header 'Content-Type:application/json' --data-raw '{"sql":"select 1"}'
 
       - name: Run Maven clean deploy with release profile
         run: mvn clean test
