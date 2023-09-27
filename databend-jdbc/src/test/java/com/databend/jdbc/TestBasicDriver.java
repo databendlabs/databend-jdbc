@@ -13,31 +13,28 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-public class TestBasicDriver
-{
+import static org.testng.AssertJUnit.assertEquals;
+
+public class TestBasicDriver {
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    private Connection createConnection(String database) throws SQLException
-    {
+    private Connection createConnection(String database) throws SQLException {
         String url = "jdbc:databend://localhost:8000/" + database;
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    private Connection createConnection(String database, Properties p) throws SQLException
-    {
+    private Connection createConnection(String database, Properties p) throws SQLException {
         String url = "jdbc:databend://localhost:8000/" + database;
         return DriverManager.getConnection(url, p);
     }
 
     @BeforeTest
     public void setUp()
-            throws SQLException
-    {
+            throws SQLException {
         // create table
         Connection c = createConnection();
         c.createStatement().execute("drop database if exists test_basic_driver");
@@ -49,16 +46,16 @@ public class TestBasicDriver
 
         // json data
     }
+
     @Test(groups = {"IT"})
     public void testBasic()
-            throws SQLException
-    {
+            throws SQLException {
         try (Connection connection = createConnection()) {
             PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
             Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
             Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
             Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
-            Statement statement = connection.createStatement();
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("SELECT number from numbers(200000) order by number");
             ResultSet r = statement.getResultSet();
             r.next();
@@ -67,15 +64,25 @@ public class TestBasicDriver
                 Assert.assertEquals(r.getInt(1), i);
             }
             connection.close();
-        }
-        finally {
+        } finally {
 
         }
     }
 
     @Test(groups = {"IT"})
-    public  void testBasicWithProperties() throws SQLException
-    {
+    public void testQueryUpdateCount()
+            throws SQLException {
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("SELECT version()");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            assertEquals(-1, statement.getUpdateCount());
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testBasicWithProperties() throws SQLException {
         Properties p = new Properties();
         p.setProperty("wait_time_secs", "10");
         p.setProperty("max_rows_in_buffer", "100");
@@ -98,8 +105,7 @@ public class TestBasicDriver
 
     @Test(groups = {"IT"})
     public void testBasicWithDatabase()
-            throws SQLException
-    {
+            throws SQLException {
         try (Connection connection = createConnection("test_basic_driver")) {
             Statement statement = connection.createStatement();
             statement.execute("SELECT i from table1");
@@ -116,15 +122,14 @@ public class TestBasicDriver
                 System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
             }
             connection.close();
-        }
-        finally {
+        } finally {
 
         }
     }
+
     @Test(groups = {"IT"})
     public void testUpdateSession()
-            throws SQLException
-    {
+            throws SQLException {
         try (Connection connection = createConnection("test_basic_driver")) {
             connection.createStatement().execute("set max_threads=1");
             connection.createStatement().execute("use test_basic_driver_2");
@@ -133,16 +138,15 @@ public class TestBasicDriver
             Assert.assertEquals(session.getSettings().get("max_threads"), "1");
         }
     }
+
     @Test(groups = {"IT"})
-    public void testResultException()
-    {
+    public void testResultException() {
         try (Connection connection = createConnection()) {
             Statement statement = connection.createStatement();
-            ResultSet r =  statement.executeQuery("SELECT 1e189he 198h");
+            ResultSet r = statement.executeQuery("SELECT 1e189he 198h");
 
             connection.close();
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             Assert.assertTrue(e.getMessage().contains("Query failed"));
         }
     }
