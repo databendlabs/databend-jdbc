@@ -21,40 +21,37 @@ import java.util.function.Consumer;
 import static com.databend.jdbc.AbstractDatabendResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
-public class DatabendStatement implements Statement
-{
+
+public class DatabendStatement implements Statement {
     private final AtomicReference<DatabendConnection> connection;
     private final Consumer<DatabendStatement> onClose;
+    private int currentUpdateCount = -1;
     private final AtomicReference<DatabendResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<DatabendClient> executingClient = new AtomicReference<>();
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
 
-    DatabendStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose)
-    {
+    DatabendStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose) {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
         this.onClose = requireNonNull(onClose, "onClose is null");
     }
 
     @Override
     public ResultSet executeQuery(String s)
-            throws SQLException
-    {
+            throws SQLException {
         execute(s);
         return currentResult.get();
     }
 
     @Override
     public int executeUpdate(String s)
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public void close()
-            throws SQLException
-    {
+            throws SQLException {
         DatabendConnection connection = this.connection.getAndSet(null);
         if (connection == null) {
             return;
@@ -69,22 +66,19 @@ public class DatabendStatement implements Statement
 
     @Override
     public int getMaxFieldSize()
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public void setMaxFieldSize(int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public int getMaxRows()
-            throws SQLException
-    {
+            throws SQLException {
         long result = maxRows.get();
         if (result > Integer.MAX_VALUE) {
             throw new SQLException("Max rows exceeds limit of 2147483647");
@@ -94,8 +88,7 @@ public class DatabendStatement implements Statement
 
     @Override
     public void setMaxRows(int i)
-            throws SQLException
-    {
+            throws SQLException {
         if (i < 0) {
             throw new SQLException("Max rows must be greater than or equal to zero");
         }
@@ -104,29 +97,25 @@ public class DatabendStatement implements Statement
 
     @Override
     public void setEscapeProcessing(boolean b)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
     }
 
     @Override
     public int getQueryTimeout()
-            throws SQLException
-    {
+            throws SQLException {
         return 3000;
     }
 
     @Override
     public void setQueryTimeout(int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public void cancel()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         DatabendClient client = executingClient.get();
         if (client != null) {
@@ -136,8 +125,7 @@ public class DatabendStatement implements Statement
     }
 
     private void closeResultSet()
-            throws SQLException
-    {
+            throws SQLException {
         ResultSet resultSet = currentResult.getAndSet(null);
         if (resultSet != null) {
             resultSet.close();
@@ -146,39 +134,37 @@ public class DatabendStatement implements Statement
 
     @Override
     public SQLWarning getWarnings()
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public void clearWarnings()
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public void setCursorName(String s)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
     }
 
     @Override
     public boolean execute(String s)
-            throws SQLException
-    {
-        return internalExecute(s, null);
+            throws SQLException {
+        boolean result = internalExecute(s, null);
+        if (!result) {
+            currentUpdateCount = -1;
+        }
+        return result;
     }
 
-    private void clearCurrentResults()
-    {
+    private void clearCurrentResults() {
         currentResult.set(null);
     }
 
-    private void updateClientSession(QueryResults q)
-    {
+    private void updateClientSession(QueryResults q) {
         if (q == null) {
             return;
         }
@@ -197,17 +183,20 @@ public class DatabendStatement implements Statement
         connection.setSession(q.getSession());
     }
 
-    final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException
-    {
+    final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
         clearCurrentResults();
         checkOpen();
         DatabendClient client = null;
         DatabendResultSet resultSet = null;
+        if (isQueryStatement(sql)) {
+            currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
+        } else {
+            currentUpdateCount = 0;
+        }
         try {
             if (attachment == null) {
                 client = connection().startQuery(sql);
-            }
-            else {
+            } else {
                 client = connection().startQuery(sql, attachment);
             }
             if (!client.isRunning()) {
@@ -220,11 +209,9 @@ public class DatabendStatement implements Statement
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
             return true;
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw new SQLException("Error executing query: " + e.getMessage() + "cause: " + e.getCause(), e);
-        }
-        finally {
+        } finally {
             executingClient.set(null);
             if (currentResult.get() == null) {
                 if (resultSet != null) {
@@ -237,113 +224,103 @@ public class DatabendStatement implements Statement
         }
     }
 
+    final boolean isQueryStatement(String sql) {
+        return sql.toLowerCase().contains("select") || sql.toLowerCase().contains("show");
+    }
+
     @Override
     public ResultSet getResultSet()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return currentResult.get();
     }
 
     @Override
     public int getUpdateCount()
-            throws SQLException
-    {
-        return 0;
+            throws SQLException {
+        return currentUpdateCount;
     }
 
     @Override
     public boolean getMoreResults()
-            throws SQLException
-    {
+            throws SQLException {
         return getMoreResults(CLOSE_CURRENT_RESULT);
     }
 
     @Override
     public int getFetchDirection()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return ResultSet.FETCH_FORWARD;
     }
 
     @Override
     public void setFetchDirection(int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public int getFetchSize()
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public void setFetchSize(int i)
-            throws SQLException
-    {
+            throws SQLException {
 
     }
 
     @Override
     public int getResultSetConcurrency()
-            throws SQLException
-    {
+            throws SQLException {
         return ResultSet.CONCUR_READ_ONLY;
     }
 
     @Override
     public int getResultSetType()
-            throws SQLException
-    {
+            throws SQLException {
         return ResultSet.TYPE_FORWARD_ONLY;
     }
 
     @Override
     public void addBatch(String s)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
 
     @Override
     public void clearBatch()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
 
     @Override
     public int[] executeBatch()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         throw new SQLFeatureNotSupportedException("Batches not supported");
     }
 
     @Override
     public Connection getConnection()
-            throws SQLException
-    {
+            throws SQLException {
         return connection();
     }
 
     @Override
     public boolean getMoreResults(int i)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
-        if( i == CLOSE_CURRENT_RESULT) {
+        if (i == CLOSE_CURRENT_RESULT) {
             closeResultSet();
             return false;
         }
 
-        if( i != KEEP_CURRENT_RESULT && i != CLOSE_CURRENT_RESULT) {
+        if (i != KEEP_CURRENT_RESULT && i != CLOSE_CURRENT_RESULT) {
             throw new SQLException("Invalid value for getMoreResults: " + i);
         }
         throw new SQLFeatureNotSupportedException("Multiple results not supported");
@@ -351,50 +328,43 @@ public class DatabendStatement implements Statement
 
     @Override
     public ResultSet getGeneratedKeys()
-            throws SQLException
-    {
+            throws SQLException {
         throw new SQLFeatureNotSupportedException("getGeneratedKeys");
     }
 
     @Override
     public int executeUpdate(String s, int i)
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public int executeUpdate(String s, int[] ints)
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public int executeUpdate(String s, String[] strings)
-            throws SQLException
-    {
+            throws SQLException {
         return 0;
     }
 
     @Override
     public boolean execute(String s, int i)
-            throws SQLException
-    {
+            throws SQLException {
         return execute(s);
     }
 
     @Override
     public boolean execute(String s, int[] ints)
-            throws SQLException
-    {
+            throws SQLException {
         return execute(s);
     }
 
     @Override
     public boolean execute(String s, String[] strings)
-            throws SQLException
-    {
+            throws SQLException {
         return execute(s);
     }
 
@@ -407,67 +377,59 @@ public class DatabendStatement implements Statement
 
     @Override
     public boolean isClosed()
-            throws SQLException
-    {
+            throws SQLException {
         return connection.get() == null;
     }
 
     @Override
     public boolean isPoolable()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return false;
     }
 
     @Override
     public void setPoolable(boolean b)
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
     }
 
     @Override
     public void closeOnCompletion()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         closeOnCompletion.set(true);
     }
 
     @Override
     public boolean isCloseOnCompletion()
-            throws SQLException
-    {
+            throws SQLException {
         checkOpen();
         return closeOnCompletion.get();
     }
 
     @Override
     public <T> T unwrap(Class<T> iface)
-            throws SQLException
-    {
+            throws SQLException {
         if (isWrapperFor(iface)) {
-        return (T) this;
-    }
+            return (T) this;
+        }
         throw new SQLException("No wrapper for " + iface);
     }
 
     @Override
     public boolean isWrapperFor(Class<?> aClass)
-            throws SQLException
-    {
+            throws SQLException {
         return aClass.isInstance(this);
     }
 
     protected final void checkOpen()
-            throws SQLException
-    {
+            throws SQLException {
         connection();
     }
+
     protected final DatabendConnection connection()
-            throws SQLException
-    {
+            throws SQLException {
         DatabendConnection connection = this.connection.get();
         if (connection == null) {
             throw new SQLException("Statement is closed");
@@ -478,8 +440,7 @@ public class DatabendStatement implements Statement
         return connection;
     }
 
-    protected final Optional<DatabendConnection> optionalConnection()
-    {
+    protected final Optional<DatabendConnection> optionalConnection() {
         return Optional.ofNullable(connection.get());
     }
 }
