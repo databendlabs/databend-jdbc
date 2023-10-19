@@ -13,7 +13,7 @@ import lombok.Data;
 import lombok.NonNull;
 
 /**
- * This represents a statement that is ready to be sent to Firebolt or executed
+ * This represents a statement that is ready to be sent to Databend or executed
  * internally to set a param
  */
 @Data

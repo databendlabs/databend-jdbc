@@ -1,9 +1,9 @@
-package com.firebolt.jdbc.log;
+package com.databend.jdbc.log;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-public class SLF4JLogger implements FireboltLogger {
+public class SLF4JLogger implements DatabendLogger {
 
 	private final Logger logger;
 

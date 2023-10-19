@@ -1,8 +1,8 @@
-package com.firebolt.jdbc.log;
+package com.databend.jdbc.log;
 
 import java.util.logging.Level;
 
-public class JDKLogger implements FireboltLogger {
+public class JDKLogger implements DatabendLogger {
 
 	private final java.util.logging.Logger logger;
 
