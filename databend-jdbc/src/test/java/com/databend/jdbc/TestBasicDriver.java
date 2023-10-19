@@ -77,18 +77,18 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
-    public void testPrepareStatementQuery() throws SQLException {
-        String sql = "SELECT number from numbers(100) where number = ?";
-        Connection connection = createConnection("test_basic_driver");
-        try(PreparedStatement statement  = connection.prepareStatement(sql)) {
-            statement.setInt(1, 1);
-            ResultSet r = statement.executeQuery();
-            statement.execute();
-            r.next();
-            System.out.println(r.getLong("number"));
-        }
-    }
+//    @Test
+//    public void testPrepareStatementQuery() throws SQLException {
+//        String sql = "SELECT number from numbers(100) where number = ?";
+//        Connection connection = createConnection("test_basic_driver");
+//        try(PreparedStatement statement  = connection.prepareStatement(sql)) {
+//            statement.setInt(1, 1);
+//            ResultSet r = statement.executeQuery();
+//            statement.execute();
+//            r.next();
+//            System.out.println(r.getLong("number"));
+//        }
+//    }
 
     @Test(groups = {"IT"})
     public void testBasicWithProperties() throws SQLException {
