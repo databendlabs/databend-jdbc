@@ -52,6 +52,7 @@ import static com.databend.jdbc.ObjectCasts.castToFloat;
 import static com.databend.jdbc.ObjectCasts.castToInt;
 import static com.databend.jdbc.ObjectCasts.castToLong;
 import static com.databend.jdbc.ObjectCasts.castToShort;
+import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -346,7 +347,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public ResultSet executeQuery()
             throws SQLException {
-        this.executeBatch();
+        String sql = replaceParameterMarksWithValues(batchInsertUtils.get().getProvideParams(), this.originalSql).get(0).getSql();
+        internalExecute(sql, null);
         return getResultSet();
     }
 

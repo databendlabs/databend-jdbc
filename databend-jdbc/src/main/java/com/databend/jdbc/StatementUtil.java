@@ -19,8 +19,8 @@ public class StatementUtil {
 
     private static final String SET_PREFIX = "set";
     private static final Pattern SET_WITH_SPACE_REGEX = Pattern.compile(SET_PREFIX + " ", Pattern.CASE_INSENSITIVE);
-    private static final String[] SELECT_KEYWORDS = new String[] { "show", "select", "describe", "exists", "explain",
-            "with", "call" };
+    private static final String[] SELECT_KEYWORDS = new String[]{"show", "select", "describe", "exists", "explain",
+            "with", "call"};
 
     /**
      * Returns true if the statement is a query (eg: SELECT, SHOW).
@@ -41,7 +41,7 @@ public class StatementUtil {
      * Extracts parameter from statement (eg: SET x=y)
      *
      * @param cleanSql the clean version of the sql (sql statement without comments)
-     * @param sql      the sql statement
+     * @param sql the sql statement
      * @return an optional parameter represented with a pair of key/value
      */
     public Optional<Pair<String, String>> extractParamFromSetStatement(@NonNull String cleanSql, String sql) {
@@ -200,7 +200,7 @@ public class StatementUtil {
      * constructed with the sql statement and the parameters provided
      *
      * @param params the parameters
-     * @param sql    the sql statement
+     * @param sql the sql statement
      * @return a list of sql statements containing the provided parameters
      */
     public static List<StatementInfoWrapper> replaceParameterMarksWithValues(@NonNull Map<Integer, String> params,
@@ -213,7 +213,7 @@ public class StatementUtil {
      * Returns a list of {@link StatementInfoWrapper} containing sql statements
      * constructed with the {@link RawStatementWrapper} and the parameters provided
      *
-     * @param params       the parameters
+     * @param params the parameters
      * @param rawStatement the rawStatement
      * @return a list of sql statements containing the provided parameters
      */
@@ -292,7 +292,7 @@ public class StatementUtil {
         String[] values = StringUtils.split(setQuery, "=");
         if (values.length == 2) {
             String value = StringUtils.removeEnd(values[1], ";").trim();
-            if (StringUtils.isNumeric(value)){
+            if (StringUtils.isNumeric(value)) {
                 return Optional.of(Pair.of(values[0].trim(), value.trim()));
             } else {
                 return Optional.of(Pair.of(values[0].trim(), StringUtils.removeEnd(StringUtils.removeStart(value, "'"), "'")));

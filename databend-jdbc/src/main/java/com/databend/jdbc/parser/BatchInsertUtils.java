@@ -1,6 +1,5 @@
 package com.databend.jdbc.parser;
 
-import com.databend.jdbc.DatabendPreparedStatement;
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
 
@@ -48,6 +47,14 @@ public class BatchInsertUtils {
 
     public String getSql() {
         return sql;
+    }
+
+    public Map<Integer, String> getProvideParams() {
+        Map<Integer, String> m = new TreeMap<>();
+        for (Map.Entry<Integer, String> elem : placeHolderEntries.entrySet()) {
+            m.put(elem.getKey() + 1, elem.getValue());
+        }
+        return m;
     }
 
     public String getDatabaseTableName() {
