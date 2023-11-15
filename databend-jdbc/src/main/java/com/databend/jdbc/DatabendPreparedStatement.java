@@ -5,6 +5,7 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import com.solidfire.gson.Gson;
+import lombok.NonNull;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -42,6 +43,7 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import static com.databend.jdbc.ObjectCasts.castToBigDecimal;
 import static com.databend.jdbc.ObjectCasts.castToBinary;
@@ -61,6 +63,7 @@ import static java.util.Objects.requireNonNull;
 public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    private final RawStatementWrapper rawStatement;
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
@@ -86,6 +89,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         this.originalSql = requireNonNull(sql, "sql is null");
         this.batchValues = new ArrayList<>();
         this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
+        this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
     }
 
     private static String formatBooleanLiteral(boolean x) {
@@ -350,6 +354,32 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         String sql = replaceParameterMarksWithValues(batchInsertUtils.get().getProvideParams(), this.originalSql).get(0).getSql();
         internalExecute(sql, null);
         return getResultSet();
+    }
+
+    private List<StatementInfoWrapper> prepareSQL(@NonNull Map<Integer, String> params) {
+        return replaceParameterMarksWithValues(params, this.rawStatement);
+    }
+
+    @Override
+    public boolean execute()
+            throws SQLException {
+        return this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+    }
+
+    protected Optional<ResultSet> execute(List<StatementInfoWrapper> statements) throws SQLException {
+        Optional<ResultSet> resultSet = Optional.empty();
+        try {
+            for (int i = 0; i < statements.size(); i++) {
+                if (i == 0) {
+                    internalExecute(statements.get(i).getSql(), null);
+                    resultSet = Optional.ofNullable(getResultSet());
+                } else {
+                    internalExecute(statements.get(i).getSql(), null);
+                }
+            }
+        } finally {
+        }
+        return resultSet;
     }
 
     @Override
@@ -632,11 +662,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return builder.toString();
     }
 
-    @Override
-    public boolean execute()
-            throws SQLException {
-        return false;
-    }
 
     @Override
     public void addBatch()

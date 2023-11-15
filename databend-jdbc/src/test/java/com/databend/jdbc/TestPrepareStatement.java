@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -280,6 +281,20 @@ public class TestPrepareStatement {
         while (r.next()) {
             System.out.println(r.getInt(1));
             System.out.println(r.getInt(2));
+        }
+    }
+
+    @Test
+    public void testPrepareStatementExecute() throws SQLException {
+        Connection conn = createConnection();
+        String sql = "SELECT number from numbers(100) where number = ?";
+        try(PreparedStatement statement  = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.execute();
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assertions.assertEquals(1, r.getLong("number"));
+            System.out.println(r.getLong("number"));
         }
     }
 }
