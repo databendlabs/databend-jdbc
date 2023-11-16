@@ -383,9 +383,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     @Override
-    public int executeUpdate()
-            throws SQLException {
-        return 0;
+    public int executeUpdate() throws SQLException {
+        this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+        return batchInsertUtils.get().getProvideParams().size();
     }
 
     @Override
