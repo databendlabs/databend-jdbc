@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -14,6 +15,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.ThreadLocalRandom;
 
 public class TestPrepareStatement {
     private Connection createConnection()
@@ -87,8 +89,8 @@ public class TestPrepareStatement {
 
         List<String[]> batchValues1 = new ArrayList<>();
         // Add string arrays to batchValues
-        String[] values3 = {"1","2"};
-        String[] values4 = {"3","4"};
+        String[] values3 = {"1", "2"};
+        String[] values4 = {"3", "4"};
         batchValues1.add(values3);
         batchValues1.add(values4);
 
@@ -280,6 +282,32 @@ public class TestPrepareStatement {
         while (r.next()) {
             System.out.println(r.getInt(1));
             System.out.println(r.getInt(2));
+        }
+    }
+
+    @Test
+    public void testPrepareStatementExecute() throws SQLException {
+        Connection conn = createConnection();
+        String sql = "SELECT number from numbers(100) where number = ?";
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.execute();
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assertions.assertEquals(1, r.getLong("number"));
+            System.out.println(r.getLong("number"));
+        }
+    }
+
+    @Test
+    public void testPrepareStatementExecuteUpdate() throws SQLException {
+        String sql = "insert into test_prepare_statement values (?,?)";
+        Connection conn = createConnection();
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setInt(2, 2);
+            int result = statement.executeUpdate();
+            Assertions.assertEquals(2, result);
         }
     }
 }

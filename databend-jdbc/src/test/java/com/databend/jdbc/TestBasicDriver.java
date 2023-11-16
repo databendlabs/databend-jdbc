@@ -6,11 +6,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.SQLException;
-import java.sql.Statement;
+import java.sql.*;
 import java.util.Properties;
 
 import static org.testng.AssertJUnit.assertEquals;
@@ -100,6 +96,19 @@ public class TestBasicDriver {
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 1);
+        }
+    }
+
+    @Test
+    public void testPrepareStatementQuery() throws SQLException {
+        String sql = "SELECT number from numbers(100) where number = ? or number = ?";
+        Connection conn = createConnection("test_basic_driver");
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setInt(2, 2);
+            ResultSet r = statement.executeQuery();
+            r.next();
+            System.out.println(r.getLong("number"));
         }
     }
 
