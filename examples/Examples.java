@@ -20,6 +20,7 @@ class Examples {
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
             statement.setInt(2, 1);
+            // Attention: now setString(1, "c") will throw exception, need to setString(1, "'c'")
             statement.setString(1, "'c'");
             int result = statement.executeUpdate();
             System.out.println(result);

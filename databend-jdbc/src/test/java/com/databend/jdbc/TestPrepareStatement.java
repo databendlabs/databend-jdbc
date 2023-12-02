@@ -300,7 +300,7 @@ public class TestPrepareStatement {
     }
 
     @Test
-    public void testPrepareStatementExecute() throws SQLException {
+    public void testAllPreparedStatement() throws SQLException {
         String sql = "insert into test_prepare_statement values (?,?)";
         Connection conn = createConnection();
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
