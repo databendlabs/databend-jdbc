@@ -1,11 +1,32 @@
+package com.databend.jdbc.examples;
+
+import java.sql.Connection;
+import java.sql.Date;
+import java.sql.DriverManager;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
+import java.sql.Timestamp;
+import java.util.ArrayList;
+import java.util.List;
+
 class Examples {
-    private Connection createConnection()
+    private static Connection createConnection()
             throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    public static void main(String[] args) {
+    public static void main(String[] args) throws SQLException {
+        // set up
+        Connection c = createConnection();
+        System.out.println("-----------------");
+        System.out.println("drop all existing test table");
+        c.createStatement().execute("drop table if exists test_prepare_statement");
+        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
+
+
         // insert into with PreparedStatement
         String sql = "insert into test_prepare_statement values (?,?)";
         Connection conn = createConnection();
@@ -62,4 +83,4 @@ class Examples {
         }
     }
 }
-}
+
