@@ -39,7 +39,7 @@ public class TestPrepareStatement {
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("drop table if exists test_prepare_time");
         c.createStatement().execute("drop table if exists objects_test1");
-        c.createStatement().execute("create table test_prepare_statement (a int, b int)");
+        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
         // json data
         c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
@@ -52,10 +52,10 @@ public class TestPrepareStatement {
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
         ps.setInt(1, 1);
-        ps.setInt(2, 2);
+        ps.setString(2, "a");
         ps.addBatch();
         ps.setInt(1, 3);
-        ps.setInt(2, 4);
+        ps.setString(2, "b");
         ps.addBatch();
         System.out.println("execute batch insert");
         int[] ans = ps.executeBatch();
@@ -70,7 +70,7 @@ public class TestPrepareStatement {
 
         while (r.next()) {
             System.out.println(r.getInt(1));
-            System.out.println(r.getInt(2));
+            System.out.println(r.getString(2));
         }
     }
 
@@ -106,10 +106,10 @@ public class TestPrepareStatement {
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
         ps.setInt(1, 1);
-        ps.setInt(2, 2);
+        ps.setString(2, "b");
         ps.addBatch();
         ps.setInt(1, 3);
-        ps.setInt(2, 4);
+        ps.setString(2, "b");
         ps.addBatch();
         System.out.println("execute batch insert");
         int[] ans = ps.executeBatch();
@@ -124,7 +124,7 @@ public class TestPrepareStatement {
 
         while (r.next()) {
             System.out.println(r.getInt(1));
-            System.out.println(r.getInt(2));
+            System.out.println(r.getString(2));
         }
 
         PreparedStatement deletePs = c.prepareStatement("delete from test_prepare_statement where a = ?");
@@ -263,10 +263,10 @@ public class TestPrepareStatement {
 
         PreparedStatement ps = c.prepareStatement("replace into test_prepare_statement on(a) values");
         ps.setInt(1, 1);
-        ps.setInt(2, 2);
+        ps.setString(2, "a");
         ps.addBatch();
         ps.setInt(1, 3);
-        ps.setInt(2, 4);
+        ps.setString(2, "b");
         ps.addBatch();
         System.out.println("execute batch replace into");
         int[] ans = ps.executeBatch();
@@ -281,7 +281,7 @@ public class TestPrepareStatement {
 
         while (r.next()) {
             System.out.println(r.getInt(1));
-            System.out.println(r.getInt(2));
+            System.out.println(r.getString(2));
         }
     }
 
@@ -300,14 +300,54 @@ public class TestPrepareStatement {
     }
 
     @Test
-    public void testPrepareStatementExecuteUpdate() throws SQLException {
+    public void testAllPreparedStatement() throws SQLException {
         String sql = "insert into test_prepare_statement values (?,?)";
         Connection conn = createConnection();
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
-            statement.setInt(2, 2);
+            statement.setString(2, "b");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+        }
+        String updateSQL = "update test_prepare_statement set b = ? where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
+            statement.setInt(2, 1);
+            statement.setString(1, "'c'");
             int result = statement.executeUpdate();
-            Assertions.assertEquals(2, result);
+            System.out.println(result);
+        }
+        ResultSet r = conn.createStatement().executeQuery("select * from test_prepare_statement");
+        while (r.next()) {
+            System.out.println(r.getInt(1));
+            System.out.println(r.getString(2));
+        }
+
+        String replaceIntoSQL = "replace into test_prepare_statement on(a) values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(replaceIntoSQL)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "d");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+        }
+        ResultSet r2 = conn.createStatement().executeQuery("select * from test_prepare_statement");
+        while (r2.next()) {
+            System.out.println(r2.getInt(1));
+            System.out.println(r2.getString(2));
+        }
+
+        String deleteSQL = "delete from test_prepare_statement where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(deleteSQL)) {
+            statement.setInt(1, 1);
+            int result = statement.executeUpdate();
+            System.out.println(result);
+        }
+        ResultSet r3 = conn.createStatement().executeQuery("select * from test_prepare_statement");
+        Assert.assertEquals(0, r3.getRow());
+        while (r3.next()) {
+            // noting print
+            System.out.println(r3.getInt(1));
+            System.out.println(r3.getString(2));
         }
     }
 }
