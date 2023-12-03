@@ -23,6 +23,7 @@ class Examples {
         Connection c = createConnection();
         System.out.println("-----------------");
         System.out.println("drop all existing test table");
+        // execute demo
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("create table test_prepare_statement (a int, b string)");
 
