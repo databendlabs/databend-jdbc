@@ -202,6 +202,8 @@ public class DatabendColumnInfo {
                 return java.sql.Types.TIMESTAMP;
             case DatabendTypes.ARRAY:
                 return java.sql.Types.ARRAY;
+            case DatabendTypes.DECIMAL:
+                return java.sql.Types.DECIMAL;
             default:
                 return Types.JAVA_OBJECT;
         }
