@@ -342,6 +342,14 @@ public class TestPrepareStatement {
             int result = statement.executeUpdate();
             System.out.println(result);
         }
+
+        String deleteSQLVarchar = "delete from test_prepare_statement where b = ?";
+        try (PreparedStatement statement = conn.prepareStatement(deleteSQLVarchar)) {
+            statement.setString(1, "1");
+            int result = statement.executeUpdate();
+            System.out.println(result);
+        }
+
         ResultSet r3 = conn.createStatement().executeQuery("select * from test_prepare_statement");
         Assert.assertEquals(0, r3.getRow());
         while (r3.next()) {
