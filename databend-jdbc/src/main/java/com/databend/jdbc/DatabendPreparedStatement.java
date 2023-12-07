@@ -363,23 +363,33 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public boolean execute()
             throws SQLException {
-        return this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+        Boolean r;
+        try {
+            r = this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+        } catch (Exception e) {
+            throw new SQLException(e);
+        } finally {
+            clearBatch();
+        }
+        return r;
     }
 
     protected Optional<ResultSet> execute(List<StatementInfoWrapper> statements) throws SQLException {
-        Optional<ResultSet> resultSet = Optional.empty();
+        Optional<ResultSet> optionalResultSet = Optional.empty();
+        ResultSet r;
         try {
             for (int i = 0; i < statements.size(); i++) {
-                if (i == 0) {
-                    internalExecute(statements.get(i).getSql(), null);
-                    resultSet = Optional.ofNullable(getResultSet());
-                } else {
-                    internalExecute(statements.get(i).getSql(), null);
+                internalExecute(statements.get(i).getSql(), null);
+                r = getResultSet();
+                optionalResultSet = Optional.ofNullable(r);
+                while (r != null && r.next()) {
                 }
             }
+        } catch (Exception e) {
+            throw new SQLException(e);
         } finally {
         }
-        return resultSet;
+        return optionalResultSet;
     }
 
     @Override
