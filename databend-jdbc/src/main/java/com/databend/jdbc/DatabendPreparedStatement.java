@@ -455,7 +455,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setString(int i, String s)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
+        if (originalSql.toLowerCase().contains("delete from")) {
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", s, "'")));
+        } else {
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
+        }
     }
 
     @Override
