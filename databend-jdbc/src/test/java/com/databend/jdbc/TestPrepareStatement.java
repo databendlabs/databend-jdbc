@@ -8,7 +8,7 @@ import org.testng.annotations.Test;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
-import java.sql.PreparedStatement;
+import java.sql.*;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -297,6 +297,15 @@ public class TestPrepareStatement {
             Assertions.assertEquals(1, r.getLong("number"));
             System.out.println(r.getLong("number"));
         }
+        try {
+            Statement statement = conn.createStatement();
+            ResultSet rs = statement.executeQuery("show processlist");
+            while (rs.next()) {
+                System.out.println(rs.getString("id"));
+            }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test
@@ -339,7 +348,7 @@ public class TestPrepareStatement {
         String deleteSQL = "delete from test_prepare_statement where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(deleteSQL)) {
             statement.setInt(1, 1);
-            int result = statement.executeUpdate();
+            boolean result = statement.execute();
             System.out.println(result);
         }
 
