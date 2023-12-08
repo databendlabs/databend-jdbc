@@ -44,6 +44,13 @@ The above URL can be used as follows
 String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend"
         Connection conn=DriverManager.getConnection(url);
 ```
+If you are using [Databend Cloud](https://app.databend.com/), you can get a warehouse DSN according to [this doc](https://databend.rs/cloud/using-databend-cloud/warehouses#connecting).
+Then the above URL within warehouse DSN can be used as follows:
+
+```java 
+        String url="jdbc:databend://cloudapp:password@tnf34b0rm--elt-wh-medium.gw.aliyun-cn-beijing.default.databend.cn:443/db_name?ssl=true"
+        Connection conn=DriverManager.getConnection(url);
+```
 
 ## Connection parameters
 
