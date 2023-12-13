@@ -282,7 +282,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     public String getSQLKeywords()
             throws SQLException {
         ArrayList<String> keywords = new ArrayList<>();
-        try (ResultSet rs = select("SELECT word FROM information_schema.keywords")) {
+        try (ResultSet rs = select("SELECT keywords FROM information_schema.keywords")) {
             rs.next();
             keywords.add(rs.getString(1));
         }
