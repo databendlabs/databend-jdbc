@@ -226,7 +226,7 @@ public class DatabendColumnInfo {
     }
 
     public String getColumnTypeName() {
-        return type.toString();
+        return type.getDataType().getDisplayName();
     }
 
     public boolean isCurrency() {
