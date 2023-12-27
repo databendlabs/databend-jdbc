@@ -318,6 +318,7 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
+            Assertions.assertEquals(1, result.length);
         }
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
@@ -325,6 +326,7 @@ public class TestPrepareStatement {
             statement.setString(1, "c");
             int result = statement.executeUpdate();
             System.out.println(result);
+            Assertions.assertEquals(2, result);
         }
         try (PreparedStatement statement = conn.prepareStatement("select * from test_prepare_statement where b = ?")) {
             statement.setString(1, "c");
