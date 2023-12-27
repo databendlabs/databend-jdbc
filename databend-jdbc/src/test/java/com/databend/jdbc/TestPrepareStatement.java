@@ -322,16 +322,18 @@ public class TestPrepareStatement {
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
             statement.setInt(2, 1);
-            statement.setString(1, "'c'");
+            statement.setString(1, "c");
             int result = statement.executeUpdate();
             System.out.println(result);
         }
-        ResultSet r = conn.createStatement().executeQuery("select * from test_prepare_statement");
-        while (r.next()) {
-            System.out.println(r.getInt(1));
-            System.out.println(r.getString(2));
+        try (PreparedStatement statement = conn.prepareStatement("select * from test_prepare_statement where b = ?")) {
+            statement.setString(1, "c");
+            ResultSet r = statement.executeQuery();
+            while (r.next()) {
+                Assertions.assertEquals(1, r.getInt(1));
+                Assertions.assertEquals("c", r.getString(2));
+            }
         }
-
         String replaceIntoSQL = "replace into test_prepare_statement on(a) values (?,?)";
         try (PreparedStatement statement = conn.prepareStatement(replaceIntoSQL)) {
             statement.setInt(1, 1);
