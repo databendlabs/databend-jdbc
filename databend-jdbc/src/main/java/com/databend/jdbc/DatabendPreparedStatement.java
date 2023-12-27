@@ -465,10 +465,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setString(int i, String s)
             throws SQLException {
         checkOpen();
-        if (originalSql.toLowerCase().contains("delete from")) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", s, "'")));
-        } else {
+        if (originalSql.toLowerCase().contains("insert") ||
+                originalSql.toLowerCase().contains("replace") ||
+                originalSql.toLowerCase().contains("merge")) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
+        } else {
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", s, "'")));
         }
     }
 
