@@ -68,6 +68,8 @@ public final class PresignContext {
                 }
             }
             throw e;
+        } finally {
+            statement.close();
         }
     }
 
