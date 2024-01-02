@@ -60,14 +60,9 @@ public final class PresignContext {
                 throw new SQLException("Failed to get presign url");
             }
         } catch (Throwable e) {
-            try {
-                statement.close();
-            } catch (Throwable closeException) {
-                if (closeException != e) {
-                    e.addSuppressed(closeException);
-                }
-            }
-            throw e;
+            throw new SQLException("Failed to do presign");
+        } finally {
+            statement.close();
         }
     }
 
