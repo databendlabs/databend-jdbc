@@ -54,7 +54,7 @@ public class TestPrepareStatement {
         ps.setInt(1, 1);
         ps.setString(2, "a");
         ps.addBatch();
-        ps.setInt(1, 3);
+        ps.setInt(1, 2);
         ps.setString(2, "b");
         ps.addBatch();
         System.out.println("execute batch insert");
@@ -71,6 +71,36 @@ public class TestPrepareStatement {
         while (r.next()) {
             System.out.println(r.getInt(1));
             System.out.println(r.getString(2));
+        }
+    }
+
+    @Test(groups = "IT")
+    public void TestBatchInsertWithNULL() throws SQLException {
+        Connection c = createConnection();
+        c.setAutoCommit(false);
+
+        PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
+        ps.setInt(1, 1);
+        ps.setString(2, "");
+        ps.addBatch();
+        ps.setInt(1, 2);
+        ps.setNull(2, Types.NULL);
+        ps.addBatch();
+        System.out.println("execute batch insert");
+        int[] ans = ps.executeBatch();
+        Assert.assertEquals(ans.length, 2);
+        Assert.assertEquals(ans[0], 1);
+        Assert.assertEquals(ans[1], 1);
+        Statement statement = c.createStatement();
+
+        System.out.println("execute select");
+        statement.execute("SELECT * from test_prepare_statement");
+        ResultSet r = statement.getResultSet();
+
+        while (r.next()) {
+            System.out.println(r.getInt(1));
+            //TODO(hantmac): need use real NULL type
+            Assert.assertEquals(r.getNString(2), "NULL");
         }
     }
 

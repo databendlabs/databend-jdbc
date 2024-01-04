@@ -402,7 +402,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setNull(int i, int i1)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
+        // Databend uses \N as default null representation for csv and tsv format
+        // https://github.com/datafuselabs/databend/pull/6453
+        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, "\\N"));
     }
 
     @Override
