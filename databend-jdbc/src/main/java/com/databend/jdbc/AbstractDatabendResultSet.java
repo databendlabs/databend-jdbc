@@ -1491,13 +1491,17 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public String getNString(int columnIndex)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("getNString");
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+        return value.toString();
     }
 
     @Override
     public String getNString(String columnLabel)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("getNString");
+        return getNString(columnIndex(columnLabel));
     }
 
     @Override

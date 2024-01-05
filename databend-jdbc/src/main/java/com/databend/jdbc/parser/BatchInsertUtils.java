@@ -2,6 +2,7 @@ package com.databend.jdbc.parser;
 
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
+import de.siegmar.fastcsv.writer.QuoteStrategy;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -100,7 +101,14 @@ public class BatchInsertUtils {
     }
 
     public File saveBatchToCSV(List<String[]> values, File file) {
-        int rowSize = values.get(0).length;
+        int rowSize = 0;
+        for (String[] row : values) {
+            if (row != null) {
+                rowSize = row.length;
+                break;
+            }
+            throw new RuntimeException("batch values is empty");
+        }
         // save values to csv file
         try (FileWriter pw = new FileWriter(file)) {
             CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(pw);
