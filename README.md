@@ -12,8 +12,19 @@ Add following code block as a dependency
 <dependency>
     <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
-    <version>0.1.2</version>
+    <version>0.1.5</version>
 </dependency>
+```
+
+### Build from source
+```shell
+cd databend-jdbc
+mvn clean install -DskipTests
+```
+
+### Download jar from maven central
+```shell
+You can download the latest version of the databend-jdbc driver [here](https://repo1.maven.org/maven2/com/databend/databend-jdbc/).
 ```
 
 ## How to use
