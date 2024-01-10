@@ -44,9 +44,9 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
         builder
-                .connectTimeout(30, TimeUnit.SECONDS)
-                .readTimeout(90, TimeUnit.SECONDS)
-                .writeTimeout(90, TimeUnit.SECONDS);
+                .connectTimeout(300, TimeUnit.SECONDS)
+                .readTimeout(600, TimeUnit.SECONDS)
+                .writeTimeout(600, TimeUnit.SECONDS);
         this.client = client;
         this.uri = uri;
     }

@@ -46,7 +46,8 @@ public class DatabendParameterMetaData implements ParameterMetaData {
 
     @Override
     public boolean isSigned(int param) throws SQLException {
-        return false;
+        DatabendColumnInfo p = getParameter(param);
+        return p != null && p.isSigned();
     }
 
     @Override
