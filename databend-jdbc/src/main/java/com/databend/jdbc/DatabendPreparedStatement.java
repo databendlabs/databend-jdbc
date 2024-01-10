@@ -202,11 +202,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
+            // upload to stage
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
+            // insert with stage attachment
             StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).setCopyOptions(copyOptions)
                     .build();
             return attachment;

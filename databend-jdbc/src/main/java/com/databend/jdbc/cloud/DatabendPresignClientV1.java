@@ -1,5 +1,6 @@
 package com.databend.jdbc.cloud;
 
+import com.databend.client.DatabendClientV1;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -37,6 +38,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
     private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
     private final String uri;
+    private static final Logger logger = Logger.getLogger(DatabendPresignClientV1.class.getPackage().getName());
 
     public DatabendPresignClientV1(OkHttpClient client, String uri) {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
@@ -100,13 +102,14 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         Exception cause = null;
         while (true) {
             if (attempts > 0) {
+                logger.info("try to presign upload again: " + attempts);
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.getSeconds() >= 60) {
-                    System.out.println("Presign failed" + cause.toString());
+                    logger.warning("Presign upload failed, error is:" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
                 if (attempts >= MaxRetryAttempts) {
-                    System.out.println("Presign failed" + cause.toString());
+                    logger.warning("Presign upload failed, error is: " + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
 
@@ -127,7 +130,6 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
                 if (response.isSuccessful()) {
                     return response.body();
                 } else if (response.code() == 401) {
-
                     throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
                 } else if (response.code() >= 503) {
                     cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
