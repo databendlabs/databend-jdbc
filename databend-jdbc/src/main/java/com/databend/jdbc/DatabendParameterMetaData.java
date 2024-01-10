@@ -2,13 +2,14 @@ package com.databend.jdbc;
 
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
+import java.sql.Types;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
 import static java.util.Objects.requireNonNull;
 
-public class DatabendParameterMetaData implements ParameterMetaData {
+public class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData {
     protected final List<DatabendColumnInfo> params;
     protected final JdbcTypeMapping mapper;
 
@@ -52,22 +53,26 @@ public class DatabendParameterMetaData implements ParameterMetaData {
 
     @Override
     public int getPrecision(int param) throws SQLException {
-        return 0;
+        DatabendColumnInfo p = getParameter(param);
+        return p != null ? p.getPrecision() : 0;
     }
 
     @Override
     public int getScale(int param) throws SQLException {
-        return 0;
+        DatabendColumnInfo p = getParameter(param);
+        return p != null ? p.getScale() : 0;
     }
 
     @Override
     public int getParameterType(int param) throws SQLException {
-        return 0;
+        DatabendColumnInfo p = getParameter(param);
+        return p != null ? mapper.toSqlType(p) : Types.OTHER;
     }
 
     @Override
     public String getParameterTypeName(int param) throws SQLException {
-        return null;
+        DatabendColumnInfo p = getParameter(param);
+        return p != null ? p.getColumnTypeName() : "<unknown>";
     }
 
     @Override
@@ -77,16 +82,6 @@ public class DatabendParameterMetaData implements ParameterMetaData {
 
     @Override
     public int getParameterMode(int param) throws SQLException {
-        return 0;
-    }
-
-    @Override
-    public <T> T unwrap(Class<T> iface) throws SQLException {
-        return null;
-    }
-
-    @Override
-    public boolean isWrapperFor(Class<?> iface) throws SQLException {
-        return false;
+        return ParameterMetaData.parameterModeIn;
     }
 }

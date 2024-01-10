@@ -20,6 +20,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -136,6 +137,9 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
                 } else if (response.code() >= 400) {
                     cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
                 }
+            } catch (SocketTimeoutException e) {
+                logger.warning("Error execute presign, socket timeout: " + e.getMessage());
+                cause = new RuntimeException("Error execute presign, socket timeout: " + e.getMessage());
             } catch (RuntimeException e) {
                 cause = e;
             } finally {
