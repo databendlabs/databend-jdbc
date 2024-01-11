@@ -47,7 +47,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         builder
                 .connectTimeout(300, TimeUnit.SECONDS)
                 .readTimeout(600, TimeUnit.SECONDS)
-                .writeTimeout(600, TimeUnit.SECONDS);
+                .writeTimeout(600, TimeUnit.SECONDS).build();
         this.client = client;
         this.uri = uri;
     }
