@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
 import com.databend.client.data.DatabendTypes;
 import com.google.common.base.Preconditions;
@@ -60,10 +61,10 @@ public class DatabendColumnInfo {
     }
 
     public static void setTypeInfo(Builder builder, DatabendRawType type) {
-        builder.setColumnType(getType(type));
+        builder.setColumnType(type.getDataType().getSqlType());
         boolean isNullable = type.isNullable();
         builder.setNullable(isNullable ? Nullable.NULLABLE : Nullable.NO_NULLS);
-        switch (type.getType()) {
+        switch (type.getDataType().getDisplayName()) {
             case DatabendTypes.BOOLEAN:
                 builder.setColumnDisplaySize(5);
                 break;
@@ -151,62 +152,18 @@ public class DatabendColumnInfo {
                 builder.setPrecision(TIMESTAMP_MAX);
                 builder.setColumnDisplaySize(TIMESTAMP_MAX);
                 break;
-
+            case DatabendTypes.DECIMAL:
+                builder.setSigned(true);
+                builder.setScale(type.getDecimalDigits());
+                builder.setPrecision(type.getColumnSize());
+                builder.setColumnDisplaySize(type.getColumnSize());
+                break;
         }
 
     }
 
     public static Builder newBuilder(String name, DatabendRawType type) {
-        return (new Builder()).setColumnName(name).setColumnType(getType(type));
-    }
-
-    private static int getType(DatabendRawType type) {
-        if (type == null) {
-            return java.sql.Types.NULL;
-        }
-//        if (type.isNullable()) {
-//            return getType(type.getInner());
-//        }
-        switch (type.getType().toLowerCase(Locale.US)) {
-            case DatabendTypes.BOOLEAN:
-                return java.sql.Types.BOOLEAN;
-            case DatabendTypes.UINT8:
-                return java.sql.Types.TINYINT;
-            case DatabendTypes.INT8:
-                return java.sql.Types.TINYINT;
-            case DatabendTypes.UINT16:
-                return java.sql.Types.SMALLINT;
-            case DatabendTypes.INT16:
-                return java.sql.Types.SMALLINT;
-            case DatabendTypes.UINT32:
-                return java.sql.Types.INTEGER;
-            case DatabendTypes.INT32:
-                return java.sql.Types.INTEGER;
-            case DatabendTypes.UINT64:
-                return java.sql.Types.BIGINT;
-            case DatabendTypes.INT64:
-                return java.sql.Types.BIGINT;
-            case DatabendTypes.FLOAT32:
-                return java.sql.Types.REAL;
-            case DatabendTypes.FLOAT64:
-                return java.sql.Types.DOUBLE;
-            case DatabendTypes.STRING:
-                return java.sql.Types.VARCHAR;
-            case DatabendTypes.DATE:
-                return java.sql.Types.DATE;
-            case DatabendTypes.DATETIME:
-                return java.sql.Types.TIMESTAMP;
-            case DatabendTypes.DATETIME64:
-                return java.sql.Types.TIMESTAMP;
-            case DatabendTypes.TIMESTAMP:
-                return java.sql.Types.TIMESTAMP;
-            case DatabendTypes.ARRAY:
-                return java.sql.Types.ARRAY;
-            case DatabendTypes.DECIMAL:
-                return java.sql.Types.DECIMAL;
-            default:
-                return Types.JAVA_OBJECT;
-        }
+        return (new Builder()).setColumnName(name).setColumnType(type.getDataType().getSqlType());
     }
 
     public int getColumnType() {
