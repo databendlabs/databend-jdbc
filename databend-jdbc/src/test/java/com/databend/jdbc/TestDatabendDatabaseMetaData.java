@@ -61,7 +61,9 @@ public class TestDatabendDatabaseMetaData {
         // create table
         Connection c = createConnection();
         c.createStatement().execute("drop table if exists test_column_meta");
+        c.createStatement().execute("drop table if exists decimal_test");
         c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
+        c.createStatement().execute("create table decimal_test (a decimal(4,2))");
         // json data
     }
 
@@ -172,6 +174,22 @@ public class TestDatabendDatabaseMetaData {
             for (int i = 1; i <= metaData.getColumnCount(); i++) {
                 System.out.println(metaData.getColumnLabel(i) + " " + metaData.getColumnTypeName(i));
             }
+        }
+    }
+    @Test(groups = {"IT"})
+    public void testGetColumnTypeWithDecimal() throws Exception {
+        try (Connection connection = createConnection()) {
+            ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
+            ResultSetMetaData metaData = rs.getMetaData();
+
+            int decimalSqlType = metaData.getColumnType(1);
+            String columnName = metaData.getColumnName(1);
+            int precision = metaData.getPrecision(1);
+            int scale = metaData.getScale(1);
+            assertEquals(decimalSqlType, Types.DECIMAL);
+            assertEquals(columnName, "a");
+            assertEquals(precision, 4);
+            assertEquals(scale, 2);
         }
     }
 
