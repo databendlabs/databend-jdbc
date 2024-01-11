@@ -107,13 +107,8 @@ public class TestDatabendDatabaseMetaData {
     public void testGetTables() throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet rs = metaData.getColumns("default", "default", "ttt", null)) {
-//                assertTableMetadata(rs);
-                ResultSetMetaData me = rs.getMetaData();
-                int i = me.getColumnType(1);
-                String s = me.getColumnTypeName(1);
-                System.out.println(i);
-                System.out.println(s);
+            try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
+                assertTableMetadata(rs);
             }
         }
     }
@@ -173,7 +168,7 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetColumnTypesBySelectEmpty() throws Exception {
         try (Connection connection = createConnection()) {
-            ResultSet rs = connection.createStatement().executeQuery("select * from test_column_meta");
+            ResultSet rs = connection.createStatement().executeQuery("select * from test_column_meta where 1=2");
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(metaData.getColumnCount(), 17);
             for (int i = 1; i <= metaData.getColumnCount(); i++) {
