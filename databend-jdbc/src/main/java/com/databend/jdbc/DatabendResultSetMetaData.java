@@ -12,17 +12,14 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 
-public class DatabendResultSetMetaData implements ResultSetMetaData
-{
+public class DatabendResultSetMetaData implements ResultSetMetaData {
     private final List<DatabendColumnInfo> databendColumnInfo;
 
-    DatabendResultSetMetaData(List<DatabendColumnInfo> databendColumnInfo)
-    {
+    DatabendResultSetMetaData(List<DatabendColumnInfo> databendColumnInfo) {
         this.databendColumnInfo = databendColumnInfo;
     }
 
-    static String getType(int type)
-    {
+    static String getType(int type) {
         // see javax.sql.rowset.RowSetMetaDataImpl
         switch (type) {
             case Types.NUMERIC:
@@ -68,8 +65,7 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
 
     @Override
     public int getColumnCount()
-            throws SQLException
-    {
+            throws SQLException {
         if (this.databendColumnInfo == null) {
             return 0;
         }
@@ -78,36 +74,31 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
 
     @Override
     public boolean isAutoIncrement(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public boolean isCaseSensitive(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public boolean isSearchable(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return true;
     }
 
     @Override
     public boolean isCurrency(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public int isNullable(int i)
-            throws SQLException
-    {
+            throws SQLException {
         DatabendColumnInfo.Nullable nullable = column(i).getNullable();
         switch (nullable) {
             case NO_NULLS:
@@ -122,126 +113,108 @@ public class DatabendResultSetMetaData implements ResultSetMetaData
 
     @Override
     public boolean isSigned(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).isSigned();
     }
 
     @Override
     public int getColumnDisplaySize(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getColumnDisplaySize();
     }
 
     @Override
     public String getColumnLabel(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getColumnLabel();
     }
 
     @Override
     public String getColumnName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getColumnName();
     }
 
     @Override
     public String getSchemaName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getSchemaName();
     }
 
     @Override
     public int getPrecision(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getPrecision();
     }
 
     @Override
     public int getScale(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getScale();
     }
 
     @Override
     public String getTableName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getTableName();
     }
 
     @Override
     public String getCatalogName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getCatalogName();
     }
 
     @Override
     public int getColumnType(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getColumnType();
     }
 
     @Override
     public String getColumnTypeName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return column(i).getColumnTypeName();
     }
 
     @Override
     public boolean isReadOnly(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return true;
     }
 
     @Override
     public boolean isWritable(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public boolean isDefinitelyWritable(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     @Override
     public String getColumnClassName(int i)
-            throws SQLException
-    {
+            throws SQLException {
         return getType(column(i).getColumnType());
     }
 
     @Override
     public <T> T unwrap(Class<T> aClass)
-            throws SQLException
-    {
+            throws SQLException {
         return null;
     }
 
     @Override
     public boolean isWrapperFor(Class<?> aClass)
-            throws SQLException
-    {
+            throws SQLException {
         return false;
     }
 
     private DatabendColumnInfo column(int column)
-            throws SQLException
-    {
+            throws SQLException {
         if ((column <= 0) || (column > this.databendColumnInfo.size())) {
             throw new SQLException("Invalid column index: " + column);
         }
