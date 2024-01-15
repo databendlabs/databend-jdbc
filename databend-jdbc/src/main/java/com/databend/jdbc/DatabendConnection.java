@@ -34,6 +34,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.Duration;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -45,6 +46,7 @@ import java.util.logging.Logger;
 import static com.databend.client.ClientSettings.DEFAULT_QUERY_TIMEOUT;
 import static com.databend.client.ClientSettings.X_Databend_Query_ID;
 import static com.google.common.base.Preconditions.checkState;
+import static java.lang.String.format;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
@@ -558,12 +560,17 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
                 cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
             } else {
-                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
+//                logger.info("Get presign url for upload");
                 PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
                 Headers h = ctx.getHeaders();
                 String presignUrl = ctx.getUrl();
+//                logger.info("Presign url for upload is: " + presignUrl);
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+//                logger.info("Start presign upload to @" + s + "/" + dest);
+//                long start = System.nanoTime();
                 cli.presignUpload(null, inputStream, h, presignUrl, fileSize, true);
+//                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+//                logger.info("Presign upload took " + sinceStart.toMillis() + " ms");
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());
@@ -571,7 +578,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             throw new SQLException(e);
         } catch (IOException e) {
             System.out.println(e.getMessage());
-            throw new SQLException("failed to upload input stream", e);
+            throw new SQLException(format("failed to upload input stream dest is %s, error is %s", dest, e.getMessage()));
         }
     }
 
