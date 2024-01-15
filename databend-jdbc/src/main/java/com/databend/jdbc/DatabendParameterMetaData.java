@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 
+import static com.databend.jdbc.DatabendResultSetMetaData.getTypeClassName;
 import static java.util.Objects.requireNonNull;
 
 public class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData {
@@ -77,7 +78,8 @@ public class DatabendParameterMetaData extends JdbcWrapper implements ParameterM
 
     @Override
     public String getParameterClassName(int param) throws SQLException {
-        return null;
+        DatabendColumnInfo p = getParameter(param);
+        return getTypeClassName(p.getColumnType());
     }
 
     @Override

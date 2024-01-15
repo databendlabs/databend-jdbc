@@ -53,7 +53,7 @@ public class JdbcTypeMapping {
                 sqlType = Types.ARRAY;
                 break;
             case VARIANT:
-                sqlType = Types.OTHER;
+                sqlType = Types.VARCHAR;
                 break;
             case TUPLE:
                 sqlType = Types.STRUCT;

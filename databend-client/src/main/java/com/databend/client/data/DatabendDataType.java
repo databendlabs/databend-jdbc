@@ -46,7 +46,7 @@ public enum DatabendDataType {
     MAP(Types.OTHER, DatabendTypes.MAP, false, 0, false, "Map"),
     BITMAP(Types.OTHER, DatabendTypes.MAP, false, 0, false, "Bitmap"),
     TUPLE(Types.OTHER, DatabendTypes.TUPLE, false, 0, false, "Tuple"),
-    VARIANT(Types.OTHER, DatabendTypes.VARIANT, false, 0, false, "Variant", "Json"),
+    VARIANT(Types.VARCHAR, DatabendTypes.VARIANT, false, 0, false, "Variant", "Json"),
 
     NULL(Types.NULL, DatabendTypes.NULL, false, 0, false, "NULL"),
     ;

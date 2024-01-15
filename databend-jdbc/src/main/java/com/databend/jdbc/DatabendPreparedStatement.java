@@ -1,6 +1,8 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import com.databend.client.data.DatabendDataType;
+import com.databend.client.data.DatabendRawType;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
@@ -66,6 +68,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private final RawStatementWrapper rawStatement;
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private final DatabendParameterMetaData paramMetaData;
     private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
                     .append(ISO_LOCAL_DATE)
@@ -90,6 +93,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         this.batchValues = new ArrayList<>();
         this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
         this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
+        int totalParams = (int) rawStatement.getTotalParams();
+        List<DatabendColumnInfo> list = new ArrayList<>(totalParams);
+        for (int i = 1; i <= totalParams; i++) {
+            list.add(DatabendColumnInfo.of("parameter" + i, new DatabendRawType("VARIANT")));
+        }
+        this.paramMetaData = new DatabendParameterMetaData(Collections.unmodifiableList(list), new JdbcTypeMapping());
     }
 
     private static String formatBooleanLiteral(boolean x) {
@@ -770,9 +779,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     @Override
-    public ParameterMetaData getParameterMetaData()
-            throws SQLException {
-        return null;
+    public ParameterMetaData getParameterMetaData() throws SQLException {
+        return paramMetaData;
     }
 
     @Override

@@ -13,6 +13,7 @@ public class StatementUtilTest {
     void shouldGetAllQueryParamsFromIn() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id IN (?,?)";
         assertEquals(ImmutableMap.of(1, 37, 2, 39), StatementUtil.getParamMarketsPositions(sql));
+        System.out.println(StatementUtil.parseToRawStatementWrapper(sql).getSubStatements());
         assertEquals(1, StatementUtil.parseToRawStatementWrapper(sql).getSubStatements().size());
     }
     @Test

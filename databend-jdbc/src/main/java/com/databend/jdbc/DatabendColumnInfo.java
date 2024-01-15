@@ -57,7 +57,9 @@ public class DatabendColumnInfo {
 
     public static DatabendColumnInfo of(String name, DatabendRawType type) {
         Preconditions.checkArgument(!Strings.isNullOrEmpty(name), "Provided name is null or empty");
-        return newBuilder(name, type).build();
+        Builder builder = newBuilder(name, type);
+        setTypeInfo(builder, type);
+        return builder.build();
     }
 
     public static void setTypeInfo(Builder builder, DatabendRawType type) {
@@ -163,7 +165,9 @@ public class DatabendColumnInfo {
     }
 
     public static Builder newBuilder(String name, DatabendRawType type) {
-        return (new Builder()).setColumnName(name).setColumnType(type.getDataType().getSqlType());
+        return (new Builder())
+                .setColumnName(name)
+                .setDatabendRawType(type);
     }
 
     public int getColumnType() {
@@ -270,6 +274,11 @@ public class DatabendColumnInfo {
 
         public Builder setColumnType(int columnType) {
             this.columnType = columnType;
+            return this;
+        }
+
+        public Builder setDatabendRawType(DatabendRawType type) {
+            this.type = type;
             return this;
         }
 

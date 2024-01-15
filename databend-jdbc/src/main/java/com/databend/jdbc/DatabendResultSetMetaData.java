@@ -19,7 +19,7 @@ public class DatabendResultSetMetaData implements ResultSetMetaData {
         this.databendColumnInfo = databendColumnInfo;
     }
 
-    static String getType(int type) {
+    static String getTypeClassName(int type) {
         // see javax.sql.rowset.RowSetMetaDataImpl
         switch (type) {
             case Types.NUMERIC:
@@ -198,7 +198,7 @@ public class DatabendResultSetMetaData implements ResultSetMetaData {
     @Override
     public String getColumnClassName(int i)
             throws SQLException {
-        return getType(column(i).getColumnType());
+        return getTypeClassName(column(i).getColumnType());
     }
 
     @Override
