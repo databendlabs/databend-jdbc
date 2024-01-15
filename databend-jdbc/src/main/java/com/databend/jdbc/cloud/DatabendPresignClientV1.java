@@ -1,5 +1,6 @@
 package com.databend.jdbc.cloud;
 
+import com.databend.client.DatabendClientV1;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
 import okhttp3.MediaType;
@@ -19,6 +20,7 @@ import javax.annotation.Nullable;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
@@ -32,20 +34,21 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DatabendPresignClientV1 implements DatabendPresignClient {
 
-    private static final int MaxRetryAttempts = 5;
+    private static final int MaxRetryAttempts = 10;
 
     private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
     private final String uri;
+    private static final Logger logger = Logger.getLogger(DatabendPresignClientV1.class.getPackage().getName());
 
     public DatabendPresignClientV1(OkHttpClient client, String uri) {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
-        builder
-                .connectTimeout(30, TimeUnit.SECONDS)
+        this.client = builder.
+                connectTimeout(120, TimeUnit.SECONDS)
                 .readTimeout(90, TimeUnit.SECONDS)
-                .writeTimeout(90, TimeUnit.SECONDS);
-        this.client = client;
+                .callTimeout(90, TimeUnit.SECONDS)
+                .writeTimeout(90, TimeUnit.SECONDS).build();
         this.uri = uri;
     }
 
@@ -87,7 +90,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         try {
             executeInternal(r, true);
         } catch (IOException e) {
-            throw new IOException("uploadFromStream failed", e);
+            throw new IOException(format("uploadFromStream failed, presignUrl is %s, error is %s", presignedUrl, e.getMessage()));
         } finally {
 
         }
@@ -101,12 +104,12 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.getSeconds() >= 60) {
-                    System.out.println("Presign failed" + cause.toString());
+                if (sinceStart.getSeconds() >= 600) {
+                    logger.warning("Presign upload failed, error is:" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
                 if (attempts >= MaxRetryAttempts) {
-                    System.out.println("Presign failed" + cause.toString());
+                    logger.warning("Presign upload failed, error is: " + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
 
@@ -127,13 +130,15 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
                 if (response.isSuccessful()) {
                     return response.body();
                 } else if (response.code() == 401) {
-
                     throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
                 } else if (response.code() >= 503) {
                     cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
                 } else if (response.code() >= 400) {
                     cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
                 }
+            } catch (SocketTimeoutException e) {
+                logger.warning("Error execute presign, socket timeout: " + e.getMessage());
+                cause = new RuntimeException("Error execute presign, request is " + request.toString() + "socket timeout: " + e.getMessage());
             } catch (RuntimeException e) {
                 cause = e;
             } finally {
@@ -214,6 +219,7 @@ class InputStreamRequestBody extends RequestBody {
     private final InputStream inputStream;
     private final MediaType contentType;
     private final long fileSize;
+    private static final Logger logger = Logger.getLogger(InputStreamRequestBody.class.getPackage().getName());
 
     public InputStreamRequestBody(MediaType contentType, InputStream inputStream, long fileSize) {
         if (inputStream == null) throw new NullPointerException("inputStream == null");
@@ -239,7 +245,7 @@ class InputStreamRequestBody extends RequestBody {
         try (Source source = Okio.source(inputStream)) {
             sink.writeAll(source);
         } catch (IOException e) {
-            throw new IOException("writeTo failed", e);
+            logger.warning(format("writeTo failed, error is %s, cause is %s", e.getMessage(), e.getCause()));
         }
     }
 }
