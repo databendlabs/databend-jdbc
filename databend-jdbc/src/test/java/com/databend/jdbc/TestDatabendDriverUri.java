@@ -128,6 +128,7 @@ public class TestDatabendDriverUri {
         Properties props = new Properties();
         props.setProperty("database", "db3");
         props.setProperty("SSL", "true");
+        props.setProperty("binary_format", "base64");
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&query_timeout=120&connection_timeout=15&socket_timeout=15", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
@@ -145,6 +146,7 @@ public class TestDatabendDriverUri {
         Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
         Assert.assertEquals("\\N", uri.nullDisplay().toString());
+        Assert.assertEquals("base64", uri.binaryFormat().toString());
     }
 
     @Test(groups = {"unit"})
@@ -168,6 +170,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
         Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
+        Assert.assertEquals("hex", uri.binaryFormat().toString());
     }
 
     @Test(groups = {"unit"})
