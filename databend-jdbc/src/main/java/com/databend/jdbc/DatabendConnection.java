@@ -493,6 +493,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.nullDisplay();
     }
 
+    public String binaryFormat() {
+        return this.driverUri.binaryFormat();
+    }
+
     public PaginationOptions getPaginationOptions() {
         PaginationOptions.Builder builder = PaginationOptions.builder();
         builder.setWaitTimeSecs(this.driverUri.getWaitTimeSecs());
@@ -570,8 +574,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             // For datax batch insert test, do not throw exception
             throw new SQLException(e);
         } catch (IOException e) {
-            System.out.println(e.getMessage());
-            throw new SQLException("failed to upload input stream", e);
+            logger.warning("failed to upload input stream" + e.getMessage());
         }
     }
 

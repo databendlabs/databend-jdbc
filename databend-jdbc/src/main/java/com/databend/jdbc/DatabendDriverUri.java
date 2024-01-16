@@ -42,6 +42,7 @@ public final class DatabendDriverUri {
     private final boolean useSecureConnection;
     private final boolean copyPurge;
     private final String nullDisplay;
+    private final String binaryFormat;
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
@@ -64,6 +65,7 @@ public final class DatabendDriverUri {
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
+        this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("hex");
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);
@@ -245,6 +247,10 @@ public final class DatabendDriverUri {
 
     public String nullDisplay() {
         return nullDisplay;
+    }
+
+    public String binaryFormat() {
+        return binaryFormat;
     }
 
     public Integer getConnectionTimeout() {

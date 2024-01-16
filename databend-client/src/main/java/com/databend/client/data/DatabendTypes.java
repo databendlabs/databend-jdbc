@@ -14,8 +14,7 @@
 
 package com.databend.client.data;
 
-public final class DatabendTypes
-{
+public final class DatabendTypes {
     public static final String NULL = "null";
     public static final String NULLABLE = "nullable";
     public static final String BOOLEAN = "boolean";
@@ -40,6 +39,7 @@ public final class DatabendTypes
     public static final String MAP = "map";
     public static final String BITMAP = "bitmap";
     public static final String VARIANT = "variant";
+    public static final String BINARY = "binary";
     public static final String VARIANT_ARRAY = "variantarray";
     public static final String VARIANT_OBJECT = "variantobject";
     public static final String INTERVAL = "interval";

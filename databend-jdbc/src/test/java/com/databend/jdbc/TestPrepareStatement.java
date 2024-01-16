@@ -5,6 +5,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayInputStream;
+import java.io.InputStream;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.DriverManager;
@@ -15,6 +17,7 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
+
 import java.util.concurrent.ThreadLocalRandom;
 
 public class TestPrepareStatement {
@@ -43,6 +46,8 @@ public class TestPrepareStatement {
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
         // json data
         c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
+        // Binary data
+        c.createStatement().execute("create table binary1 (a binary);");
     }
 
     @Test(groups = "IT")
@@ -399,6 +404,22 @@ public class TestPrepareStatement {
             // noting print
             System.out.println(r3.getInt(1));
             System.out.println(r3.getString(2));
+        }
+    }
+
+    @Test
+    public void testSetBlobNotNull() throws SQLException {
+        String sql = "insert into binary1 values (?)";
+        Connection conn = createConnection();
+        // Create a Blob
+        String blobData = "blob data";
+        InputStream blobInputStream = new ByteArrayInputStream(blobData.getBytes());
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setBlob(1, blobInputStream);
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+            Assertions.assertEquals(1, result.length);
         }
     }
 }

@@ -12,10 +12,7 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.*;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
@@ -215,11 +212,15 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             // upload to stage
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
+            Map<String, String> fileFormatOptions = new HashMap<>();
+            fileFormatOptions.put("BINARY_FORMAT", String.valueOf(c.binaryFormat()));
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
-            // insert with stage attachment
-            StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath).setCopyOptions(copyOptions)
+            StageAttachment attachment = new StageAttachment.Builder()
+                    .setLocation(stagePath)
+                    .setCopyOptions(copyOptions)
+                    .setFileFormatOptions(fileFormatOptions)
                     .build();
             return attachment;
         } catch (Exception e) {
@@ -875,7 +876,38 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setBinaryStream(int i, InputStream inputStream)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setBinaryStream");
+        checkOpen();
+        try {
+            ByteArrayOutputStream buffer = new ByteArrayOutputStream();
+            int nRead;
+            byte[] data = new byte[1024];
+            while ((nRead = inputStream.read(data, 0, data.length)) != -1) {
+                buffer.write(data, 0, nRead);
+            }
+            buffer.flush();
+            byte[] bytes = buffer.toByteArray();
+            if (connection().binaryFormat().equalsIgnoreCase("hex")) {
+                String hexString = bytesToHex(bytes);
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, hexString));
+            } else {
+                String base64String = bytesToBase64(bytes);
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, base64String));
+            }
+        } catch (IOException e) {
+            throw new SQLException("Error reading InputStream", e);
+        }
+    }
+
+    private static String bytesToHex(byte[] bytes) {
+        StringBuilder sb = new StringBuilder();
+        for (byte b : bytes) {
+            sb.append(String.format("%02x", b));
+        }
+        return sb.toString();
+    }
+
+    private static String bytesToBase64(byte[] bytes) {
+        return Base64.getEncoder().encodeToString(bytes);
     }
 
     @Override
@@ -899,7 +931,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setBlob(int i, InputStream inputStream)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
+        setBinaryStream(i, inputStream);
     }
 
     @Override
