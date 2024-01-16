@@ -85,7 +85,7 @@ public enum DatabendDataType {
             return INT_16;
         } else if (DatabendTypes.UINT16.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_16;
-        } else if (DatabendTypes.INT32.equalsIgnoreCase(typeName)) {
+        } else if (DatabendTypes.INT32.equalsIgnoreCase(typeName) || "int".equalsIgnoreCase(typeName)) {
             return INT_32;
         } else if (DatabendTypes.UINT32.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_32;

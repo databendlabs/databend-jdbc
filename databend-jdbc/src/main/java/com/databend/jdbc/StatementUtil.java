@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import java.util.*;
+import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
@@ -49,6 +50,30 @@ public class StatementUtil {
             return extractPropertyPair(cleanSql, sql);
         }
         return Optional.empty();
+    }
+
+    /**
+     * This method is used to extract column types from a SQL statement.
+     * It parses the SQL statement and finds the column types defined in the first pair of parentheses.
+     * The column types are then stored in a Map where the key is the index of the column in the SQL statement
+     * and the value is the type of the column.
+     *
+     * @param sql The SQL statement from which to extract column types.
+     * @return A Map where the key is the index of the column and the value is the type of the column.
+     */
+    public static Map<Integer, String> extractColumnTypes(String sql) {
+        Map<Integer, String> columnTypes = new LinkedHashMap<>();
+        Pattern pattern = Pattern.compile("\\((.*?)\\)");
+        Matcher matcher = pattern.matcher(sql);
+        if (matcher.find()) {
+            String[] columns = matcher.group(1).split(",");
+            for (int i = 0; i < columns.length; i++) {
+                String column = columns[i].trim();
+                String type = column.substring(column.lastIndexOf(' ') + 1).replace("'", "");
+                columnTypes.put(i, type);
+            }
+        }
+        return columnTypes;
     }
 
     /**

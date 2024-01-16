@@ -93,11 +93,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         this.batchValues = new ArrayList<>();
         this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
         this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
-        int totalParams = (int) rawStatement.getTotalParams();
-        List<DatabendColumnInfo> list = new ArrayList<>(totalParams);
-        for (int i = 1; i <= totalParams; i++) {
-            list.add(DatabendColumnInfo.of("parameter" + i, new DatabendRawType("VARIANT")));
-        }
+        Map<Integer, String> params = StatementUtil.extractColumnTypes(sql);
+        List<DatabendColumnInfo> list = params.entrySet().stream().map(entry -> {
+            String type = entry.getValue();
+            DatabendRawType databendRawType = new DatabendRawType(type);
+            return DatabendColumnInfo.of(entry.getKey().toString(), databendRawType);
+        }).collect(Collectors.toList());
         this.paramMetaData = new DatabendParameterMetaData(Collections.unmodifiableList(list), new JdbcTypeMapping());
     }
 
@@ -725,15 +726,23 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     @Override
-    public void setBlob(int i, Blob blob)
+    public void setBlob(int i, Blob x)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
+        if (x != null) {
+            setBinaryStream(i, x.getBinaryStream());
+        } else {
+            setNull(i, Types.BLOB);
+        }
     }
 
     @Override
-    public void setClob(int i, Clob clob)
+    public void setClob(int i, Clob x)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
+        if (x != null) {
+            setCharacterStream(i, x.getCharacterStream());
+        } else {
+            setNull(i, Types.CLOB);
+        }
     }
 
     @Override
@@ -778,6 +787,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
+    // If you want to use ps.getParameterMetaData().* methods, you need to use a valid sql such as
+    // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
         return paramMetaData;
@@ -896,6 +907,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
+
 
     private String toDateLiteral(Object value) throws IllegalArgumentException {
         requireNonNull(value, "value is null");
