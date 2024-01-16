@@ -419,7 +419,7 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-//            Assertions.assertEquals(1, result.length);
+            Assertions.assertEquals(1, result.length);
         }
     }
 }
