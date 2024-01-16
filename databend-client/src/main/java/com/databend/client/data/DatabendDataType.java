@@ -48,6 +48,8 @@ public enum DatabendDataType {
     TUPLE(Types.OTHER, DatabendTypes.TUPLE, false, 0, false, "Tuple"),
     VARIANT(Types.OTHER, DatabendTypes.VARIANT, false, 0, false, "Variant", "Json"),
 
+    BINARY(Types.BINARY, DatabendTypes.BINARY, false, 0, false, "Binary"),
+
     NULL(Types.NULL, DatabendTypes.NULL, false, 0, false, "NULL"),
     ;
 
@@ -115,6 +117,8 @@ public enum DatabendDataType {
             return MAP;
         } else if (startsWithIgnoreCase(typeName, DatabendTypes.TUPLE)) {
             return TUPLE;
+        } else if (startsWithIgnoreCase(typeName, DatabendTypes.BINARY)) {
+            return BINARY;
         }
         return NULL;
     }

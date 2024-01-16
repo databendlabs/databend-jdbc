@@ -44,7 +44,9 @@ The above URL can be used as follows
 String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend"
         Connection conn=DriverManager.getConnection(url);
 ```
-If you are using [Databend Cloud](https://app.databend.com/), you can get a warehouse DSN according to [this doc](https://databend.rs/cloud/using-databend-cloud/warehouses#connecting).
+
+If you are using [Databend Cloud](https://app.databend.com/), you can get a warehouse DSN according
+to [this doc](https://databend.rs/cloud/using-databend-cloud/warehouses#connecting).
 Then the above URL within warehouse DSN can be used as follows:
 
 ```java 
@@ -86,3 +88,4 @@ String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend";
 | connection_timeout     | okhttp connection_timeout param                                                                                           | 0       | jdbc:databend://0.0.0.0:8000/default?connection_timeout=100000          |
 | query_timeout          | time that you wait a SQL execution                                                                                        | 90      | jdbc:databend://0.0.0.0:8000/default?query_timeout=120                  |
 | null_display           | null value display                                                                                                        | \N      | jdbc:databend://0.0.0.0:8000/hello_databend?null_display=null           |
+| binary_format          | binary format, support hex and base64                                                                                     | hex     | jdbc:databend://0.0.0.0:8000/default?binary_format=hex                  |

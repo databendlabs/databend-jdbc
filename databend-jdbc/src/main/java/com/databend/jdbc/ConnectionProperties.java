@@ -25,6 +25,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
     public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
     public static final ConnectionProperty<String> NULL_DISPLAY = new NullDisplay();
+    public static final ConnectionProperty<String> BINARY_FORMAT = new BinaryFormat();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
 
     public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
@@ -107,6 +108,13 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public NullDisplay() {
             super("null_display", Optional.of("\\N"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class BinaryFormat
+            extends AbstractConnectionProperty<String> {
+        public BinaryFormat() {
+            super("binary_format", Optional.of("hex"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
