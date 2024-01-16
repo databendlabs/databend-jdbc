@@ -67,5 +67,16 @@ public class TestDatabendParameterMetaData {
             Assert.assertEquals(ps.getParameterMetaData().getParameterClassName(2), Integer.class.getName());
             Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.INT_32.getDisplayName().toLowerCase());
         }
+
+        try (Connection conn = createConnection();
+             PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b VARIANT) values (?,?)");) {
+            Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 2);
+            Assert.assertEquals(ps.getParameterMetaData().getParameterMode(2), ParameterMetaData.parameterModeIn);
+            Assert.assertEquals(ps.getParameterMetaData().getParameterType(2), Types.VARCHAR);
+            Assert.assertEquals(ps.getParameterMetaData().getPrecision(2), 0);
+            Assert.assertEquals(ps.getParameterMetaData().getScale(2), 0);
+            Assert.assertEquals(ps.getParameterMetaData().getParameterClassName(2), String.class.getName());
+            Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.VARIANT.getDisplayName().toLowerCase());
+        }
     }
 }
