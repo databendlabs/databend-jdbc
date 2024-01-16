@@ -202,7 +202,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
             Map<String, String> fileFormatOptions = new HashMap<>();
-            fileFormatOptions.put("BINARY_FORMAT", String.valueOf(c.binaryFormat()));
+            fileFormatOptions.put("binary_format", String.valueOf(c.binaryFormat()));
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
@@ -549,6 +549,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         checkOpen();
         if (x == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(parameterIndex, null));
+            return;
         }
         switch (targetSqlType) {
             case Types.BOOLEAN:
@@ -587,6 +588,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 setString(parameterIndex, x.toString());
                 return;
             case Types.BINARY:
+                InputStream blobInputStream = new ByteArrayInputStream(x.toString().getBytes());
+                setBinaryStream(parameterIndex, blobInputStream);
+                return;
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
                 setBytes(parameterIndex, castToBinary(x, targetSqlType));
