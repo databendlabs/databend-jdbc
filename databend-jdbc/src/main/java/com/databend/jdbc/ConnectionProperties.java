@@ -114,7 +114,7 @@ public final class ConnectionProperties {
     private static class BinaryFormat
             extends AbstractConnectionProperty<String> {
         public BinaryFormat() {
-            super("binary_format", Optional.of("hex"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super("binary_format", Optional.of(""), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
