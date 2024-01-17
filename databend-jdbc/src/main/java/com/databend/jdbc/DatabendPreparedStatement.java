@@ -201,16 +201,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String fileName = saved.getName();
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            Map<String, String> fileFormatOptions = new HashMap<>();
-            fileFormatOptions.put("binary_format", String.valueOf(c.binaryFormat()));
-            Map<String, String> copyOptions = new HashMap<>();
-            copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
-            copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
-            StageAttachment attachment = new StageAttachment.Builder()
-                    .setLocation(stagePath)
-                    .setCopyOptions(copyOptions)
-                    .setFileFormatOptions(fileFormatOptions)
-                    .build();
+            StageAttachment attachment = buildStateAttachment(c, stagePath);
             return attachment;
         } catch (Exception e) {
             throw new SQLException(e);
@@ -223,6 +214,38 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 // ignore
             }
         }
+    }
+
+    /**
+     * This method is used to build a StageAttachment object which represents a stage in Databend.
+     * A stage in Databend is a temporary storage area where data files are stored before being loaded into the Databend database.
+     *
+     * @param connection The DatabendConnection object which contains the connection details to the Databend database.
+     * @param stagePath The path of the stage in the Databend database.
+     * @return A StageAttachment object which contains the details of the stage.
+     */
+    public static StageAttachment buildStateAttachment(DatabendConnection connection, String stagePath) {
+        Map<String, String> fileFormatOptions = new HashMap<>();
+        if (!Objects.equals(connection.binaryFormat(), "")) {
+            fileFormatOptions.put("binary_format", String.valueOf(connection.binaryFormat()));
+        }
+        Map<String, String> copyOptions = new HashMap<>();
+        copyOptions.put("PURGE", String.valueOf(connection.copyPurge()));
+        copyOptions.put("NULL_DISPLAY", String.valueOf(connection.nullDisplay()));
+        StageAttachment attachment;
+        if (fileFormatOptions.size() != 0) {
+            attachment = new StageAttachment.Builder()
+                    .setLocation(stagePath)
+                    .setCopyOptions(copyOptions)
+                    .setFileFormatOptions(fileFormatOptions)
+                    .build();
+        } else {
+            attachment = new StageAttachment.Builder()
+                    .setLocation(stagePath)
+                    .setCopyOptions(copyOptions)
+                    .build();
+        }
+        return attachment;
     }
 
     /**
@@ -874,12 +897,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             }
             buffer.flush();
             byte[] bytes = buffer.toByteArray();
-            if (connection().binaryFormat().equalsIgnoreCase("hex")) {
-                String hexString = bytesToHex(bytes);
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, hexString));
-            } else {
+            if (connection().binaryFormat().equalsIgnoreCase("base64")) {
                 String base64String = bytesToBase64(bytes);
                 batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, base64String));
+            } else {
+                String hexString = bytesToHex(bytes);
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, hexString));
             }
         } catch (IOException e) {
             throw new SQLException("Error reading InputStream", e);

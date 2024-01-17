@@ -1,6 +1,8 @@
 package com.databend.jdbc;
 
+import com.databend.client.StageAttachment;
 import org.junit.jupiter.api.Assertions;
+import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -19,6 +21,10 @@ import java.util.ArrayList;
 import java.util.List;
 
 import java.util.concurrent.ThreadLocalRandom;
+
+import static com.google.common.base.Preconditions.checkState;
+import static org.mockito.Mockito.when;
+import static org.testng.AssertJUnit.assertEquals;
 
 public class TestPrepareStatement {
     private Connection createConnection()
@@ -42,12 +48,13 @@ public class TestPrepareStatement {
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("drop table if exists test_prepare_time");
         c.createStatement().execute("drop table if exists objects_test1");
+        c.createStatement().execute("drop table if exists binary1");
         c.createStatement().execute("create table test_prepare_statement (a int, b string)");
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
         // json data
         c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
         // Binary data
-        c.createStatement().execute("create table binary1 (a binary);");
+        c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
     }
 
     @Test(groups = "IT")
@@ -421,5 +428,17 @@ public class TestPrepareStatement {
             System.out.println(result);
             Assertions.assertEquals(1, result.length);
         }
+    }
+
+    @Test
+    public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
+        Connection conn = createConnection();
+        Assertions.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
+        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn, "stagePath");
+
+        Assertions.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
+        Assertions.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
+        Assertions.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
+        Assertions.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
     }
 }

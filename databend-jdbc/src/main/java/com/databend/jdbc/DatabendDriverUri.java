@@ -65,7 +65,7 @@ public final class DatabendDriverUri {
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
-        this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("hex");
+        this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("");
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);
