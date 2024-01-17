@@ -2,7 +2,6 @@ package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
 import org.junit.jupiter.api.Assertions;
-import org.mockito.Mockito;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -19,12 +18,6 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.ArrayList;
 import java.util.List;
-
-import java.util.concurrent.ThreadLocalRandom;
-
-import static com.google.common.base.Preconditions.checkState;
-import static org.mockito.Mockito.when;
-import static org.testng.AssertJUnit.assertEquals;
 
 public class TestPrepareStatement {
     private Connection createConnection()
