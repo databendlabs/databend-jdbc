@@ -46,7 +46,7 @@ public enum DatabendDataType {
     MAP(Types.OTHER, DatabendTypes.MAP, false, 0, false, "Map"),
     BITMAP(Types.OTHER, DatabendTypes.MAP, false, 0, false, "Bitmap"),
     TUPLE(Types.OTHER, DatabendTypes.TUPLE, false, 0, false, "Tuple"),
-    VARIANT(Types.OTHER, DatabendTypes.VARIANT, false, 0, false, "Variant", "Json"),
+    VARIANT(Types.VARCHAR, DatabendTypes.VARIANT, false, 0, false, "Variant", "Json"),
 
     BINARY(Types.BINARY, DatabendTypes.BINARY, false, 0, false, "Binary"),
 
@@ -87,7 +87,7 @@ public enum DatabendDataType {
             return INT_16;
         } else if (DatabendTypes.UINT16.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_16;
-        } else if (DatabendTypes.INT32.equalsIgnoreCase(typeName)) {
+        } else if (DatabendTypes.INT32.equalsIgnoreCase(typeName) || "int".equalsIgnoreCase(typeName)) {
             return INT_32;
         } else if (DatabendTypes.UINT32.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_32;

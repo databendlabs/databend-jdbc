@@ -29,6 +29,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
+import java.util.logging.Logger;
 
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -60,6 +61,7 @@ public class DatabendClientV1
     // client session
     private final AtomicReference<DatabendSession> databendSession;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
     public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings) {
         requireNonNull(httpClient, "httpClient is null");

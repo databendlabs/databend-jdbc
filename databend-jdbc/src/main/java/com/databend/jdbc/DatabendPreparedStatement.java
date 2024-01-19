@@ -1,6 +1,8 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import com.databend.client.data.DatabendDataType;
+import com.databend.client.data.DatabendRawType;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
@@ -63,6 +65,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private final RawStatementWrapper rawStatement;
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    private final DatabendParameterMetaData paramMetaData;
     private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
             new DateTimeFormatterBuilder()
                     .append(ISO_LOCAL_DATE)
@@ -87,6 +90,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         this.batchValues = new ArrayList<>();
         this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
         this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
+        Map<Integer, String> params = StatementUtil.extractColumnTypes(sql);
+        List<DatabendColumnInfo> list = params.entrySet().stream().map(entry -> {
+            String type = entry.getValue();
+            DatabendRawType databendRawType = new DatabendRawType(type);
+            return DatabendColumnInfo.of(entry.getKey().toString(), databendRawType);
+        }).collect(Collectors.toList());
+        this.paramMetaData = new DatabendParameterMetaData(Collections.unmodifiableList(list), new JdbcTypeMapping());
     }
 
     private static String formatBooleanLiteral(boolean x) {
@@ -199,6 +209,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
+            // upload to stage
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
             StageAttachment attachment = buildStateAttachment(c, stagePath);
@@ -753,9 +764,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     @Override
-    public void setClob(int i, Clob clob)
+    public void setClob(int i, Clob x)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
+        if (x != null) {
+            setCharacterStream(i, x.getCharacterStream());
+        } else {
+            setNull(i, Types.CLOB);
+        }
     }
 
     @Override
@@ -800,10 +815,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
+    // If you want to use ps.getParameterMetaData().* methods, you need to use a valid sql such as
+    // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
     @Override
-    public ParameterMetaData getParameterMetaData()
-            throws SQLException {
-        return null;
+    public ParameterMetaData getParameterMetaData() throws SQLException {
+        return paramMetaData;
     }
 
     @Override
@@ -950,6 +966,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
+
 
     private String toDateLiteral(Object value) throws IllegalArgumentException {
         requireNonNull(value, "value is null");

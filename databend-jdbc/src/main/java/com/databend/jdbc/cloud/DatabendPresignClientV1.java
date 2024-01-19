@@ -103,6 +103,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         Exception cause = null;
         while (true) {
             if (attempts > 0) {
+                logger.info("try to presign upload again: " + attempts);
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.getSeconds() >= 600) {
                     logger.warning("Presign upload failed, error is:" + cause.toString());
