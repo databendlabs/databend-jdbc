@@ -183,10 +183,12 @@ public class TestDatabendDriverUri {
         props.setProperty("max_rows_in_buffer", "11");
         props.setProperty("max_rows_per_page", "7");
         props.setProperty("connection_time", "15");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&null_display=null&connection_timeout=15&socket_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
+        props.setProperty("warehouse", "test");
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&warehouse=test&null_display=null&connection_timeout=15&socket_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
+        Assert.assertEquals(uri.getProperties().get("warehouse"), "test");
         Assert.assertEquals(uri.getDatabase(), "db3");
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");

@@ -489,6 +489,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.copyPurge();
     }
 
+    public String warehouse() {
+        return this.driverUri.getWarehouse();
+    }
+
     public String nullDisplay() {
         return this.driverUri.nullDisplay();
     }

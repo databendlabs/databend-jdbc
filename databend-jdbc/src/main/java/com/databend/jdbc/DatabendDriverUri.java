@@ -40,6 +40,7 @@ public final class DatabendDriverUri {
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
+    private final String warehouse;
     private final boolean copyPurge;
     private final String nullDisplay;
     private final String binaryFormat;
@@ -59,6 +60,7 @@ public final class DatabendDriverUri {
         Map.Entry<URI, Map<String, String>> uriAndProperties = parse(url);
         this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
+        this.warehouse = WAREHOUSE.getValue(properties).orElse("default");
         this.uri = parseFinalURI(uriAndProperties.getKey(), this.useSecureConnection);
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.database = DATABASE.getValue(properties).orElse("default");
@@ -243,6 +245,10 @@ public final class DatabendDriverUri {
 
     public Boolean copyPurge() {
         return copyPurge;
+    }
+
+    public String getWarehouse() {
+        return warehouse;
     }
 
     public String nullDisplay() {
