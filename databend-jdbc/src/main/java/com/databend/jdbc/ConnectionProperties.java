@@ -3,7 +3,6 @@ package com.databend.jdbc;
 import com.databend.client.PaginationOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.checkerframework.checker.units.qual.C;
 
 import java.sql.Connection;
 import java.util.Map;
