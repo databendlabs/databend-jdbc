@@ -42,8 +42,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.databend.client.ClientSettings.DEFAULT_QUERY_TIMEOUT;
-import static com.databend.client.ClientSettings.X_Databend_Query_ID;
+import static com.databend.client.ClientSettings.*;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
@@ -489,6 +488,14 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.copyPurge();
     }
 
+    public String warehouse() {
+        return this.driverUri.getWarehouse();
+    }
+
+    public String tenant() {
+        return this.driverUri.getTenant();
+    }
+
     public String nullDisplay() {
         return this.driverUri.nullDisplay();
     }
@@ -512,7 +519,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = new HashMap<>();
+        Map<String, String> additionalHeaders = setAdditionalHeaders();
         additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
         ClientSettings s = new ClientSettings.Builder().
                 setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
@@ -527,8 +534,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = new HashMap<>();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
+        Map<String, String> additionalHeaders = setAdditionalHeaders();
         ClientSettings s = new ClientSettings.Builder().
                 setSession(this.session.get()).
                 setHost(this.getURI().toString()).
@@ -540,6 +546,18 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 setStageAttachment(attach).
                 build();
         return new DatabendClientV1(httpClient, sql, s);
+    }
+
+    private Map<String, String> setAdditionalHeaders() {
+        Map<String, String> additionalHeaders = new HashMap<>();
+        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
+        if (!this.driverUri.getWarehouse().isEmpty()) {
+            additionalHeaders.put(DatabendWarehouseHeader, this.driverUri.getWarehouse());
+        }
+        if (!this.driverUri.getTenant().isEmpty()) {
+            additionalHeaders.put(DatabendTenantHeader, this.driverUri.getTenant());
+        }
+        return additionalHeaders;
     }
 
 
