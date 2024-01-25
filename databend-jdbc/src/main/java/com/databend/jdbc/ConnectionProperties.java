@@ -16,6 +16,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> PASSWORD = new Password();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
     public static final ConnectionProperty<String> WAREHOUSE = new Warehouse();
+    public static final ConnectionProperty<String> SSL_MODE = new SSLMode();
     static final ConnectionProperty<String> TENANT = new Tenant();
     public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
@@ -39,6 +40,7 @@ public final class ConnectionProperties {
             .add(PASSWORD)
             .add(SSL)
             .add(WAREHOUSE)
+            .add(SSL_MODE)
             .add(TENANT)
             .add(DATABASE)
             .add(ACCESS_TOKEN)
@@ -93,6 +95,12 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public Warehouse() {
             super("warehouse", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class SSLMode extends AbstractConnectionProperty<String> {
+        public SSLMode() {
+            super("sslmode", Optional.of("disable"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
