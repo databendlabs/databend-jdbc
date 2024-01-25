@@ -35,12 +35,13 @@ public final class DatabendDriverUri {
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
     private static final int DEFAULT_HTTPS_PORT = 443;
-    private static final int DEFAULT_HTTP_PORT = 80;
+    private static final int DEFAULT_HTTP_PORT = 8000;
     private final HostAndPort address;
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
     private final String warehouse;
+    private final String sslmode;
     private final String tenant;
     private final boolean copyPurge;
     private final String nullDisplay;
@@ -62,8 +63,9 @@ public final class DatabendDriverUri {
         this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
+        this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
-        this.uri = parseFinalURI(uriAndProperties.getKey(), this.useSecureConnection);
+        this.uri = parseFinalURI(uriAndProperties.getKey(), this.useSecureConnection, this.sslmode);
         this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
@@ -96,11 +98,11 @@ public final class DatabendDriverUri {
         uriProperties.put(DATABASE.getKey(), db);
     }
 
-    private static URI parseFinalURI(URI uri, boolean isSSLSecured) throws SQLException {
+    private static URI parseFinalURI(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
         requireNonNull(uri, "uri is null");
         String authority = uri.getAuthority();
         String scheme;
-        if (isSSLSecured) {
+        if (isSSLSecured || sslmode.equals("enable")) {
             scheme = "https";
         } else {
             scheme = "http";
@@ -181,11 +183,14 @@ public final class DatabendDriverUri {
         raw = tryParseUriUserPassword(raw, uriProperties);
         if (raw.startsWith("https://")) {
             uriProperties.put(SSL.getKey(), "true");
+            uriProperties.put(SSL_MODE.getKey(), "enable");
         } else if (raw.startsWith("http://")) {
             uriProperties.put(SSL.getKey(), "false");
+            uriProperties.put(SSL_MODE.getKey(), "disable");
         } else {
             raw = "http://" + raw;
             uriProperties.put(SSL.getKey(), "false");
+            uriProperties.put(SSL_MODE.getKey(), "disable");
         }
         try {
             URI uri = new URI(raw);
@@ -253,6 +258,10 @@ public final class DatabendDriverUri {
         return warehouse;
     }
 
+    public String getSslmode() {
+        return sslmode;
+    }
+
     public String getTenant() {
         return tenant;
     }
@@ -303,7 +312,7 @@ public final class DatabendDriverUri {
             if (!password.isEmpty()) {
                 builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
             }
-            if (useSecureConnection) {
+            if (useSecureConnection || sslmode.equals("enable")) {
                 setupInsecureSsl(builder);
             }
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
