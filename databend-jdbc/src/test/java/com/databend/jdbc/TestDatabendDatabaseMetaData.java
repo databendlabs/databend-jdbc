@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import org.mockito.internal.matchers.Null;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -159,6 +160,8 @@ public class TestDatabendDatabaseMetaData {
                     String columnName = rs.getString("COLUMN_NAME");
                     int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
+                    Object remarks = rs.getObject("remarks");
+                    Assert.assertEquals(remarks, null);
                     System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
             }
@@ -176,6 +179,7 @@ public class TestDatabendDatabaseMetaData {
             }
         }
     }
+
     @Test(groups = {"IT"})
     public void testGetColumnTypeWithDecimal() throws Exception {
         try (Connection connection = createConnection()) {

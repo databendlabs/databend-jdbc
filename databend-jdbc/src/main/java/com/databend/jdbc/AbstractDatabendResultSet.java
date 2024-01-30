@@ -356,8 +356,13 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
             throw new SQLException("Invalid column index: " + index);
         }
-        Object value = row.get().get(index - 1);
-        wasNull.set(value == null);
+        Object value = null;
+        value = row.get().get(index - 1);
+        if (resultSetMetaData.isNullable(index) == 1 && value.toString().equals("NULL")) {
+            wasNull.set(value == null);
+            return null;
+        }
+
         return value;
     }
 

@@ -992,7 +992,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 result.add(rowType.getDecimalDigits());// DECIMAL_DIGITS
                 result.add(0);// NUM_PREC_RADIX
                 result.add(rs.getString(6));// COLUMN_NAME
-                result.add(rs.getString(7));// REMARKS
+                result.add(rs.getObject(7));// REMARKS
                 result.add(rs.getString(8));// COLUMN_DEF
                 result.add(0);// SQL_DATA_TYPE
                 result.add(0);// SQL_DATETIME_SUB
