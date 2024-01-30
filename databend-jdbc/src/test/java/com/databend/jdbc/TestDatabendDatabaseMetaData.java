@@ -1,6 +1,5 @@
 package com.databend.jdbc;
 
-import org.mockito.internal.matchers.Null;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
