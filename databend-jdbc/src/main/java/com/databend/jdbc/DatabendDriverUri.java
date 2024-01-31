@@ -40,6 +40,7 @@ public final class DatabendDriverUri {
     private final Properties properties;
     private final URI uri;
     private final boolean useSecureConnection;
+    private final boolean strNullAsNull;
     private final String warehouse;
     private final String sslmode;
     private final String tenant;
@@ -62,6 +63,7 @@ public final class DatabendDriverUri {
         Map.Entry<URI, Map<String, String>> uriAndProperties = parse(url);
         this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
+        this.strNullAsNull = STRNULL_AS_NULL.getValue(properties).orElse(true);
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
@@ -256,6 +258,10 @@ public final class DatabendDriverUri {
 
     public String getWarehouse() {
         return warehouse;
+    }
+
+    public boolean getStrNullAsNull() {
+        return strNullAsNull;
     }
 
     public String getSslmode() {
