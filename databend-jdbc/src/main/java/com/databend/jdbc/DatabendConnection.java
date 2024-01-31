@@ -520,22 +520,9 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
     public void PingDatabendClientV1() throws IOException {
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
-        ClientSettings settings = new ClientSettings.Builder().
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setSession(this.session.get()).
-                setHost(this.getURI().toString()).
-                setAdditionalHeaders(additionalHeaders).
-                setPaginationOptions(options).build();
+        ClientSettings settings = makeClientSettings();
         String query = "select 1";
         HttpUrl url = HttpUrl.get(settings.getHost());
-        if (url == null) {
-            throw new IllegalArgumentException("Invalid host: " + settings.getHost());
-        }
         QueryRequest req = QueryRequest.builder().setSession(settings.getSession()).setStageAttachment(settings.getStageAttachment()).setPaginationOptions(settings.getPaginationOptions()).setSql(query).build();
         String reqString = req.toString();
         if (reqString == null || reqString.isEmpty()) {
@@ -571,18 +558,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
-        ClientSettings s = new ClientSettings.Builder().
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setSession(this.session.get()).
-                setHost(this.getURI().toString()).
-                setAdditionalHeaders(additionalHeaders).
-                setPaginationOptions(options).build();
-        return new DatabendClientV1(httpClient, sql, s);
+        return new DatabendClientV1(httpClient, sql, makeClientSettings());
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
@@ -599,6 +575,21 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 setStageAttachment(attach).
                 build();
         return new DatabendClientV1(httpClient, sql, s);
+    }
+
+    private ClientSettings makeClientSettings() {
+        PaginationOptions options = getPaginationOptions();
+        Map<String, String> additionalHeaders = setAdditionalHeaders();
+        ClientSettings s = new ClientSettings.Builder().
+                setSession(this.session.get()).
+                setHost(this.getURI().toString()).
+                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
+                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
+                setSocketTimeout(this.driverUri.getSocketTimeout()).
+                setPaginationOptions(options).
+                setAdditionalHeaders(additionalHeaders).
+                build();
+        return s;
     }
 
     private Map<String, String> setAdditionalHeaders() {
