@@ -187,6 +187,7 @@ public class TestDatabendDriverUri {
         props.setProperty("connection_time", "15");
         props.setProperty("warehouse", "test");
         props.setProperty("tenant", "tenant1");
+        props.setProperty("strnullasnull", String.valueOf(false));
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&tenant=tenant1&warehouse=test&null_display=null&connection_timeout=15&socket_timeout=15&presigned_url_disabled=true&wait_time_secs=1&max_rows_in_buffer=10&max_rows_per_page=5", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
@@ -204,5 +205,6 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 7);
         Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertEquals("null", uri.nullDisplay().toString());
+        Assert.assertEquals(false, uri.getStrNullAsNull());
     }
 }

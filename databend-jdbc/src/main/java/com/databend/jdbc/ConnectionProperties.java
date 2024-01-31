@@ -15,6 +15,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
+    public static final ConnectionProperty<Boolean> STRNULL_AS_NULL = new StrNullAsNull();
     public static final ConnectionProperty<String> WAREHOUSE = new Warehouse();
     public static final ConnectionProperty<String> SSL_MODE = new SSLMode();
     static final ConnectionProperty<String> TENANT = new Tenant();
@@ -39,6 +40,7 @@ public final class ConnectionProperties {
             .add(USER)
             .add(PASSWORD)
             .add(SSL)
+            .add(STRNULL_AS_NULL)
             .add(WAREHOUSE)
             .add(SSL_MODE)
             .add(TENANT)
@@ -81,6 +83,13 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<Boolean> {
         public Ssl() {
             super("ssl", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    public static class StrNullAsNull
+            extends AbstractConnectionProperty<Boolean> {
+        public StrNullAsNull() {
+            super("strnullasnull", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

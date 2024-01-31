@@ -62,8 +62,10 @@ public class TestDatabendDatabaseMetaData {
         Connection c = createConnection();
         c.createStatement().execute("drop table if exists test_column_meta");
         c.createStatement().execute("drop table if exists decimal_test");
+        c.createStatement().execute("drop table if exists test_comment");
         c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
         c.createStatement().execute("create table decimal_test (a decimal(4,2))");
+        c.createStatement().execute("create table test_comment (a int comment 'test comment')");
         // json data
     }
 
@@ -139,6 +141,23 @@ public class TestDatabendDatabaseMetaData {
     }
 
     @Test(groups = {"IT"})
+    public void testComment() throws SQLException {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "default", "test_comment", null)) {
+                while (rs.next()) {
+                    String tableSchem = rs.getString("table_schem");
+                    String tableName = rs.getString("table_name");
+                    String columnName = rs.getString("COLUMN_NAME");
+                    String remarks = rs.getString("remarks");
+                    Assert.assertEquals(remarks, "test comment");
+                    System.out.println(tableSchem + " " + tableName + " " + columnName + " " + remarks);
+                }
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
     public void testColumnsMeta() throws Exception {
         try (Connection connection = createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns(null, "default", "test_column_meta", null)) {
@@ -159,6 +178,8 @@ public class TestDatabendDatabaseMetaData {
                     String columnName = rs.getString("COLUMN_NAME");
                     int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
+                    Object remarks = rs.getObject("remarks");
+                    Assert.assertEquals(remarks, null);
                     System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
             }
@@ -176,6 +197,7 @@ public class TestDatabendDatabaseMetaData {
             }
         }
     }
+
     @Test(groups = {"IT"})
     public void testGetColumnTypeWithDecimal() throws Exception {
         try (Connection connection = createConnection()) {

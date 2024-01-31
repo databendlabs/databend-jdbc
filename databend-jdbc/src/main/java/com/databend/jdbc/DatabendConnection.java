@@ -1,18 +1,15 @@
 package com.databend.jdbc;
 
-import com.databend.client.ClientSettings;
-import com.databend.client.DatabendClient;
-import com.databend.client.DatabendClientV1;
-import com.databend.client.DatabendSession;
-import com.databend.client.PaginationOptions;
-import com.databend.client.StageAttachment;
+import com.databend.client.*;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
+import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
+import okhttp3.Request;
 
 import java.io.IOException;
 import java.io.InputStream;
@@ -43,7 +40,9 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.databend.client.ClientSettings.*;
+import static com.databend.client.DatabendClientV1.*;
 import static com.google.common.base.Preconditions.checkState;
+import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
@@ -492,6 +491,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.getWarehouse();
     }
 
+    public Boolean strNullAsNull() {
+        return this.driverUri.getStrNullAsNull();
+    }
+
     public String tenant() {
         return this.driverUri.getTenant();
     }
@@ -516,20 +519,46 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.httpUri;
     }
 
+    public void PingDatabendClientV1() throws IOException {
+        ClientSettings settings = makeClientSettings();
+        String query = "select 1";
+        HttpUrl url = HttpUrl.get(settings.getHost());
+        QueryRequest req = QueryRequest.builder().setSession(settings.getSession()).setStageAttachment(settings.getStageAttachment()).setPaginationOptions(settings.getPaginationOptions()).setSql(query).build();
+        String reqString = req.toString();
+        if (reqString == null || reqString.isEmpty()) {
+            throw new IllegalArgumentException("Invalid request: " + req);
+        }
+        url = url.newBuilder().encodedPath(QUERY_PATH).build();
+        Request.Builder builder = new Request.Builder()
+                .url(url)
+                .header("User-Agent", USER_AGENT_VALUE)
+                .header("Accept", "application/json")
+                .header("Content-Type", "application/json");
+        if (settings.getAdditionalHeaders() != null) {
+            settings.getAdditionalHeaders().forEach(builder::addHeader);
+        }
+        Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
+        executePing(request);
+    }
+
+
+    public void executePing(Request request) throws IOException {
+        requireNonNull(request, "request is null");
+        try {
+            JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
+            if ((response.getStatusCode() < 400)) {
+                return;
+            } else {
+                throw new IOException("failed to ping databend server");
+            }
+        } catch (RuntimeException e) {
+            throw new IOException(e);
+        }
+    }
+
     // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
-        ClientSettings s = new ClientSettings.Builder().
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setSession(this.session.get()).
-                setHost(this.getURI().toString()).
-                setAdditionalHeaders(additionalHeaders).
-                setPaginationOptions(options).build();
-        return new DatabendClientV1(httpClient, sql, s);
+        return new DatabendClientV1(httpClient, sql, makeClientSettings());
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
@@ -546,6 +575,21 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 setStageAttachment(attach).
                 build();
         return new DatabendClientV1(httpClient, sql, s);
+    }
+
+    private ClientSettings makeClientSettings() {
+        PaginationOptions options = getPaginationOptions();
+        Map<String, String> additionalHeaders = setAdditionalHeaders();
+        ClientSettings s = new ClientSettings.Builder().
+                setSession(this.session.get()).
+                setHost(this.getURI().toString()).
+                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
+                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
+                setSocketTimeout(this.driverUri.getSocketTimeout()).
+                setPaginationOptions(options).
+                setAdditionalHeaders(additionalHeaders).
+                build();
+        return s;
     }
 
     private Map<String, String> setAdditionalHeaders() {

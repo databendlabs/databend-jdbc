@@ -41,13 +41,13 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @ThreadSafe
 public class DatabendClientV1
         implements DatabendClient {
-    private static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
+    public static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
-    private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
-    private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
+    public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
-    private static final String QUERY_PATH = "/v1/query";
+    public static final String QUERY_PATH = "/v1/query";
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
     private final OkHttpClient httpClient;
     private final String query;
@@ -222,7 +222,7 @@ public class DatabendClientV1
     }
 
     @Override
-    public Map<String, String> getAdditionalHeaders() {
+    public  Map<String, String> getAdditionalHeaders() {
         return additonalHeaders;
     }
 

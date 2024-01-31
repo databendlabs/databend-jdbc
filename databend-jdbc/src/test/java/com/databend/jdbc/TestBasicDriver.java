@@ -39,6 +39,8 @@ public class TestBasicDriver {
         c.createStatement().execute("create table test_basic_driver.table1(i int)");
         c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
         c.createStatement().execute("create database test_basic_driver_2");
+        c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null)");
+        c.createStatement().execute("insert into test_basic_driver.table_with_null(a) values(1)");
 
         // json data
     }
@@ -62,6 +64,20 @@ public class TestBasicDriver {
             connection.close();
         } finally {
 
+        }
+    }
+
+    @Test
+    public void testDefaultSelectNullValue() throws SQLException {
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.executeQuery("SELECT a,b from test_basic_driver.table_with_null");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assert.assertEquals(r.getInt(1), 1);
+            Assert.assertEquals(r.getObject(2), null);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
         }
     }
 

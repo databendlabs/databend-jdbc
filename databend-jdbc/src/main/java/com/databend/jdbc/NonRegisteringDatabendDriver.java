@@ -3,6 +3,7 @@ package com.databend.jdbc;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
+import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
@@ -67,6 +68,13 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
+        DatabendConnection connection = new DatabendConnection(uri, builder.build());
+        // ping the server host
+        try {
+            connection.PingDatabendClientV1();
+        } catch (IOException e) {
+            throw new RuntimeException(e);
+        }
 
         return new DatabendConnection(uri, builder.build());
     }
