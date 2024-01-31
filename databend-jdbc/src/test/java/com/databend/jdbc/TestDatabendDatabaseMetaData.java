@@ -140,7 +140,7 @@ public class TestDatabendDatabaseMetaData {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testComment() throws SQLException {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();

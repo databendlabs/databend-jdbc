@@ -358,7 +358,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
         Object value = null;
         value = row.get().get(index - 1);
-        if (resultSetMetaData.isNullable(index) == 1 && value.toString().equals("NULL")) {
+        if (value.toString().equals("NULL")) {
             wasNull.set(value == null);
             return null;
         }
