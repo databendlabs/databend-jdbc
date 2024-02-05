@@ -363,7 +363,7 @@ public class TestPrepareStatement {
             System.out.println(result);
             Assertions.assertEquals(2, result);
         }
-        try (PreparedStatement statement = conn.prepareStatement("select * from test_prepare_statement where b = ?")) {
+        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where b = ?")) {
             statement.setString(1, "c");
             ResultSet r = statement.executeQuery();
             while (r.next()) {
