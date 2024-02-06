@@ -504,8 +504,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (originalSql.toLowerCase().startsWith("insert") ||
-                originalSql.toLowerCase().startsWith("replace") ||
-                originalSql.toLowerCase().startsWith("merge")) {
+                originalSql.toLowerCase().startsWith("replace")) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
         } else {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", s, "'")));
