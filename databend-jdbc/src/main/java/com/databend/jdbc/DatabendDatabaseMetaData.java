@@ -986,7 +986,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 DatabendRawType rowType = new DatabendRawType(originType);
                 DatabendDataType dataType = rowType.getDataType();
                 result.add(dataType.getSqlType());// DATA_TYPE
-                result.add(dataType.getDisplayName());// TYPE_NAME
+                result.add(originType);// TYPE_NAME
                 result.add(rowType.getColumnSize());// COLUMN_SIZE
                 result.add(0);// BUFFER_LENGTH
                 result.add(rowType.getDecimalDigits());// DECIMAL_DIGITS
