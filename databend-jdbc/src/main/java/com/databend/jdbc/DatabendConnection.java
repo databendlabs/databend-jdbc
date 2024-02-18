@@ -11,6 +11,8 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -38,6 +40,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
 import static com.databend.client.DatabendClientV1.*;
@@ -605,12 +608,34 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
 
+    /**
+     * Method to put data from a stream at a stage location. The data will be uploaded as one file. No
+     * splitting is done in this method.
+     *
+     * <p>Stream size must match the total size of data in the input stream unless compressData
+     * parameter is set to true.
+     *
+     * <p>caller is responsible for passing the correct size for the data in the stream and releasing
+     * the inputStream after the method is called.
+     *
+     * <p>Note this method is deprecated since streamSize is not required now. Keep the function
+     * signature for backward compatibility
+     *
+     * @param stageName stage name: e.g. ~ or table name or stage name
+     * @param destPrefix path prefix under which the data should be uploaded on the stage
+     * @param inputStream input stream from which the data will be uploaded
+     * @param destFileName destination file name to use
+     * @param fileSize data size in the stream
+     * @throws SQLException failed to put data from a stream at stage
+     */
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData)
             throws SQLException {
-        // TODO(zhihanz) handle compress data
-        // remove / in the end of stage name
-        // remove / in the beginning of destPrefix and end of destPrefix
+        // TODO(hantmac) handle compress data
+        /*
+         remove / in the end of stage name
+         remove / in the beginning of destPrefix and end of destPrefix
+         */
         String s;
         if (stageName == null) {
             s = "~";
@@ -620,16 +645,30 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         String p = destPrefix.replaceAll("^/", "").replaceAll("/$", "");
         String dest = p + "/" + destFileName;
         try {
+            InputStream dataStream = inputStream;
+            if (compressData) {
+                // Wrap the input stream with a GZIPOutputStream for compression
+                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
+                try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
+                    byte[] buffer = new byte[1024];
+                    int len;
+                    while ((len = inputStream.read(buffer)) != -1) {
+                        gzipOutputStream.write(buffer, 0, len);
+                    }
+                }
+                dataStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
+                fileSize = byteArrayOutputStream.size();  // Update the file size to the compressed size
+            }
             if (this.driverUri.presignedUrlDisabled()) {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
-                cli.presignUpload(null, inputStream, s, p + "/", destFileName, fileSize, true);
+                cli.presignUpload(null, dataStream, s, p + "/", destFileName, fileSize, true);
             } else {
                 logger.log(Level.FINE, "presign to @" + s + "/" + dest);
                 PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
                 Headers h = ctx.getHeaders();
                 String presignUrl = ctx.getUrl();
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-                cli.presignUpload(null, inputStream, h, presignUrl, fileSize, true);
+                cli.presignUpload(null, dataStream, h, presignUrl, fileSize, true);
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());
