@@ -631,7 +631,6 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData)
             throws SQLException {
-        // TODO(hantmac) handle compress data
         /*
          remove / in the end of stage name
          remove / in the beginning of destPrefix and end of destPrefix
