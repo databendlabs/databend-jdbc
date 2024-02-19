@@ -642,6 +642,9 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             s = stageName.replaceAll("/$", "");
         }
         String p = destPrefix.replaceAll("^/", "").replaceAll("/$", "");
+        if (compressData) {
+            destFileName += ".gz";
+        }
         String dest = p + "/" + destFileName;
         try {
             InputStream dataStream = inputStream;
