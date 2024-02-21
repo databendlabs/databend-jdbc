@@ -581,7 +581,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (x == null) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(parameterIndex, null));
+            setNull(parameterIndex, Types.NULL);
             return;
         }
         switch (targetSqlType) {

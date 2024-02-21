@@ -91,9 +91,12 @@ public class TestPrepareStatement {
         ps.setInt(1, 2);
         ps.setNull(2, Types.NULL);
         ps.addBatch();
+        ps.setInt(1, 3);
+        ps.setObject(2, null, Types.NULL);
+        ps.addBatch();
         System.out.println("execute batch insert");
         int[] ans = ps.executeBatch();
-        Assert.assertEquals(ans.length, 2);
+        Assert.assertEquals(ans.length, 3);
         Assert.assertEquals(ans[0], 1);
         Assert.assertEquals(ans[1], 1);
         Statement statement = c.createStatement();
@@ -105,7 +108,7 @@ public class TestPrepareStatement {
         while (r.next()) {
             System.out.println(r.getInt(1));
             //TODO(hantmac): need use real NULL type
-            Assert.assertEquals(r.getNString(2), "NULL");
+            Assert.assertEquals(r.getObject(2), null);
         }
     }
 
