@@ -40,6 +40,7 @@ import java.time.OffsetTime;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.stream.Collectors;
@@ -387,7 +388,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public ResultSet executeQuery()
             throws SQLException {
-        String sql = replaceParameterMarksWithValues(batchInsertUtils.get().getProvideParams(), this.originalSql).get(0).getSql();
+        String sql = replaceParameterMarksWithValues(batchInsertUtils.get().getProvideParams(), this.originalSql)
+                .get(0)
+                .getSql();
         internalExecute(sql, null);
         return getResultSet();
     }
@@ -399,9 +402,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public boolean execute()
             throws SQLException {
-        Boolean r;
+        boolean r;
         try {
-            r = this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+            r = this.execute(prepareSQL(batchInsertUtils.get().getProvideParams()));
         } catch (Exception e) {
             throw new SQLException(e);
         } finally {
@@ -410,27 +413,36 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return r;
     }
 
-    protected Optional<ResultSet> execute(List<StatementInfoWrapper> statements) throws SQLException {
-        Optional<ResultSet> optionalResultSet = Optional.empty();
-        ResultSet r;
+    protected boolean execute(List<StatementInfoWrapper> statements) throws SQLException {
         try {
             for (int i = 0; i < statements.size(); i++) {
-                internalExecute(statements.get(i).getSql(), null);
-                r = getResultSet();
-                optionalResultSet = Optional.ofNullable(r);
-                while (r != null && r.next()) {
+                String sql = statements.get(i).getSql();
+                if (sql.toLowerCase().contains("insert")) {
+                    handleBatchInsert();
+                } else {
+                    execute(sql);
                 }
+                return true;
             }
         } catch (Exception e) {
             throw new SQLException(e);
         } finally {
         }
-        return optionalResultSet;
+        return true;
+    }
+
+    protected void handleBatchInsert() throws SQLException {
+        try {
+            addBatch();
+            executeBatch();
+        } catch (Exception e) {
+            throw new SQLException(e);
+        }
     }
 
     @Override
     public int executeUpdate() throws SQLException {
-        this.execute(prepareSQL(batchInsertUtils.get().getProvideParams())).isPresent();
+        this.execute(prepareSQL(batchInsertUtils.get().getProvideParams()));
         return batchInsertUtils.get().getProvideParams().size();
     }
 
