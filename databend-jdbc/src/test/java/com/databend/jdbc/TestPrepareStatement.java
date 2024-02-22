@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import org.apache.commons.lang3.ObjectUtils;
 import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -91,9 +92,12 @@ public class TestPrepareStatement {
         ps.setInt(1, 2);
         ps.setNull(2, Types.NULL);
         ps.addBatch();
+        ps.setInt(1, 3);
+        ps.setObject(2, null, Types.NULL);
+        ps.addBatch();
         System.out.println("execute batch insert");
         int[] ans = ps.executeBatch();
-        Assert.assertEquals(ans.length, 2);
+        Assert.assertEquals(ans.length, 3);
         Assert.assertEquals(ans[0], 1);
         Assert.assertEquals(ans[1], 1);
         Statement statement = c.createStatement();
@@ -105,7 +109,7 @@ public class TestPrepareStatement {
         while (r.next()) {
             System.out.println(r.getInt(1));
             //TODO(hantmac): need use real NULL type
-            Assert.assertEquals(r.getNString(2), "NULL");
+            Assert.assertEquals(r.getObject(2), null);
         }
     }
 
@@ -340,6 +344,36 @@ public class TestPrepareStatement {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testUpdateSetNull() throws SQLException {
+        Connection conn = createConnection();
+        String sql = "insert into test_prepare_statement values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "b");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+            Assertions.assertEquals(1, result.length);
+        }
+        String updateSQL = "update test_prepare_statement set b = ? where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
+            statement.setInt(2, 1);
+            statement.setNull(1, Types.NULL);
+            int result = statement.executeUpdate();
+            System.out.println(result);
+            Assertions.assertEquals(2, result);
+        }
+        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
+            statement.setInt(1, 1);
+            ResultSet r = statement.executeQuery();
+            while (r.next()) {
+                Assertions.assertEquals(1, r.getInt(1));
+                Assertions.assertEquals(null, r.getString(2));
+            }
         }
     }
 
