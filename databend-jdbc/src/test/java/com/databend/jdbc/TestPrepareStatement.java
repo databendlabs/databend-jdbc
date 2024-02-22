@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
+import org.apache.commons.lang3.ObjectUtils;
 import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -343,6 +344,36 @@ public class TestPrepareStatement {
             }
         } catch (Exception e) {
             e.printStackTrace();
+        }
+    }
+
+    @Test
+    public void testUpdateSetNull() throws SQLException {
+        Connection conn = createConnection();
+        String sql = "insert into test_prepare_statement values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "b");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+            Assertions.assertEquals(1, result.length);
+        }
+        String updateSQL = "update test_prepare_statement set b = ? where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
+            statement.setInt(2, 1);
+            statement.setNull(1, Types.NULL);
+            int result = statement.executeUpdate();
+            System.out.println(result);
+            Assertions.assertEquals(2, result);
+        }
+        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
+            statement.setInt(1, 1);
+            ResultSet r = statement.executeQuery();
+            while (r.next()) {
+                Assertions.assertEquals(1, r.getInt(1));
+                Assertions.assertEquals(null, r.getString(2));
+            }
         }
     }
 
