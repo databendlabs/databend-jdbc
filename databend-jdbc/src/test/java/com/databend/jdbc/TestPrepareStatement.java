@@ -1,7 +1,6 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
-import org.apache.commons.lang3.ObjectUtils;
 import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -327,21 +326,40 @@ public class TestPrepareStatement {
     @Test
     public void testPrepareStatementExecute() throws SQLException {
         Connection conn = createConnection();
-        String sql = "SELECT number from numbers(100) where number = ?";
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+        String insertSql = "insert into test_prepare_statement values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
             statement.setInt(1, 1);
+            statement.setString(2, "b");
             statement.execute();
-            ResultSet r = statement.getResultSet();
-            r.next();
-            Assertions.assertEquals(1, r.getLong("number"));
-            System.out.println(r.getLong("number"));
         }
+        String updateSql = "update test_prepare_statement set b = ? where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(updateSql)) {
+            statement.setString(1, "c");
+            statement.setInt(2, 1);
+            statement.execute();
+        }
+
+        String selectSql = "select * from test_prepare_statement";
         try {
             Statement statement = conn.createStatement();
-            ResultSet rs = statement.executeQuery("show processlist");
+            ResultSet rs = statement.executeQuery(selectSql);
             while (rs.next()) {
-                System.out.println(rs.getString("id"));
+                Assert.assertEquals("c", rs.getString(2));
             }
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+
+        String deleteSql = "delete from test_prepare_statement where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(deleteSql)) {
+            statement.setInt(1, 1);
+            statement.execute();
+        }
+
+        try {
+            Statement statement = conn.createStatement();
+            ResultSet rs = statement.executeQuery(selectSql);
+            Assert.assertEquals(0, rs.getRow());
         } catch (Exception e) {
             e.printStackTrace();
         }
