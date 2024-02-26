@@ -61,7 +61,6 @@ public class TestQueryResults {
         Assert.assertEquals(queryResults.getQueryId(), "1fbbaf5b-8807-47d3-bb9c-122a3b7c527c");
         Assert.assertEquals(queryResults.getSessionId(), "ef4a4a66-7a81-4a90-b6ab-d484313111b8");
         Assert.assertEquals(queryResults.getSession().getDatabase(), null);
-        Assert.assertEquals(queryResults.getSession().getKeepServerSessionSecs(), 0);
         Assert.assertEquals(queryResults.getSession().getSettings(), null);
         Assert.assertEquals(queryResults.getState(), "Succeeded");
         Assert.assertEquals(queryResults.getError(), null);
