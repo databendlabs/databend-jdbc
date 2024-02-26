@@ -29,13 +29,8 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class DatabendSession {
     private static final String DEFAULT_DATABASE = "default";
 
-    // always ensure that session query id could be retrieved under reasonable time
-    private static final int DEFAULT_SESSION_ALIVE_SECS = 30;
-
-    // the
     private final String database;
 
-    private final int keepServerSessionSecs;
 
     private final Map<String, String> settings;
 
@@ -43,16 +38,14 @@ public class DatabendSession {
     @JsonCreator
     public DatabendSession(
             @JsonProperty("database") String database,
-            @JsonProperty("keep_server_session_secs") int keepServerSessionSecs,
             @JsonProperty("settings") Map<String, String> settings) {
         this.database = database;
-        this.keepServerSessionSecs = keepServerSessionSecs;
         this.settings = settings;
     }
 
     // default
     public static DatabendSession createDefault() {
-        return new DatabendSession(DEFAULT_DATABASE, DEFAULT_SESSION_ALIVE_SECS, null);
+        return new DatabendSession(DEFAULT_DATABASE, null);
     }
 
     public static Builder builder() {
@@ -64,10 +57,6 @@ public class DatabendSession {
         return database;
     }
 
-    @JsonProperty
-    public int getKeepServerSessionSecs() {
-        return keepServerSessionSecs;
-    }
 
     @JsonProperty
     public Map<String, String> getSettings() {
@@ -76,13 +65,12 @@ public class DatabendSession {
 
     @Override
     public String toString() {
-        return toStringHelper(this).add("database", database).add("keepServerSessionSecs", keepServerSessionSecs).add("settings", settings).toString();
+        return toStringHelper(this).add("database", database).add("settings", settings).toString();
     }
 
     public static final class Builder {
         private URI host;
         private String database;
-        private int keepServerSessionSecs = 30;
         private Map<String, String> settings;
 
         public Builder setHost(URI host) {
@@ -95,18 +83,13 @@ public class DatabendSession {
             return this;
         }
 
-        public Builder setKeepServerSessionSecs(int keepServerSessionSecs) {
-            this.keepServerSessionSecs = keepServerSessionSecs;
-            return this;
-        }
-
         public Builder setSettings(Map<String, String> settings) {
             this.settings = settings;
             return this;
         }
 
         public DatabendSession build() {
-            return new DatabendSession(database, keepServerSessionSecs, settings);
+            return new DatabendSession(database, settings);
         }
     }
 
