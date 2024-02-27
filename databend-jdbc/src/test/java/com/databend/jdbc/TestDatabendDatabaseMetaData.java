@@ -4,6 +4,7 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
 import java.sql.DriverManager;
@@ -212,6 +213,17 @@ public class TestDatabendDatabaseMetaData {
             assertEquals(columnName, "a");
             assertEquals(precision, 4);
             assertEquals(scale, 2);
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetObjectWithDecimal() throws Exception {
+        try (Connection connection = createConnection()) {
+            connection.createStatement().execute("insert into decimal_test values(1.2)");
+            ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
+            while (rs.next()){
+                assertTrue(rs.getObject(1) instanceof BigDecimal);
+            }
         }
     }
 

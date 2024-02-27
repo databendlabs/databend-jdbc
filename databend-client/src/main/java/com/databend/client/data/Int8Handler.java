@@ -14,6 +14,7 @@
 
 package com.databend.client.data;
 
+import java.math.BigDecimal;
 import java.math.BigInteger;
 
 class Int8Handler implements ColumnTypeHandler {
@@ -597,6 +598,65 @@ class BooleanHandler implements ColumnTypeHandler {
             return ((Number) value).intValue() != 0;
         }
         return false;
+    }
+
+    @Override
+    public void setNullable(boolean isNullable) {
+        this.isNullable = isNullable;
+    }
+}
+
+
+class DecimalHandler implements ColumnTypeHandler {
+    private boolean isNullable;
+
+    public DecimalHandler() {
+        this.isNullable = false;
+    }
+
+    public DecimalHandler(boolean isNullable) {
+        this.isNullable = isNullable;
+    }
+
+    @Override
+    public Object parseValue(Object value) {
+        if (isNullable) {
+            return parseNullableValue(value);
+        } else {
+            return parseNonNullValue(value);
+        }
+    }
+
+    private BigDecimal parseNullableValue(Object value) {
+        if (value == null || value.equals("NULL")) {
+            return null;
+        }
+        if(value instanceof Integer){
+            return BigDecimal.valueOf((int) value);
+        }
+        if (value instanceof String) {
+            return new BigDecimal((String) value);
+        }
+        if (value instanceof Number) {
+            return new BigDecimal((String) value);
+        }
+        return null;
+    }
+
+    private BigDecimal parseNonNullValue(Object value) {
+        if (value == null || value.equals("NULL")) {
+            throw new IllegalArgumentException("decimal type is not nullable");
+        }
+        if(value instanceof Integer){
+            return BigDecimal.valueOf((int) value);
+        }
+        if (value instanceof String) {
+            return new BigDecimal((String) value);
+        }
+        if (value instanceof Number) {
+            return new BigDecimal((String) value);
+        }
+        return BigDecimal.ZERO;
     }
 
     @Override
