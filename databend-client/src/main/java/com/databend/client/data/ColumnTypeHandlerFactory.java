@@ -22,7 +22,7 @@ public class ColumnTypeHandlerFactory
         if (type == null) {
             return null;
         }
-        switch (type.getType().toLowerCase(Locale.US)) {
+        switch (type.getDataType().getDisplayName().toLowerCase(Locale.US)) {
             case DatabendTypes.INT8:
                 return new Int8Handler(type.isNullable());
             case DatabendTypes.INT16:
@@ -45,6 +45,8 @@ public class ColumnTypeHandlerFactory
                 return new Float64Handler(type.isNullable());
             case DatabendTypes.BOOLEAN:
                 return new BooleanHandler(type.isNullable());
+            case DatabendTypes.DECIMAL:
+                return new DecimalHandler(type.isNullable());
             case DatabendTypes.ARRAY:
             case DatabendTypes.DATE:
             case DatabendTypes.DATETIME:
