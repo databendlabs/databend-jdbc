@@ -1,9 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
-import com.databend.client.QueryAffect;
-import com.databend.client.QueryResults;
-import com.databend.client.StageAttachment;
+import com.databend.client.*;
 import com.databend.jdbc.annotation.NotImplemented;
 
 import java.sql.Connection;
@@ -168,19 +165,13 @@ public class DatabendStatement implements Statement {
         if (q == null) {
             return;
         }
-        if (q.getAffect() == null) {
-            return;
-        }
-        if (q.getSession() == null) {
-            return;
-        }
-
-        if (q.getAffect().getClass() != QueryAffect.UseDB.class && q.getAffect().getClass() != QueryAffect.ChangeSettings.class) {
+        DatabendSession session = q.getSession();
+        if (session == null) {
             return;
         }
         // current query has result on update client session
         DatabendConnection connection = this.connection.get();
-        connection.setSession(q.getSession());
+        connection.setSession(session);
     }
 
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
