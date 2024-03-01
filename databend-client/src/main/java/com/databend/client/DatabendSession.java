@@ -50,7 +50,7 @@ public class DatabendSession {
         this.database = database;
         this.settings = settings;
         this.txnState = txnState;
-        this.lastVersionInfo = lastVersionInfo;
+        this.lastSeverInfo = lastServerInfo;
         this.lastQueryIds = lastQueryIds;
     }
 
