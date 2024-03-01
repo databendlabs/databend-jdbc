@@ -45,7 +45,7 @@ public class DatabendSession {
             @JsonProperty("database") String database,
             @JsonProperty("settings") Map<String, String> settings,
             @JsonProperty("txn_state") String txnState,
-            @JsonProperty("last_version_info") String lastVersionInfo,
+            @JsonProperty("last_server_info") String lastServerInfo,
             @JsonProperty("last_query_ids") List<String> lastQueryIds) {
         this.database = database;
         this.settings = settings;
