@@ -109,7 +109,7 @@ public class DatabendSession {
             return this;
         }
 
-        public Builder setLastVersionInfo(String lastVersionInfo) {
+        public Builder setLastServerInfo(String lastServerInfo) {
             this.lastVersionInfo = lastVersionInfo;
             return this;
         }
