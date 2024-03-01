@@ -36,7 +36,7 @@ public class DatabendSession {
 
     // txn
     private final String txnState;
-    private final String lastVersionInfo;
+    private final String lastServerInfo;
     private final List<String> lastQueryIds;
 
 
