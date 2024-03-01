@@ -18,13 +18,13 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
+import java.util.List;
 import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * Databend client session configuration.
- *
  */
 public class DatabendSession {
     private static final String DEFAULT_DATABASE = "default";
@@ -34,18 +34,29 @@ public class DatabendSession {
 
     private final Map<String, String> settings;
 
+    // txn
+    private final String txnState;
+    private final String lastVersionInfo;
+    private final List<String> lastQueryIds;
+
 
     @JsonCreator
     public DatabendSession(
             @JsonProperty("database") String database,
-            @JsonProperty("settings") Map<String, String> settings) {
+            @JsonProperty("settings") Map<String, String> settings,
+            @JsonProperty("txn_state") String txnState,
+            @JsonProperty("last_version_info") String lastVersionInfo,
+            @JsonProperty("last_query_ids") List<String> lastQueryIds) {
         this.database = database;
         this.settings = settings;
+        this.txnState = txnState;
+        this.lastVersionInfo = lastVersionInfo;
+        this.lastQueryIds = lastQueryIds;
     }
 
     // default
     public static DatabendSession createDefault() {
-        return new DatabendSession(DEFAULT_DATABASE, null);
+        return new DatabendSession(DEFAULT_DATABASE, null, null, null, null);
     }
 
     public static Builder builder() {
@@ -73,6 +84,11 @@ public class DatabendSession {
         private String database;
         private Map<String, String> settings;
 
+        // txn
+        private String txnState;
+        private String lastVersionInfo;
+        private List<String> lastQueryIds;
+
         public Builder setHost(URI host) {
             this.host = host;
             return this;
@@ -88,8 +104,23 @@ public class DatabendSession {
             return this;
         }
 
+        public Builder setTxnState(String txnState) {
+            this.txnState = txnState;
+            return this;
+        }
+
+        public Builder setLastVersionInfo(String lastVersionInfo) {
+            this.lastVersionInfo = lastVersionInfo;
+            return this;
+        }
+
+        public Builder setLastQueryIds(List<String> lastQueryIds) {
+            this.lastQueryIds = lastQueryIds;
+            return this;
+        }
+
         public DatabendSession build() {
-            return new DatabendSession(database, settings);
+            return new DatabendSession(database, settings, txnState, lastVersionInfo, lastQueryIds);
         }
     }
 
