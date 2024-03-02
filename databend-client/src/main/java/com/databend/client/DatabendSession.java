@@ -120,7 +120,7 @@ public class DatabendSession {
         }
 
         public DatabendSession build() {
-            return new DatabendSession(database, settings, txnState, lastVersionInfo, lastQueryIds);
+            return new DatabendSession(database, settings, txnState, lastServerInfo, lastQueryIds);
         }
     }
 
