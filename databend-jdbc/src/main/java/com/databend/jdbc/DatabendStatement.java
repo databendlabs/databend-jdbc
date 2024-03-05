@@ -188,11 +188,7 @@ public class DatabendStatement implements Statement {
         checkOpen();
         DatabendClient client = null;
         DatabendResultSet resultSet = null;
-        if (isQueryStatement(sql)) {
-            currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
-        } else {
-            currentUpdateCount = 0;
-        }
+
         try {
             if (attachment == null) {
                 client = connection().startQuery(sql);
@@ -205,6 +201,11 @@ public class DatabendStatement implements Statement {
                 }
             }
             updateClientSession(client.getResults());
+            if (isQueryStatement(sql)) {
+                currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
+            } else {
+                currentUpdateCount = client.getResults().getStats().getScanProgress().getRows().intValue();
+            }
             executingClient.set(client);
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
@@ -225,7 +226,7 @@ public class DatabendStatement implements Statement {
     }
 
     final boolean isQueryStatement(String sql) {
-        return sql.toLowerCase().contains("select") || sql.toLowerCase().contains("show");
+        return sql.toLowerCase().startsWith("select") || sql.toLowerCase().startsWith("show");
     }
 
     @Override

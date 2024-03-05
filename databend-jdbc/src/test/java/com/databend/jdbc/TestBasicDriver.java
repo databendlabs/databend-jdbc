@@ -68,6 +68,49 @@ public class TestBasicDriver {
     }
 
     @Test
+    public void TestMergeinto() throws SQLException {
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.target_table (\n" +
+                    "    ID INT,\n" +
+                    "    Name VARCHAR(50),\n" +
+                    "    Age INT,\n" +
+                    "    City VARCHAR(50)\n" +
+                    ");");
+            statement.execute("INSERT INTO test_basic_driver.target_table (ID, Name, Age, City)\n" +
+                    "VALUES\n" +
+                    "    (1, 'Alice', 25, 'Toronto'),\n" +
+                    "    (2, 'Bob', 30, 'Vancouver'),\n" +
+                    "    (3, 'Carol', 28, 'Montreal');");
+            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.source_table (\n" +
+                    "    ID INT,\n" +
+                    "    Name VARCHAR(50),\n" +
+                    "    Age INT,\n" +
+                    "    City VARCHAR(50)\n" +
+                    ");");
+            statement.execute("INSERT INTO test_basic_driver.source_table (ID, Name, Age, City)\n" +
+                    "VALUES\n" +
+                    "    (1, 'David', 27, 'Calgary'),\n" +
+                    "    (2, 'Emma', 29, 'Ottawa'),\n" +
+                    "    (4, 'Frank', 32, 'Edmonton');");
+            statement.execute("set enable_experimental_merge_into = 1");
+            statement.execute("MERGE INTO test_basic_driver.target_table AS T\n" +
+                    "    USING (SELECT * FROM test_basic_driver.source_table) AS S\n" +
+                    "    ON T.ID = S.ID\n" +
+                    "    WHEN MATCHED THEN\n" +
+                    "        UPDATE *\n" +
+                    "    WHEN NOT MATCHED THEN\n" +
+                    "    INSERT *;\n");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assert.assertEquals(6, statement.getUpdateCount());
+            System.out.println(statement.getUpdateCount());
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    @Test
     public void testDefaultSelectNullValue() throws SQLException {
         try (Connection connection = createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
