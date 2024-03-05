@@ -39,7 +39,7 @@ import java.sql.ResultSet;
 public class Main {
     public static void main(String[] args) throws SQLException {
         Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000", "root", "");
-        Statement statement = connection.createStatement();
+        Statement statement = conn.createStatement();
         statement.execute("SELECT number from numbers(200000) order by number");
         ResultSet r = statement.getResultSet();
         r.next();
@@ -47,7 +47,7 @@ public class Main {
             r.next();
             System.out.println(r.getInt(1));
         }
-        connection.close();
+        conn.close();
     }
 }
 ```

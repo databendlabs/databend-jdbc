@@ -1,9 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
-import com.databend.client.QueryAffect;
-import com.databend.client.QueryResults;
-import com.databend.client.StageAttachment;
+import com.databend.client.*;
 import com.databend.jdbc.annotation.NotImplemented;
 
 import java.sql.Connection;
@@ -168,19 +165,13 @@ public class DatabendStatement implements Statement {
         if (q == null) {
             return;
         }
-        if (q.getAffect() == null) {
-            return;
-        }
-        if (q.getSession() == null) {
-            return;
-        }
-
-        if (q.getAffect().getClass() != QueryAffect.UseDB.class && q.getAffect().getClass() != QueryAffect.ChangeSettings.class) {
+        DatabendSession session = q.getSession();
+        if (session == null) {
             return;
         }
         // current query has result on update client session
         DatabendConnection connection = this.connection.get();
-        connection.setSession(q.getSession());
+        connection.setSession(session);
     }
 
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
@@ -188,11 +179,7 @@ public class DatabendStatement implements Statement {
         checkOpen();
         DatabendClient client = null;
         DatabendResultSet resultSet = null;
-        if (isQueryStatement(sql)) {
-            currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
-        } else {
-            currentUpdateCount = 0;
-        }
+
         try {
             if (attachment == null) {
                 client = connection().startQuery(sql);
@@ -205,6 +192,11 @@ public class DatabendStatement implements Statement {
                 }
             }
             updateClientSession(client.getResults());
+            if (isQueryStatement(sql)) {
+                currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
+            } else {
+                currentUpdateCount = client.getResults().getStats().getScanProgress().getRows().intValue();
+            }
             executingClient.set(client);
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
@@ -225,7 +217,7 @@ public class DatabendStatement implements Statement {
     }
 
     final boolean isQueryStatement(String sql) {
-        return sql.toLowerCase().contains("select") || sql.toLowerCase().contains("show");
+        return sql.toLowerCase().startsWith("select") || sql.toLowerCase().startsWith("show");
     }
 
     @Override
