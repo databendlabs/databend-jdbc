@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 import java.net.URI;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -28,14 +29,16 @@ import static com.google.common.base.MoreObjects.toStringHelper;
  */
 public class DatabendSession {
     private static final String DEFAULT_DATABASE = "default";
+    private static final String AUTO_COMMIT = "AutoCommit";
 
     private final String database;
+    private final AtomicBoolean autoCommit = new AtomicBoolean(false);
 
 
     private final Map<String, String> settings;
 
     // txn
-    private final String txnState;
+    private String txnState;
     private final String lastServerInfo;
     private final List<String> lastQueryIds;
 
@@ -50,7 +53,7 @@ public class DatabendSession {
         this.database = database;
         this.settings = settings;
         this.txnState = txnState;
-        this.lastServerInfo= lastServerInfo;
+        this.lastServerInfo = lastServerInfo;
         this.lastQueryIds = lastQueryIds;
     }
 
@@ -79,9 +82,21 @@ public class DatabendSession {
         return toStringHelper(this).add("database", database).add("settings", settings).toString();
     }
 
+    public boolean getAutoCommit() {
+        return autoCommit.get();
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
+        this.autoCommit.set(autoCommit);
+        if (autoCommit) {
+            this.txnState = AUTO_COMMIT;
+        }
+    }
+
     public static final class Builder {
         private URI host;
         private String database;
+        private final AtomicBoolean autoCommit = new AtomicBoolean(false);
         private Map<String, String> settings;
 
         // txn
@@ -117,6 +132,17 @@ public class DatabendSession {
         public Builder setLastQueryIds(List<String> lastQueryIds) {
             this.lastQueryIds = lastQueryIds;
             return this;
+        }
+
+        public boolean getAutoCommit() {
+            return autoCommit.get();
+        }
+
+        public void setAutoCommit(boolean autoCommit) {
+            this.autoCommit.set(autoCommit);
+            if (autoCommit) {
+                this.txnState = AUTO_COMMIT;
+            }
         }
 
         public DatabendSession build() {

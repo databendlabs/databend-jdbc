@@ -45,7 +45,6 @@ import java.util.zip.GZIPOutputStream;
 import static com.databend.client.ClientSettings.*;
 import static com.databend.client.DatabendClientV1.*;
 import static com.google.common.base.Preconditions.checkState;
-import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
