@@ -50,7 +50,7 @@ public class DatabendSession {
         this.database = database;
         this.settings = settings;
         this.txnState = txnState;
-        this.lastSeverInfo = lastServerInfo;
+        this.lastServerInfo= lastServerInfo;
         this.lastQueryIds = lastQueryIds;
     }
 
@@ -86,7 +86,7 @@ public class DatabendSession {
 
         // txn
         private String txnState;
-        private String lastVersionInfo;
+        private String lastServerInfo;
         private List<String> lastQueryIds;
 
         public Builder setHost(URI host) {
