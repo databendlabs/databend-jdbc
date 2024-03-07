@@ -1,7 +1,6 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
-import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
@@ -522,9 +521,14 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         checkOpen();
         if (originalSql.toLowerCase().startsWith("insert") ||
                 originalSql.toLowerCase().startsWith("replace")) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, s));
+            String finalS1 = s;
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, finalS1));
         } else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", s, "'")));
+            if (s.contains("'")){
+                s = s.replace("'", "\\\'");
+            }
+            String finalS = s;
+            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", finalS, "'")));
         }
     }
 
