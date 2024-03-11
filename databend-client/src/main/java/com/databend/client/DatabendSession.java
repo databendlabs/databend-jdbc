@@ -39,7 +39,7 @@ public class DatabendSession {
 
     // txn
     private String txnState;
-    private final String lastServerInfo;
+    private final ServerInfo lastServerInfo;
     private final List<String> lastQueryIds;
 
 
@@ -48,7 +48,7 @@ public class DatabendSession {
             @JsonProperty("database") String database,
             @JsonProperty("settings") Map<String, String> settings,
             @JsonProperty("txn_state") String txnState,
-            @JsonProperty("last_server_info") String lastServerInfo,
+            @JsonProperty("last_server_info") ServerInfo lastServerInfo,
             @JsonProperty("last_query_ids") List<String> lastQueryIds) {
         this.database = database;
         this.settings = settings;
@@ -77,6 +77,21 @@ public class DatabendSession {
         return settings;
     }
 
+    @JsonProperty
+    public String getTxnState() {
+        return txnState;
+    }
+
+    @JsonProperty
+    public ServerInfo getLastServerInfo() {
+        return lastServerInfo;
+    }
+
+    @JsonProperty
+    public List<String> getLastQueryIds() {
+        return lastQueryIds;
+    }
+
     @Override
     public String toString() {
         return toStringHelper(this).add("database", database).add("settings", settings).toString();
@@ -101,7 +116,7 @@ public class DatabendSession {
 
         // txn
         private String txnState;
-        private String lastServerInfo;
+        private ServerInfo lastServerInfo;
         private List<String> lastQueryIds;
 
         public Builder setHost(URI host) {
@@ -124,7 +139,7 @@ public class DatabendSession {
             return this;
         }
 
-        public Builder setLastServerInfo(String lastServerInfo) {
+        public Builder setLastServerInfo(ServerInfo lastServerInfo) {
             this.lastServerInfo = lastServerInfo;
             return this;
         }
