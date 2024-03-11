@@ -5,6 +5,7 @@ import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
+import com.databend.jdbc.exception.DatabendFailedToPingException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.HttpUrl;
@@ -551,7 +552,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             if ((response.getStatusCode() < 400)) {
                 return;
             } else {
-                throw new IOException("failed to ping databend server");
+                throw new DatabendFailedToPingException(String.format("failed to ping databend server, response code: %s, response message: %s", response.getStatusCode(), response.getStatusMessage()));
             }
         } catch (RuntimeException e) {
             throw new IOException(e);
