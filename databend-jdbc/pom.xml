@@ -6,12 +6,12 @@
     <parent>
         <groupId>com.databend</groupId>
         <artifactId>databend-base</artifactId>
-    <version>0.1.9</version>
+    <version>0.2.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
-    <version>0.1.9</version>
+    <version>0.2.0</version>
 
     <properties>
         <!--suppress UnresolvedMavenProperty -->
@@ -24,7 +24,7 @@
         <dependency>
             <groupId>com.databend</groupId>
             <artifactId>databend-client</artifactId>
-            <version>0.1.9</version>
+            <version>0.2.0</version>
         </dependency>
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
