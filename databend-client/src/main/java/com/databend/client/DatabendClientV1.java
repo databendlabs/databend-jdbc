@@ -218,7 +218,7 @@ public class DatabendClientV1
             return false;
         }
         // if State is Failed or Finished, then it is not running
-        if (results.getState().toLowerCase(Locale.US).equals(succeededState) || results.getState().toLowerCase(Locale.US).equals(failedState) || results.getState().toLowerCase(Locale.US).equals(finishedState)) {
+        if (results.getState().toLowerCase(Locale.US).equals(failedState) || results.getState().toLowerCase(Locale.US).equals(finishedState)) {
             return false;
         }
         // is running if nextUri is not null
