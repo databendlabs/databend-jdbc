@@ -46,6 +46,10 @@ public class DatabendClientV1
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    public static final String succeededState = "succeeded";
+    public static final String failedState = "failed";
+    public static final String finishedState = "finished";
+
 
     public static final String QUERY_PATH = "/v1/query";
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
@@ -214,7 +218,7 @@ public class DatabendClientV1
             return false;
         }
         // if State is Failed or Finished, then it is not running
-        if (results.getState().toLowerCase(Locale.US).equals("failed") || results.getState().toLowerCase(Locale.US).equals("finished")) {
+        if (results.getState().toLowerCase(Locale.US).equals(succeededState) || results.getState().toLowerCase(Locale.US).equals(failedState) || results.getState().toLowerCase(Locale.US).equals(finishedState)) {
             return false;
         }
         // is running if nextUri is not null
@@ -222,7 +226,7 @@ public class DatabendClientV1
     }
 
     @Override
-    public  Map<String, String> getAdditionalHeaders() {
+    public Map<String, String> getAdditionalHeaders() {
         return additonalHeaders;
     }
 
