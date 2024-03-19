@@ -169,7 +169,11 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     public void commit()
             throws SQLException {
         checkOpen();
-        // currently not support commit
+        try {
+            this.startQuery("commit");
+        } catch (SQLException e) {
+            throw new SQLException("Failed to commit", e);
+        }
         return;
     }
 
@@ -183,14 +187,19 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     @Override
     public void setAutoCommit(boolean b)
             throws SQLException {
-
+        this.session.get().setAutoCommit(b);
+        autoCommit.set(b);
     }
 
     @Override
     public void rollback()
             throws SQLException {
         checkOpen();
-        // currently not support rollback
+        try {
+            this.startQuery("rollback");
+        } catch (SQLException e) {
+            throw new SQLException("Failed to rollback", e);
+        }
         return;
     }
 
@@ -522,15 +531,25 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.httpUri;
     }
 
-    public void PingDatabendClientV1() throws IOException {
-        ClientSettings settings = makeClientSettings();
-        String query = "select 1";
-        HttpUrl url = HttpUrl.get(settings.getHost());
-        QueryRequest req = QueryRequest.builder().setSession(settings.getSession()).setStageAttachment(settings.getStageAttachment()).setPaginationOptions(settings.getPaginationOptions()).setSql(query).build();
+    private String buildUrlWithQueryRequest(ClientSettings settings, String querySql) {
+        QueryRequest req = QueryRequest.builder()
+                .setSession(settings.getSession())
+                .setStageAttachment(settings.getStageAttachment())
+                .setPaginationOptions(settings.getPaginationOptions())
+                .setSql(querySql)
+                .build();
         String reqString = req.toString();
         if (reqString == null || reqString.isEmpty()) {
             throw new IllegalArgumentException("Invalid request: " + req);
         }
+        return reqString;
+    }
+
+    public void PingDatabendClientV1() throws IOException {
+        ClientSettings settings = makeClientSettings();
+        String query = "select 1";
+        HttpUrl url = HttpUrl.get(settings.getHost());
+        String reqString = buildUrlWithQueryRequest(settings, query);
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
         Request.Builder builder = new Request.Builder()
                 .url(url)
@@ -545,7 +564,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
 
-    public void executePing(Request request) throws IOException {
+    private void executePing(Request request) throws IOException {
         requireNonNull(request, "request is null");
         try {
             JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
@@ -559,7 +578,6 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         }
     }
 
-    // TODO(zhihanz): session property push down
     DatabendClient startQuery(String sql) throws SQLException {
         return new DatabendClientV1(httpClient, sql, makeClientSettings());
     }
