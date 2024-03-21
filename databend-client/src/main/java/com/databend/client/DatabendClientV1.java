@@ -48,7 +48,7 @@ public class DatabendClientV1
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     public static final String succeededState = "succeeded";
     public static final String failedState = "failed";
-    public static final String finishedState = "finished";
+    public static final String runningState = "running";
 
 
     public static final String QUERY_PATH = "/v1/query";
@@ -212,13 +212,9 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean isRunning() {
+    public boolean hasNext() {
         QueryResults results = this.currentResults.get();
         if (results == null) {
-            return false;
-        }
-        // if State is Failed or Finished, then it is not running
-        if (results.getState().toLowerCase(Locale.US).equals(failedState) || results.getState().toLowerCase(Locale.US).equals(finishedState)) {
             return false;
         }
         // is running if nextUri is not null
