@@ -20,7 +20,7 @@ public class ServerInfo {
         return id;
     }
 
-    @JsonProperty
+    @JsonProperty("start_time")
     public String getStartTime() {
         return startTime;
     }

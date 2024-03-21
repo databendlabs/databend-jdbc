@@ -18,6 +18,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -54,7 +55,8 @@ public class DatabendSession {
         this.settings = settings;
         this.txnState = txnState;
         this.lastServerInfo = lastServerInfo;
-        this.lastQueryIds = lastQueryIds;
+//        this.lastQueryIds = lastQueryIds;
+        this.lastQueryIds = lastQueryIds == null ? new ArrayList<>() : lastQueryIds;
     }
 
     // default
@@ -77,17 +79,17 @@ public class DatabendSession {
         return settings;
     }
 
-    @JsonProperty
+    @JsonProperty("txn_state")
     public String getTxnState() {
         return txnState;
     }
 
-    @JsonProperty
+    @JsonProperty("last_server_info")
     public ServerInfo getLastServerInfo() {
         return lastServerInfo;
     }
 
-    @JsonProperty
+    @JsonProperty("last_query_ids")
     public List<String> getLastQueryIds() {
         return lastQueryIds;
     }
