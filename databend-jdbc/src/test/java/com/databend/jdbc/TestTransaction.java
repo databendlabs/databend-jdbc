@@ -25,23 +25,6 @@ public class TestTransaction {
     }
 
     @Test
-    public void testCommit()
-            throws SQLException {
-        Connection c = createConnection();
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("begin");
-            statemte.execute("insert into test_txn.table1 values(2)");
-            c.commit();
-            statemte.execute("select * from test_txn.table1");
-            ResultSet rs = statemte.getResultSet();
-            while (rs.next()) {
-                Assert.assertEquals(2, rs.getInt(1));
-            }
-        }
-
-    }
-
-    @Test
     public void testRollback()
             throws SQLException {
         Connection c = createConnection();
@@ -72,6 +55,41 @@ public class TestTransaction {
             ResultSet rs = statemte.getResultSet();
             while (rs.next()) {
                 Assert.assertEquals(0, rs.getInt(1));
+            }
+        }
+    }
+
+    @Test
+    public void testCommit() throws SQLException {
+        Connection c1 = createConnection();
+        Connection c2 = createConnection();
+        try (Statement statement = c1.createStatement()) {
+            statement.execute("create  or replace table test_txn.table1(i int)");
+            statement.execute("begin");
+            statement.execute("insert into test_txn.table1 values(4)");
+            statement.execute("select * from test_txn.table1");
+            ResultSet rs = statement.getResultSet();
+            while (rs.next()) {
+                Assert.assertEquals(4, rs.getInt(1));
+            }
+        }
+
+        try (Statement statement = c2.createStatement()) {
+            statement.execute("begin");
+            statement.execute("insert into test_txn.table1 values(5)");
+            statement.execute("select * from test_txn.table1");
+            ResultSet rs = statement.getResultSet();
+            while (rs.next()) {
+                Assert.assertEquals(5, rs.getInt(1));
+            }
+        }
+        c1.commit();
+        Connection c3 = createConnection();
+        try (Statement statement = c3.createStatement()) {
+            statement.execute("select * from test_txn.table1");
+            ResultSet rs = statement.getResultSet();
+            while (rs.next()) {
+                Assert.assertEquals(4, rs.getInt(1));
             }
         }
     }
