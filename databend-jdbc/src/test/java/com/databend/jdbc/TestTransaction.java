@@ -48,8 +48,6 @@ public class TestTransaction {
         try (Statement statemte = c.createStatement()) {
             statemte.execute("begin");
             ResultSet r = statemte.getResultSet();
-           while(r.next()) {}
-           // txn_state = Active
         }
 
         try (Statement statemte = c.createStatement()) {
@@ -63,14 +61,10 @@ public class TestTransaction {
         try (Statement statemte = c.createStatement()) {
             statemte.execute("insert into test_txn.table1 values(3)");
             ResultSet r = statemte.getResultSet();
-            while (r.next()) {
-            }
         }
         try (Statement statemte = c.createStatement()) {
             statemte.execute("rollback");
             ResultSet r = statemte.getResultSet();
-            while (r.next()) {
-            }
         }
 
         try (Statement statemte = c.createStatement()) {
