@@ -18,34 +18,50 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Map;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
  * Databend client session configuration.
- *
  */
 public class DatabendSession {
     private static final String DEFAULT_DATABASE = "default";
+    private static final String AUTO_COMMIT = "AutoCommit";
 
     private final String database;
+    private final AtomicBoolean autoCommit = new AtomicBoolean(false);
 
 
     private final Map<String, String> settings;
+
+    // txn
+    private String txnState;
+    private final ServerInfo lastServerInfo;
+    private final List<String> lastQueryIds;
 
 
     @JsonCreator
     public DatabendSession(
             @JsonProperty("database") String database,
-            @JsonProperty("settings") Map<String, String> settings) {
+            @JsonProperty("settings") Map<String, String> settings,
+            @JsonProperty("txn_state") String txnState,
+            @JsonProperty("last_server_info") ServerInfo lastServerInfo,
+            @JsonProperty("last_query_ids") List<String> lastQueryIds) {
         this.database = database;
         this.settings = settings;
+        this.txnState = txnState;
+        this.lastServerInfo = lastServerInfo;
+//        this.lastQueryIds = lastQueryIds;
+        this.lastQueryIds = lastQueryIds == null ? new ArrayList<>() : lastQueryIds;
     }
 
     // default
     public static DatabendSession createDefault() {
-        return new DatabendSession(DEFAULT_DATABASE, null);
+        return new DatabendSession(DEFAULT_DATABASE, null, null, null, null);
     }
 
     public static Builder builder() {
@@ -63,15 +79,47 @@ public class DatabendSession {
         return settings;
     }
 
+    @JsonProperty("txn_state")
+    public String getTxnState() {
+        return txnState;
+    }
+
+    @JsonProperty("last_server_info")
+    public ServerInfo getLastServerInfo() {
+        return lastServerInfo;
+    }
+
+    @JsonProperty("last_query_ids")
+    public List<String> getLastQueryIds() {
+        return lastQueryIds;
+    }
+
     @Override
     public String toString() {
         return toStringHelper(this).add("database", database).add("settings", settings).toString();
     }
 
+    public boolean getAutoCommit() {
+        return autoCommit.get();
+    }
+
+    public void setAutoCommit(boolean autoCommit) {
+        this.autoCommit.set(autoCommit);
+        if (autoCommit) {
+            this.txnState = AUTO_COMMIT;
+        }
+    }
+
     public static final class Builder {
         private URI host;
         private String database;
+        private final AtomicBoolean autoCommit = new AtomicBoolean(false);
         private Map<String, String> settings;
+
+        // txn
+        private String txnState;
+        private ServerInfo lastServerInfo;
+        private List<String> lastQueryIds;
 
         public Builder setHost(URI host) {
             this.host = host;
@@ -88,8 +136,34 @@ public class DatabendSession {
             return this;
         }
 
+        public Builder setTxnState(String txnState) {
+            this.txnState = txnState;
+            return this;
+        }
+
+        public Builder setLastServerInfo(ServerInfo lastServerInfo) {
+            this.lastServerInfo = lastServerInfo;
+            return this;
+        }
+
+        public Builder setLastQueryIds(List<String> lastQueryIds) {
+            this.lastQueryIds = lastQueryIds;
+            return this;
+        }
+
+        public boolean getAutoCommit() {
+            return autoCommit.get();
+        }
+
+        public void setAutoCommit(boolean autoCommit) {
+            this.autoCommit.set(autoCommit);
+            if (autoCommit) {
+                this.txnState = AUTO_COMMIT;
+            }
+        }
+
         public DatabendSession build() {
-            return new DatabendSession(database, settings);
+            return new DatabendSession(database, settings, txnState, lastServerInfo, lastQueryIds);
         }
     }
 

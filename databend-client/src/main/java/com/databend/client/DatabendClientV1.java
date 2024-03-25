@@ -20,6 +20,7 @@ import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
+import okio.Buffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 
@@ -148,6 +149,8 @@ public class DatabendClientV1
             attempts++;
             JsonResponse<QueryResults> response;
             try {
+//                System.out.println("executeInternal: " + requestBodyToString(request));
+
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
                 cause = e;
@@ -176,6 +179,19 @@ public class DatabendClientV1
                 throw new RuntimeException("Query failed: " + response.getResponseBody());
             }
             return false;
+        }
+    }
+
+    private String requestBodyToString(Request request) {
+        try {
+            final Request copy = request.newBuilder().build();
+            final Buffer buffer = new Buffer();
+            if (copy.body() != null) {
+                copy.body().writeTo(buffer);
+            }
+            return buffer.readUtf8();
+        } catch (final IOException e) {
+            return "did not work";
         }
     }
 
