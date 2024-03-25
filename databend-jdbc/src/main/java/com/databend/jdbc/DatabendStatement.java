@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -186,7 +187,7 @@ public class DatabendStatement implements Statement {
             } else {
                 client = connection().startQuery(sql, attachment);
             }
-            if (!client.isRunning()) {
+            if (!client.hasNext()) {
                 if (client.getResults() != null && client.getResults().getError() != null) {
                     throw resultsException(client.getResults());
                 }
@@ -198,6 +199,13 @@ public class DatabendStatement implements Statement {
                 currentUpdateCount = client.getResults().getStats().getScanProgress().getRows().intValue();
             }
             executingClient.set(client);
+            while(client.hasNext()) {
+                QueryResults results = client.getResults();
+                Iterable<List<Object>> rows = results.getData();
+                if (rows == null && results.getSchema().isEmpty()) {
+                    client.next();
+                }
+            }
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
             return true;

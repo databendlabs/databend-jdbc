@@ -37,6 +37,5 @@ public interface DatabendClient extends Closeable {
     // @return true if there is next page or no more result
     boolean next();
 
-    boolean isRunning();
-
+    boolean hasNext();
 }

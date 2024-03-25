@@ -115,7 +115,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet
     {
         private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(
-                new ThreadFactoryBuilder().setNameFormat("Trino JDBC worker-%s").setDaemon(true).build());
+                new ThreadFactoryBuilder().setNameFormat("Databend JDBC worker-%s").setDaemon(true).build());
         private final DatabendClient client;
         private final BlockingQueue<T> rowQueue;
         private final Semaphore semaphore = new Semaphore(0);
@@ -219,7 +219,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet
         @Override
         protected Iterable<List<Object>> computeNext()
         {
-            while(client.isRunning()) {
+            while(client.hasNext()) {
                 QueryResults results = client.getResults();
                 Iterable<List<Object>> rows = results.getData();
                 try {
