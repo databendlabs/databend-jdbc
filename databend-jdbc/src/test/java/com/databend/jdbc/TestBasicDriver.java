@@ -168,6 +168,7 @@ public class TestBasicDriver {
             ResultSet r = statement.executeQuery();
             r.next();
             System.out.println(r.getLong("number"));
+            Assert.assertEquals(r.getLong("number"), 1);
         }
     }
 

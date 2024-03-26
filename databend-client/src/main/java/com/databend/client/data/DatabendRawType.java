@@ -99,6 +99,9 @@ public class DatabendRawType {
      * string start with ignore case
      */
     public static boolean startsWithIgnoreCase(String str, String prefix) {
+        if (str == null || prefix == null) {
+            return false;
+        }
         return str.regionMatches(true, 0, prefix, 0, prefix.length());
     }
 

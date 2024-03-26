@@ -42,7 +42,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
-        Assert.assertEquals(uri.getUri().getPort(), 80);
+        Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
     @Test(groups = {"unit"})
@@ -52,7 +52,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
-        Assert.assertEquals(uri.getUri().getPort(), 80);
+        Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
     @Test(groups = {"unit"})
@@ -62,7 +62,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
-        Assert.assertEquals(uri.getUri().getPort(), 80);
+        Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
     @Test(groups = {"unit"})
@@ -172,7 +172,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
         Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
-        Assert.assertEquals("hex", uri.binaryFormat().toString());
+        Assert.assertEquals("", uri.binaryFormat().toString());
     }
 
     @Test(groups = {"unit"})

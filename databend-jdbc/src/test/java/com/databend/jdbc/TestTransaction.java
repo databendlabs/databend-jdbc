@@ -28,6 +28,7 @@ public class TestTransaction {
     public void testRollback()
             throws SQLException {
         Connection c = createConnection();
+        c.createStatement().execute("delete from test_txn.table1");
         try (Statement statemte = c.createStatement()) {
             statemte.execute("begin");
             ResultSet r = statemte.getResultSet();
@@ -63,6 +64,7 @@ public class TestTransaction {
     public void testCommit() throws SQLException {
         Connection c1 = createConnection();
         Connection c2 = createConnection();
+        c1.createStatement().execute("delete from test_txn.table1");
         try (Statement statement = c1.createStatement()) {
             statement.execute("create  or replace table test_txn.table1(i int)");
             statement.execute("begin");
