@@ -72,7 +72,7 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
         // ping the server host
         try {
             connection.PingDatabendClientV1();
-        } catch (IOException e) {
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
 

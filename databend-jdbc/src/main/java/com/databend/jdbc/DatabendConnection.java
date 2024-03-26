@@ -545,38 +545,14 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return reqString;
     }
 
-    public void PingDatabendClientV1() throws IOException {
-        ClientSettings settings = makeClientSettings();
-        String query = "select 1";
-        HttpUrl url = HttpUrl.get(settings.getHost());
-        String reqString = buildUrlWithQueryRequest(settings, query);
-        url = url.newBuilder().encodedPath(QUERY_PATH).build();
-        Request.Builder builder = new Request.Builder()
-                .url(url)
-                .header("User-Agent", USER_AGENT_VALUE)
-                .header("Accept", "application/json")
-                .header("Content-Type", "application/json");
-        if (settings.getAdditionalHeaders() != null) {
-            settings.getAdditionalHeaders().forEach(builder::addHeader);
-        }
-        Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
-        executePing(request);
-    }
-
-
-    private void executePing(Request request) throws IOException {
-        requireNonNull(request, "request is null");
+    public void PingDatabendClientV1() throws SQLException {
         try {
-            JsonResponse<QueryResults> response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, OptionalLong.empty());
-            if ((response.getStatusCode() < 400)) {
-                return;
-            } else {
-                throw new DatabendFailedToPingException(String.format("failed to ping databend server, response code: %s, response message: %s", response.getStatusCode(), response.getStatusMessage()));
-            }
-        } catch (RuntimeException e) {
-            throw new IOException(e);
+            this.startQuery("select 1");
+        } catch (SQLException e) {
+            throw new SQLException("Failed to commit", e);
         }
     }
+
 
     DatabendClient startQuery(String sql) throws SQLException {
         return new DatabendClientV1(httpClient, sql, makeClientSettings());
