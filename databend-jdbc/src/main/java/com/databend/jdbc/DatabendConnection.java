@@ -546,10 +546,13 @@ public class DatabendConnection implements Connection, FileTransferAPI {
     }
 
     public void PingDatabendClientV1() throws SQLException {
-        try {
-            this.startQuery("select 1");
+        try (Statement statement = this.createStatement()) {
+            statement.execute("select 1");
+            ResultSet r = statement.getResultSet();
+            while (r.next()) {
+            }
         } catch (SQLException e) {
-            throw new SQLException("Failed to commit", e);
+            throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
         }
     }
 
