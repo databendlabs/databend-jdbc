@@ -204,6 +204,8 @@ public class DatabendStatement implements Statement {
                 Iterable<List<Object>> rows = results.getData();
                 if (rows == null && results.getSchema().isEmpty()) {
                     client.next();
+                }else {
+                    break;
                 }
             }
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
