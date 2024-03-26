@@ -42,9 +42,8 @@ public class Main {
         Statement statement = conn.createStatement();
         statement.execute("SELECT number from numbers(200000) order by number");
         ResultSet r = statement.getResultSet();
-        r.next();
-        for (int i = 1; i < 1000; i++) {
-            r.next();
+        // ** We must call `rs.next()` otherwise the query may be canceled **
+        while (rs.next())  {
             System.out.println(r.getInt(1));
         }
         conn.close();
