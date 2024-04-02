@@ -18,38 +18,32 @@ import static com.databend.jdbc.DriverInfo.DRIVER_VERSION;
 import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
 import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
 
-public class NonRegisteringDatabendDriver implements Driver, Closeable
-{
+public class NonRegisteringDatabendDriver implements Driver, Closeable {
     private final OkHttpClient httpClient = newHttpClient();
 
-    private static Properties urlProperties(String url, Properties info)
-    {
+    private static Properties urlProperties(String url, Properties info) {
         try {
             return DatabendDriverUri.create(url, info).getProperties();
-        }
-        catch (SQLException e) {
+        } catch (SQLException e) {
             return info;
         }
     }
 
-    private static OkHttpClient newHttpClient()
-    {
+    private static OkHttpClient newHttpClient() {
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .addInterceptor(userAgentInterceptor(DRIVER_NAME + "/" + DRIVER_VERSION));
         return builder.build();
     }
 
     @Override
-    public void close()
-    {
+    public void close() {
         httpClient.dispatcher().executorService().shutdown();
         httpClient.connectionPool().evictAll();
     }
 
     @Override
     public boolean acceptsURL(String url)
-            throws SQLException
-    {
+            throws SQLException {
         if (url == null) {
             throw new SQLException("URL is null");
         }
@@ -58,8 +52,7 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
 
     @Override
     public Connection connect(String url, Properties info)
-            throws SQLException
-    {
+            throws SQLException {
         if (!acceptsURL(url)) {
             return null;
         }
@@ -70,10 +63,12 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
         uri.setupClient(builder);
         DatabendConnection connection = new DatabendConnection(uri, builder.build());
         // ping the server host
-        try {
-            connection.PingDatabendClientV1();
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+        if (connection.useVerify()) {
+            try {
+                connection.PingDatabendClientV1();
+            } catch (SQLException e) {
+                throw new RuntimeException(e);
+            }
         }
 
         return new DatabendConnection(uri, builder.build());
@@ -81,8 +76,7 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
 
     @Override
     public DriverPropertyInfo[] getPropertyInfo(String url, Properties info)
-            throws SQLException
-    {
+            throws SQLException {
         Properties properties = urlProperties(url, info);
 
         return ConnectionProperties.allProperties().stream()
@@ -92,28 +86,24 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable
     }
 
     @Override
-    public int getMajorVersion()
-    {
+    public int getMajorVersion() {
         return DRIVER_VERSION_MAJOR;
     }
 
     @Override
-    public int getMinorVersion()
-    {
+    public int getMinorVersion() {
         return DRIVER_VERSION_MINOR;
     }
 
     @Override
-    public boolean jdbcCompliant()
-    {
+    public boolean jdbcCompliant() {
         // TODO: pass compliance tests
         return false;
     }
 
     @Override
     public Logger getParentLogger()
-            throws SQLFeatureNotSupportedException
-    {
+            throws SQLFeatureNotSupportedException {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
     }

@@ -507,6 +507,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.getStrNullAsNull();
     }
 
+    public Boolean useVerify() {
+        return this.driverUri.getUseVerify();
+    }
+
     public String tenant() {
         return this.driverUri.getTenant();
     }
