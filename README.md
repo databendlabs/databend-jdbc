@@ -51,7 +51,7 @@ public class Main {
 }
 ```
 ### Important Notes
-1. Because the `select`, `copy inot`, `merge into` are query type SQL, they will return a `ResultSet` object, you must call `rs.next()` before accessing the data.  Otherwise, the query may be canceled. If you do not want get the result, you can call `while(r.next(){})` to iterate over the result set.
+1. Because the `select`, `copy into`, `merge into` are query type SQL, they will return a `ResultSet` object, you must call `rs.next()` before accessing the data.  Otherwise, the query may be canceled. If you do not want get the result, you can call `while(r.next(){})` to iterate over the result set.
 2. For other SQL such as `create/drop table` non-query type SQL, you can call `statement.execute()` directly.
 
 
