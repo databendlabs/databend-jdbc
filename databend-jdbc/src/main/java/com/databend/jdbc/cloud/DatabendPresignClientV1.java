@@ -90,7 +90,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         try {
             executeInternal(r, true);
         } catch (IOException e) {
-            throw new IOException(format("uploadFromStream failed, presignUrl is %s, error is %s", presignedUrl, e.getMessage()));
+            throw new IOException(format(" uploadFromStream failed, file size is %s,  presignUrl is %s kb, error is %s", fileSize / 1024.0, presignedUrl, e.getMessage()));
         } finally {
 
         }
