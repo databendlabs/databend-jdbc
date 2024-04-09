@@ -134,7 +134,7 @@ public final class ConnectionProperties {
     private static class StageName
             extends AbstractConnectionProperty<String> {
         public StageName() {
-            super("stagename", Optional.of("~"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+            super("stage_name", Optional.of("~"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 
