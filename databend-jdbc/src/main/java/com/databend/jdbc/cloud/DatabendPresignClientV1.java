@@ -34,7 +34,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DatabendPresignClientV1 implements DatabendPresignClient {
 
-    private static final int MaxRetryAttempts = 10;
+    private static final int MaxRetryAttempts = 20;
 
     private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
@@ -45,10 +45,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
         this.client = builder.
-                connectTimeout(120, TimeUnit.SECONDS)
-                .readTimeout(90, TimeUnit.SECONDS)
-                .callTimeout(90, TimeUnit.SECONDS)
-                .writeTimeout(90, TimeUnit.SECONDS).build();
+                connectTimeout(120, TimeUnit.SECONDS).build();
         this.uri = uri;
     }
 
@@ -103,7 +100,7 @@ public class DatabendPresignClientV1 implements DatabendPresignClient {
             if (attempts > 0) {
                 logger.info("try to presign upload again: " + attempts);
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.getSeconds() >= 600) {
+                if (sinceStart.getSeconds() >= 900) {
                     logger.warning("Presign upload failed, error is:" + cause.toString());
                     throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
                 }
