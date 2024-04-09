@@ -31,6 +31,7 @@ public final class ConnectionProperties {
 
     public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
     public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
+    public static final ConnectionProperty<String> STAGE_NAME = new StageName();
     public static final ConnectionProperty<String> NULL_DISPLAY = new NullDisplay();
     public static final ConnectionProperty<String> BINARY_FORMAT = new BinaryFormat();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
@@ -127,6 +128,13 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public Tenant() {
             super("tenant", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class StageName
+            extends AbstractConnectionProperty<String> {
+        public StageName() {
+            super("stagename", Optional.of("~"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

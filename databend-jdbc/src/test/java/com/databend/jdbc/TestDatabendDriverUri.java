@@ -130,7 +130,7 @@ public class TestDatabendDriverUri {
         props.setProperty("SSL", "true");
         props.setProperty("binary_format", "base64");
         props.setProperty("sslmode", "enable");
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&query_timeout=120&connection_timeout=15&socket_timeout=15", props);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2&stageName=test_stage&query_timeout=120&connection_timeout=15&socket_timeout=15", props);
 
         Assert.assertEquals(uri.getProperties().get("user"), "u1");
         Assert.assertEquals(uri.getProperties().get("password"), "p1");
@@ -149,6 +149,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals("\\N", uri.nullDisplay().toString());
         Assert.assertEquals("base64", uri.binaryFormat().toString());
         Assert.assertEquals("enable", uri.getSslmode().toString());
+        Assert.assertEquals("test_stage", uri.stageName().toString());
     }
 
     @Test(groups = {"unit"})
@@ -173,6 +174,7 @@ public class TestDatabendDriverUri {
         Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
         Assert.assertEquals("", uri.binaryFormat().toString());
+        Assert.assertEquals("~", uri.stageName().toString());
     }
 
     @Test(groups = {"unit"})

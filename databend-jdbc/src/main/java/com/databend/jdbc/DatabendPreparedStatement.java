@@ -168,8 +168,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
-            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
-            String stageName = "~";
+            String stageName = c.stageName();
+            c.uploadStream(stageName, stagePrefix, fis, fileName, saved.length(), false);
             Map<String, String> copyOptions = new HashMap<>();
             copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
             copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
@@ -209,9 +209,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                     LocalDateTime.now().getSecond(),
                     uuid);
             String fileName = saved.getName();
+            String stageName = c.stageName();
             // upload to stage
-            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
-            String stagePath = "@~/" + stagePrefix + fileName;
+            c.uploadStream(stageName, stagePrefix, fis, fileName, saved.length(), false);
+            String stagePath = "@" + stageName + "/" + stagePrefix + fileName;
             StageAttachment attachment = buildStateAttachment(c, stagePath);
             return attachment;
         } catch (Exception e) {
@@ -524,7 +525,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String finalS1 = s;
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, finalS1));
         } else {
-            if (s.contains("'")){
+            if (s.contains("'")) {
                 s = s.replace("'", "\\\'");
             }
             String finalS = s;

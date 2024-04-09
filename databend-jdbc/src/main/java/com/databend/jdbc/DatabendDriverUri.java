@@ -46,6 +46,7 @@ public final class DatabendDriverUri {
     private final String sslmode;
     private final String tenant;
     private final boolean copyPurge;
+    private final String stageName;
     private final String nullDisplay;
     private final String binaryFormat;
     private final String database;
@@ -74,6 +75,7 @@ public final class DatabendDriverUri {
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
+        this.stageName = STAGE_NAME.getValue(properties).orElse("~");
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
         this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("");
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
@@ -256,6 +258,10 @@ public final class DatabendDriverUri {
 
     public Boolean copyPurge() {
         return copyPurge;
+    }
+
+    public String stageName() {
+        return stageName;
     }
 
     public String getWarehouse() {
