@@ -25,8 +25,8 @@ import okio.Buffer;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -254,25 +254,25 @@ public class DatabendClientV1
 
     @Override
     public void close() {
-        killQuery();
+        closeQuery();
     }
 
-    private void killQuery() {
+    private void closeQuery() {
         QueryResults q = this.currentResults.get();
         if (q == null) {
             return;
         }
-        if (q.getKillUri() == null) {
+        URI uri = q.getFinalUri();
+        if (uri == null) {
             return;
         }
-        String killUriPath = q.getKillUri().toString();
+        String path = uri.toString();
         HttpUrl url = HttpUrl.get(this.host);
-        url = url.newBuilder().encodedPath(killUriPath).build();
+        url = url.newBuilder().encodedPath(path).build();
         Request r = prepareRequst(url).get().build();
         try {
             httpClient.newCall(r).execute().close();
         } catch (IOException ignored) {
-
         }
     }
 }
