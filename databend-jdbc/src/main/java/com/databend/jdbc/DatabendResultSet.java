@@ -198,6 +198,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             this.client = client;
         }
 
+        // AsyncIterator will call this and put rows to queue with MAX_QUEUED_ROWS=5000
         @Override
         protected Iterable<List<Object>> computeNext() {
             while (client.hasNext()) {

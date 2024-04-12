@@ -42,6 +42,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @ThreadSafe
 public class DatabendClientV1
         implements DatabendClient {
+    private final AtomicReference<Boolean> finished = new AtomicReference<>(false);
     public static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
@@ -65,7 +66,7 @@ public class DatabendClientV1
     private final Map<String, String> additonalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
-    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
     public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings) {
@@ -214,7 +215,11 @@ public class DatabendClientV1
     public boolean next() {
         requireNonNull(this.host, "host is null");
         requireNonNull(this.currentResults.get(), "currentResults is null");
-        if (this.currentResults.get().getNextUri() == null) {
+        if (finished.get()) {
+            return false;
+        }
+        if (!this.currentResults.get().hasMoreData()) {
+            closeQuery();
             // no need to fetch next page
             return false;
         }
@@ -229,12 +234,7 @@ public class DatabendClientV1
 
     @Override
     public boolean hasNext() {
-        QueryResults results = this.currentResults.get();
-        if (results == null) {
-            return false;
-        }
-        // is running if nextUri is not null
-        return results.getNextUri() != null;
+        return !finished.get();
     }
 
     @Override
@@ -258,6 +258,9 @@ public class DatabendClientV1
     }
 
     private void closeQuery() {
+        if (!finished.compareAndSet(false, true)) {
+            return;
+        }
         QueryResults q = this.currentResults.get();
         if (q == null) {
             return;

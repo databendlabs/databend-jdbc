@@ -554,6 +554,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             statement.execute("select 1");
             ResultSet r = statement.getResultSet();
             while (r.next()) {
+                //System.out.println(r.getInt(1));
             }
         } catch (SQLException e) {
             throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
