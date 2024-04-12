@@ -202,7 +202,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         protected Iterable<List<Object>> computeNext() {
             while (client.hasNext()) {
                 QueryResults results = client.getResults();
-                Iterable<List<Object>> rows = results.getData();
+                List<List<Object>> rows = results.getData();
                 try {
                     client.next();
                 } catch (RuntimeException e) {

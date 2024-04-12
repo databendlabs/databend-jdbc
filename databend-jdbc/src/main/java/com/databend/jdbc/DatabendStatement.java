@@ -201,8 +201,9 @@ public class DatabendStatement implements Statement {
             executingClient.set(client);
             while (client.hasNext()) {
                 QueryResults results = client.getResults();
-                Iterable<List<Object>> rows = results.getData();
-                if (rows == null && results.getSchema().isEmpty()) {
+                List<List<Object>> data = results.getData();
+                List<QueryRowField> schema = results.getSchema();
+                if ((data == null || data.isEmpty()) && (schema == null || schema.isEmpty())) {
                     client.next();
                 } else {
                     break;

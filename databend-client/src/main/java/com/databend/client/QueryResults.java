@@ -92,7 +92,7 @@ public class QueryResults {
     }
 
     @JsonProperty
-    public Iterable<List<Object>> getData() {
+    public List<List<Object>> getData() {
         return data;
     }
 
