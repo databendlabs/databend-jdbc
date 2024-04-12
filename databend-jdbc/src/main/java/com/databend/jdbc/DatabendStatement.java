@@ -189,7 +189,7 @@ public class DatabendStatement implements Statement {
             }
             if (!client.hasNext()) {
                 if (client.getResults() != null && client.getResults().getError() != null) {
-                    throw resultsException(client.getResults());
+                    throw resultsException(client.getResults(), sql);
                 }
             }
             updateClientSession(client.getResults());
@@ -199,12 +199,12 @@ public class DatabendStatement implements Statement {
                 currentUpdateCount = client.getResults().getStats().getScanProgress().getRows().intValue();
             }
             executingClient.set(client);
-            while(client.hasNext()) {
+            while (client.hasNext()) {
                 QueryResults results = client.getResults();
                 Iterable<List<Object>> rows = results.getData();
                 if (rows == null && results.getSchema().isEmpty()) {
                     client.next();
-                }else {
+                } else {
                     break;
                 }
             }

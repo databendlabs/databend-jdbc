@@ -152,9 +152,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
-    static SQLException resultsException(QueryResults results) {
+    static SQLException resultsException(QueryResults results, String originalSQL) {
         QueryErrors error = requireNonNull(results.getError());
-        String message = format("Query failed (#%s): %s", results.getQueryId(), error.getMessage());
+        String message = format("SQL: (%s) Query failed (#%s): %s", originalSQL, results.getQueryId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));
     }
 
