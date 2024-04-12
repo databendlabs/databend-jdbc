@@ -33,7 +33,7 @@ public class BatchInsertUtils {
         this.sql = sql;
         // sort key in ascending order
         this.placeHolderEntries = new TreeMap<>();
-        this.databaseTableName = getDatabaseTableName();
+//        this.databaseTableName = getDatabaseTableName();
     }
 
     /**
