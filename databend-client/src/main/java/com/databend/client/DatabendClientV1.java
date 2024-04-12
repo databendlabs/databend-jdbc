@@ -90,7 +90,7 @@ public class DatabendClientV1
         }
     }
 
-    public Request.Builder prepareRequst(HttpUrl url) {
+    public Request.Builder prepareRequest(HttpUrl url) {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
@@ -115,7 +115,7 @@ public class DatabendClientV1
             throw new IllegalArgumentException("Invalid request: " + req);
         }
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
-        Request.Builder builder = prepareRequst(url);
+        Request.Builder builder = prepareRequest(url);
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
     }
 
@@ -227,7 +227,7 @@ public class DatabendClientV1
         String nextUriPath = this.currentResults.get().getNextUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
-        Request.Builder builder = prepareRequst(url);
+        Request.Builder builder = prepareRequest(url);
         Request request = builder.get().build();
         return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
     }
@@ -272,7 +272,7 @@ public class DatabendClientV1
         String path = uri.toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(path).build();
-        Request r = prepareRequst(url).get().build();
+        Request r = prepareRequest(url).get().build();
         try {
             httpClient.newCall(r).execute().close();
         } catch (IOException ignored) {
