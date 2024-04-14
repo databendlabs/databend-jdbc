@@ -20,7 +20,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
-
+@Test(timeOut = 10000)
 public class TestQueryErrors
 {
     private static final JsonCodec<QueryErrors> QUERY_ERROR_JSON_CODEC = jsonCodec(QueryErrors.class);

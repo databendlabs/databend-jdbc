@@ -18,7 +18,7 @@ import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
-
+@Test(timeOut = 10000)
 public class TestDatabendDatabaseMetaData {
     private static void assertTableMetadata(ResultSet rs)
             throws SQLException {

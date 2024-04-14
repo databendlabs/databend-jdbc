@@ -22,6 +22,7 @@ import java.util.List;
 
 import static io.airlift.json.JsonCodec.jsonCodec;
 
+@Test(timeOut = 10000)
 public class TestQueryResults {
     private static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
 
