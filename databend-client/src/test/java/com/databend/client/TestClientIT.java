@@ -36,7 +36,7 @@ public class TestClientIT {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
-        DatabendClient cli = new DatabendClientV1(client, "select 1", settings);
+        DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null);
         System.out.println(cli.getResults().getData());
         Assert.assertEquals(cli.getQuery(), "select 1");
         Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
@@ -57,15 +57,16 @@ public class TestClientIT {
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        DatabendClient cli = new DatabendClientV1(client, "select 1", settings);
+        DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null);
         Assert.assertEquals(cli.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID);
 
         String expectedUUID1 = UUID.randomUUID().toString();
         Map<String, String> additionalHeaders1 = new HashMap<>();
         additionalHeaders1.put(X_Databend_Query_ID, expectedUUID1);
         ClientSettings settings1 = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders1, null, DEFAULT_RETRY_ATTEMPTS);
+        Assert.assertEquals(cli.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID);
         // check X_Databend_Query_ID won't change after calling next()
-        DatabendClient cli1 = new DatabendClientV1(client, "SELECT number from numbers(200000) order by number", settings1);
+        DatabendClient cli1 = new DatabendClientV1(client, "SELECT number from numbers(200000) order by number", settings1, null);
         for (int i = 1; i < 1000; i++) {
             cli.advance();
             Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);

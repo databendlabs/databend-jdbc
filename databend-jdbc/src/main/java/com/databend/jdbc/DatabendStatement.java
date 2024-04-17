@@ -176,6 +176,7 @@ public class DatabendStatement implements Statement {
     }
 
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
+        // System.out.println(sql);
         clearCurrentResults();
         checkOpen();
         DatabendClient client = null;
@@ -192,7 +193,6 @@ public class DatabendStatement implements Statement {
                     throw resultsException(client.getResults(), sql);
                 }
             }
-            updateClientSession(client.getResults());
             if (isQueryStatement(sql)) {
                 currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
             } else {

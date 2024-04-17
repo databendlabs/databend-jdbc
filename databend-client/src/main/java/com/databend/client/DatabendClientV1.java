@@ -31,6 +31,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -69,13 +70,16 @@ public class DatabendClientV1
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings) {
+    private Consumer<DatabendSession> on_session_state_update;
+
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");
         this.httpClient = httpClient;
         this.query = sql;
+        this.on_session_state_update = on_session_state_update;
         this.host = settings.getHost();
         this.paginationOptions = settings.getPaginationOptions();
         this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
@@ -202,8 +206,12 @@ public class DatabendClientV1
     }
 
     private void processResponse(Headers headers, QueryResults results) {
-        if (results.getSession() != null) {
-            databendSession.set(results.getSession());
+        DatabendSession session = results.getSession();
+        if (session != null) {
+            databendSession.set(session);
+            if (this.on_session_state_update != null) {
+                this.on_session_state_update.accept(session);
+            }
         }
         if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
