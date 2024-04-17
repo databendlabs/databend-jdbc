@@ -14,9 +14,7 @@
 
 package com.databend.client;
 
-import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -69,7 +67,7 @@ public class TestClientIT {
         // check X_Databend_Query_ID won't change after calling next()
         DatabendClient cli1 = new DatabendClientV1(client, "SELECT number from numbers(200000) order by number", settings1);
         for (int i = 1; i < 1000; i++) {
-            cli.next();
+            cli.advance();
             Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
         }
         System.out.println(cli1.getResults().getData());

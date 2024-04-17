@@ -204,7 +204,7 @@ public class DatabendStatement implements Statement {
                 List<List<Object>> data = results.getData();
                 List<QueryRowField> schema = results.getSchema();
                 if ((data == null || data.isEmpty()) && (schema == null || schema.isEmpty())) {
-                    client.next();
+                    client.advance();
                 } else {
                     break;
                 }

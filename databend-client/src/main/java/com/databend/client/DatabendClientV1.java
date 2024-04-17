@@ -212,7 +212,7 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean next() {
+    public boolean advance() {
         requireNonNull(this.host, "host is null");
         requireNonNull(this.currentResults.get(), "currentResults is null");
         if (finished.get()) {
