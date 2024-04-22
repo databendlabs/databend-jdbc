@@ -176,7 +176,6 @@ public class DatabendStatement implements Statement {
     }
 
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
-        // System.out.println(sql);
         clearCurrentResults();
         checkOpen();
         DatabendClient client = null;
