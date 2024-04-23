@@ -54,13 +54,9 @@ public class DatabendConnection implements Connection, FileTransferAPI {
 
     static {
         try {
-            // 创建一个 FileHandler
             FILE_HANDLER = new FileHandler("databend-jdbc-debug.log");
-            // 设置 FileHandler 级别为 ALL
             FILE_HANDLER.setLevel(Level.ALL);
-            // 设置 FileHandler 的格式化器为 SimpleFormatter
             FILE_HANDLER.setFormatter(new SimpleFormatter());
-            // 添加 FileHandler 到 Logger
             logger.addHandler(FILE_HANDLER);
         } catch (Exception e) {
             throw new RuntimeException("Failed to create FileHandler", e);
