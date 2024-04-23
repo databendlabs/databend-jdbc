@@ -95,7 +95,7 @@ public final class ConnectionProperties {
     private static class UseVerify
             extends AbstractConnectionProperty<Boolean> {
         public UseVerify() {
-            super("use_verify", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super("use_verify", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
