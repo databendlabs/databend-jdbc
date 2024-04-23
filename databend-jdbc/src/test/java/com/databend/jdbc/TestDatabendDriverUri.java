@@ -8,7 +8,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
+@Test(timeOut = 10000)
 public class TestDatabendDriverUri {
     private static DatabendDriverUri createDriverUri(String url)
             throws SQLException {

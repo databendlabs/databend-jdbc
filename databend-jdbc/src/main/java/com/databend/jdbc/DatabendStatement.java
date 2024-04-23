@@ -192,7 +192,6 @@ public class DatabendStatement implements Statement {
                     throw resultsException(client.getResults(), sql);
                 }
             }
-            updateClientSession(client.getResults());
             if (isQueryStatement(sql)) {
                 currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
             } else {
@@ -201,9 +200,10 @@ public class DatabendStatement implements Statement {
             executingClient.set(client);
             while (client.hasNext()) {
                 QueryResults results = client.getResults();
-                Iterable<List<Object>> rows = results.getData();
-                if (rows == null && results.getSchema().isEmpty()) {
-                    client.next();
+                List<List<Object>> data = results.getData();
+                List<QueryRowField> schema = results.getSchema();
+                if ((data == null || data.isEmpty()) && (schema == null || schema.isEmpty())) {
+                    client.advance();
                 } else {
                     break;
                 }

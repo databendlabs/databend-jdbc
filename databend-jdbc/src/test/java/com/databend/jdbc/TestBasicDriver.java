@@ -10,7 +10,7 @@ import java.sql.*;
 import java.util.Properties;
 
 import static org.testng.AssertJUnit.assertEquals;
-
+@Test(timeOut = 10000)
 public class TestBasicDriver {
     private Connection createConnection()
             throws SQLException {

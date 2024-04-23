@@ -28,7 +28,7 @@ public class QueryResults {
     private final String sessionId;
     private final DatabendSession session;
     private final List<QueryRowField> schema;
-    private final Iterable<List<Object>> data;
+    private final List<List<Object>> data;
     private final String state;
     private final QueryErrors error;
     private final QueryStats stats;
@@ -92,7 +92,7 @@ public class QueryResults {
     }
 
     @JsonProperty
-    public Iterable<List<Object>> getData() {
+    public List<List<Object>> getData() {
         return data;
     }
 
@@ -134,6 +134,10 @@ public class QueryResults {
     @JsonProperty
     public URI getKillUri() {
         return killUri;
+    }
+
+    public boolean hasMoreData() {
+        return nextUri != null && !nextUri.getPath().contains("/final");
     }
 
     @Override
