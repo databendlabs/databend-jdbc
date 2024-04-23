@@ -41,6 +41,7 @@ public final class DatabendDriverUri {
     private final URI uri;
     private final boolean useSecureConnection;
     private final boolean useVerify;
+    private final boolean debug;
     private final boolean strNullAsNull;
     private final String warehouse;
     private final String sslmode;
@@ -65,6 +66,7 @@ public final class DatabendDriverUri {
         this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
         this.useVerify = USE_VERIFY.getValue(properties).orElse(false);
+        this.debug = DEBUG.getValue(properties).orElse(false);
         this.strNullAsNull = STRNULL_AS_NULL.getValue(properties).orElse(true);
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
@@ -268,6 +270,10 @@ public final class DatabendDriverUri {
 
     public boolean getUseVerify() {
         return useVerify;
+    }
+
+    public boolean getDebug() {
+        return debug;
     }
 
     public String getSslmode() {
