@@ -33,7 +33,7 @@ final class ParseJsonDataUtils
      * input List<List<Object>> : a list of rows parsed from QueryResponse
      * output Iterable<List<Object>> : convert the input rows into DatabendType and return an immutable list
      */
-    public static Iterable<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data)
+    public static List<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data)
     {
         if (data == null || schema == null ) {
             return null;

@@ -14,12 +14,13 @@
 
 package com.databend.client;
 
+import com.fasterxml.jackson.annotation.JsonAnyGetter;
+import com.fasterxml.jackson.annotation.JsonAnySetter;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicBoolean;
 
@@ -40,28 +41,22 @@ public class DatabendSession {
 
     // txn
     private String txnState;
-    private final ServerInfo lastServerInfo;
-    private final List<String> lastQueryIds;
 
+    private Map<String, Object> additionalProperties = new HashMap<>();
 
     @JsonCreator
     public DatabendSession(
             @JsonProperty("database") String database,
             @JsonProperty("settings") Map<String, String> settings,
-            @JsonProperty("txn_state") String txnState,
-            @JsonProperty("last_server_info") ServerInfo lastServerInfo,
-            @JsonProperty("last_query_ids") List<String> lastQueryIds) {
+            @JsonProperty("txn_state") String txnState) {
         this.database = database;
         this.settings = settings;
         this.txnState = txnState;
-        this.lastServerInfo = lastServerInfo;
-//        this.lastQueryIds = lastQueryIds;
-        this.lastQueryIds = lastQueryIds == null ? new ArrayList<>() : lastQueryIds;
     }
 
     // default
     public static DatabendSession createDefault() {
-        return new DatabendSession(DEFAULT_DATABASE, null, null, null, null);
+        return new DatabendSession(DEFAULT_DATABASE, null, null);
     }
 
     public static Builder builder() {
@@ -84,14 +79,14 @@ public class DatabendSession {
         return txnState;
     }
 
-    @JsonProperty("last_server_info")
-    public ServerInfo getLastServerInfo() {
-        return lastServerInfo;
+    @JsonAnyGetter
+    public Map<String, Object> getAdditionalProperties() {
+        return additionalProperties;
     }
 
-    @JsonProperty("last_query_ids")
-    public List<String> getLastQueryIds() {
-        return lastQueryIds;
+    @JsonAnySetter
+    public void setAdditionalProperty(String key, Object value) {
+        additionalProperties.put(key, value);
     }
 
     @Override
@@ -118,8 +113,6 @@ public class DatabendSession {
 
         // txn
         private String txnState;
-        private ServerInfo lastServerInfo;
-        private List<String> lastQueryIds;
 
         public Builder setHost(URI host) {
             this.host = host;
@@ -141,16 +134,6 @@ public class DatabendSession {
             return this;
         }
 
-        public Builder setLastServerInfo(ServerInfo lastServerInfo) {
-            this.lastServerInfo = lastServerInfo;
-            return this;
-        }
-
-        public Builder setLastQueryIds(List<String> lastQueryIds) {
-            this.lastQueryIds = lastQueryIds;
-            return this;
-        }
-
         public boolean getAutoCommit() {
             return autoCommit.get();
         }
@@ -163,9 +146,7 @@ public class DatabendSession {
         }
 
         public DatabendSession build() {
-            return new DatabendSession(database, settings, txnState, lastServerInfo, lastQueryIds);
+            return new DatabendSession(database, settings, txnState);
         }
     }
-
-
 }

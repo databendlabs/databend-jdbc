@@ -25,12 +25,13 @@ import okio.Buffer;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.net.URI;
 import java.time.Duration;
-import java.util.Locale;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
+import java.util.function.Consumer;
 
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -42,6 +43,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 @ThreadSafe
 public class DatabendClientV1
         implements DatabendClient {
+    private final AtomicReference<Boolean> finished = new AtomicReference<>(false);
     public static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
             "/" +
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
@@ -65,16 +67,19 @@ public class DatabendClientV1
     private final Map<String, String> additonalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
-    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>();
+    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings) {
+    private Consumer<DatabendSession> on_session_state_update;
+
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");
         this.httpClient = httpClient;
         this.query = sql;
+        this.on_session_state_update = on_session_state_update;
         this.host = settings.getHost();
         this.paginationOptions = settings.getPaginationOptions();
         this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
@@ -89,7 +94,7 @@ public class DatabendClientV1
         }
     }
 
-    public Request.Builder prepareRequst(HttpUrl url) {
+    public Request.Builder prepareRequest(HttpUrl url) {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
@@ -114,7 +119,7 @@ public class DatabendClientV1
             throw new IllegalArgumentException("Invalid request: " + req);
         }
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
-        Request.Builder builder = prepareRequst(url);
+        Request.Builder builder = prepareRequest(url);
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
     }
 
@@ -201,8 +206,12 @@ public class DatabendClientV1
     }
 
     private void processResponse(Headers headers, QueryResults results) {
-        if (results.getSession() != null) {
-            databendSession.set(results.getSession());
+        DatabendSession session = results.getSession();
+        if (session != null) {
+            databendSession.set(session);
+            if (this.on_session_state_update != null) {
+                this.on_session_state_update.accept(session);
+            }
         }
         if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
@@ -211,10 +220,14 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean next() {
+    public boolean advance() {
         requireNonNull(this.host, "host is null");
         requireNonNull(this.currentResults.get(), "currentResults is null");
-        if (this.currentResults.get().getNextUri() == null) {
+        if (finished.get()) {
+            return false;
+        }
+        if (!this.currentResults.get().hasMoreData()) {
+            closeQuery();
             // no need to fetch next page
             return false;
         }
@@ -222,19 +235,14 @@ public class DatabendClientV1
         String nextUriPath = this.currentResults.get().getNextUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
-        Request.Builder builder = prepareRequst(url);
+        Request.Builder builder = prepareRequest(url);
         Request request = builder.get().build();
         return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
     }
 
     @Override
     public boolean hasNext() {
-        QueryResults results = this.currentResults.get();
-        if (results == null) {
-            return false;
-        }
-        // is running if nextUri is not null
-        return results.getNextUri() != null;
+        return !finished.get();
     }
 
     @Override
@@ -254,25 +262,28 @@ public class DatabendClientV1
 
     @Override
     public void close() {
-        killQuery();
+        closeQuery();
     }
 
-    private void killQuery() {
+    private void closeQuery() {
+        if (!finished.compareAndSet(false, true)) {
+            return;
+        }
         QueryResults q = this.currentResults.get();
         if (q == null) {
             return;
         }
-        if (q.getKillUri() == null) {
+        URI uri = q.getFinalUri();
+        if (uri == null) {
             return;
         }
-        String killUriPath = q.getKillUri().toString();
+        String path = uri.toString();
         HttpUrl url = HttpUrl.get(this.host);
-        url = url.newBuilder().encodedPath(killUriPath).build();
-        Request r = prepareRequst(url).get().build();
+        url = url.newBuilder().encodedPath(path).build();
+        Request r = prepareRequest(url).get().build();
         try {
             httpClient.newCall(r).execute().close();
         } catch (IOException ignored) {
-
         }
     }
 }

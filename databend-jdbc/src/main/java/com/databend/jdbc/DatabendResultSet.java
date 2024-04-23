@@ -27,7 +27,8 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-public class DatabendResultSet extends AbstractDatabendResultSet {
+public class DatabendResultSet extends AbstractDatabendResultSet
+{
 
     private final String queryId;
     private final Statement statement;
@@ -36,23 +37,25 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
     private boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
-
-    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows) throws SQLException {
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows) throws SQLException
+    {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(client), maxRows), client));
+                new AsyncIterator<>(flatten(new ResultsPageIterator(client),maxRows), client));
         this.statement = statement;
         this.client = client;
         this.queryId = client.getResults().getQueryId();
     }
 
     static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows)
-            throws SQLException {
+            throws SQLException
+    {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
         return new DatabendResultSet(statement, client, s, maxRows);
     }
 
-    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows) {
+    private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows)
+    {
         Stream<T> stream = Streams.stream(iterator)
                 .flatMap(Streams::stream);
         if (maxRows > 0) {
@@ -61,12 +64,14 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         return stream.iterator();
     }
 
-    public String getQueryId() {
+    public String getQueryId()
+    {
         return queryId;
     }
 
     void setCloseStatementOnClose()
-            throws SQLException {
+            throws SQLException
+    {
         boolean alreadyClosed;
         synchronized (this) {
             alreadyClosed = closed;
@@ -81,7 +86,8 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     @Override
     public void close()
-            throws SQLException {
+            throws SQLException
+    {
         boolean closeStatement;
         synchronized (this) {
             if (closed) {
@@ -100,11 +106,13 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     @Override
     public boolean isClosed()
-            throws SQLException {
+            throws SQLException
+    {
         return closed;
     }
 
-    static class AsyncIterator<T> extends AbstractIterator<T> {
+    static class AsyncIterator<T> extends AbstractIterator<T>
+    {
         private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(
                 new ThreadFactoryBuilder().setNameFormat("Databend JDBC worker-%s").setDaemon(true).build());
@@ -114,13 +122,13 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         private final Future<?> future;
         private volatile boolean cancelled;
         private volatile boolean finished;
-
-        public AsyncIterator(Iterator<T> dataIterator, DatabendClient client) {
+        public AsyncIterator(Iterator<T> dataIterator, DatabendClient client)
+        {
             this(dataIterator, client, Optional.empty());
         }
-
         @VisibleForTesting
-        AsyncIterator(Iterator<T> dataIterator, DatabendClient client, Optional<BlockingQueue<T>> queue) {
+        AsyncIterator(Iterator<T> dataIterator, DatabendClient client, Optional<BlockingQueue<T>> queue)
+        {
             requireNonNull(dataIterator, "dataIterator is null");
             this.client = client;
             this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
@@ -132,18 +140,21 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                         rowQueue.put(dataIterator.next());
                         semaphore.release();
                     }
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     client.close();
                     rowQueue.clear();
                     throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
-                } finally {
+                }
+                finally {
                     semaphore.release();
                     finished = true;
                 }
             });
         }
 
-        public void cancel() {
+        public void cancel()
+        {
             cancelled = true;
             future.cancel(true);
             // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
@@ -154,28 +165,33 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         }
 
         @VisibleForTesting
-        Future<?> getFuture() {
+        Future<?> getFuture()
+        {
             return future;
         }
-
         @VisibleForTesting
-        boolean isBackgroundThreadFinished() {
+        boolean isBackgroundThreadFinished()
+        {
             return finished;
         }
 
         @Override
-        protected T computeNext() {
+        protected T computeNext()
+        {
             try {
                 semaphore.acquire();
-            } catch (InterruptedException e) {
+            }
+            catch (InterruptedException e) {
                 handleInterrupt(e);
             }
             if (rowQueue.isEmpty()) {
                 try {
                     future.get();
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     handleInterrupt(e);
-                } catch (ExecutionException e) {
+                }
+                catch (ExecutionException e) {
                     throwIfUnchecked(e.getCause());
                     throw new RuntimeException(e.getCause());
                 }
@@ -183,29 +199,33 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             }
             return rowQueue.poll();
         }
-
-        private void handleInterrupt(InterruptedException e) {
+        private void handleInterrupt(InterruptedException e)
+        {
             cancel();
             Thread.currentThread().interrupt();
             throw new RuntimeException(new SQLException("Interrupted", e));
         }
     }
 
-    private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>> {
+    private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>>
+    {
         private final DatabendClient client;
 
-        private ResultsPageIterator(DatabendClient client) {
+        private ResultsPageIterator(DatabendClient client)
+        {
             this.client = client;
         }
 
+        // AsyncIterator will call this and put rows to queue with MAX_QUEUED_ROWS=5000
         @Override
-        protected Iterable<List<Object>> computeNext() {
-            while (client.hasNext()) {
+        protected Iterable<List<Object>> computeNext()
+        {
+            while(client.hasNext()) {
                 QueryResults results = client.getResults();
-                Iterable<List<Object>> rows = results.getData();
+                List<List<Object>> rows = results.getData();
                 try {
-                    client.next();
-                } catch (RuntimeException e) {
+                    client.advance();
+                } catch(RuntimeException e) {
                     throw new RuntimeException(e);
                 }
                 if (rows != null) {

@@ -40,15 +40,17 @@ import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.*;
+import java.util.function.Consumer;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
-import static com.databend.client.DatabendClientV1.*;
 import static com.google.common.base.Preconditions.checkState;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendConnection implements Connection, FileTransferAPI {
+public class DatabendConnection implements Connection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
     private static final FileHandler FILE_HANDLER;
 
@@ -570,15 +572,19 @@ public class DatabendConnection implements Connection, FileTransferAPI {
             statement.execute("select 1");
             ResultSet r = statement.getResultSet();
             while (r.next()) {
+                //System.out.println(r.getInt(1));
             }
         } catch (SQLException e) {
             throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
         }
     }
 
+    public void accept(DatabendSession session) {
+        setSession(session);
+    }
 
     DatabendClient startQuery(String sql) throws SQLException {
-        return new DatabendClientV1(httpClient, sql, makeClientSettings());
+        return new DatabendClientV1(httpClient, sql, makeClientSettings(), this);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
@@ -594,7 +600,7 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 setAdditionalHeaders(additionalHeaders).
                 setStageAttachment(attach).
                 build();
-        return new DatabendClientV1(httpClient, sql, s);
+        return new DatabendClientV1(httpClient, sql, s, this);
     }
 
     private ClientSettings makeClientSettings() {
