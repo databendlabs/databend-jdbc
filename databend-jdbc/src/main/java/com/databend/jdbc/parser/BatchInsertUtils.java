@@ -115,7 +115,7 @@ public class BatchInsertUtils {
             for (String[] row : values) {
                 w.writeRow(row);
             }
-            logger.log(Level.FINE, "save batch insert to csv file: " + file.getAbsolutePath() + "rows: " + values.size() + " columns: " + rowSize);
+//            logger.log(Level.FINE, "save batch insert to csv file: " + file.getAbsolutePath() + "rows: " + values.size() + " columns: " + rowSize);
             return file;
         } catch (IOException e) {
             throw new RuntimeException(e);

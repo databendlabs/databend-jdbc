@@ -39,8 +39,7 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Level;
-import java.util.logging.Logger;
+import java.util.logging.*;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
@@ -51,6 +50,23 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendConnection implements Connection, FileTransferAPI {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
+    private static final FileHandler FILE_HANDLER;
+
+    static {
+        try {
+            // 创建一个 FileHandler
+            FILE_HANDLER = new FileHandler("databend-jdbc-debug.log");
+            // 设置 FileHandler 级别为 ALL
+            FILE_HANDLER.setLevel(Level.ALL);
+            // 设置 FileHandler 的格式化器为 SimpleFormatter
+            FILE_HANDLER.setFormatter(new SimpleFormatter());
+            // 添加 FileHandler 到 Logger
+            logger.addHandler(FILE_HANDLER);
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to create FileHandler", e);
+        }
+    }
+
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final URI httpUri;
@@ -511,6 +527,10 @@ public class DatabendConnection implements Connection, FileTransferAPI {
         return this.driverUri.getUseVerify();
     }
 
+    public Boolean debug() {
+        return this.driverUri.getDebug();
+    }
+
     public String tenant() {
         return this.driverUri.getTenant();
     }
@@ -663,12 +683,22 @@ public class DatabendConnection implements Connection, FileTransferAPI {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
                 cli.presignUpload(null, dataStream, s, p + "/", destFileName, fileSize, true);
             } else {
-                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
+//                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
+                long presignStartTime = System.nanoTime();
                 PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
+                long presignEndTime = System.nanoTime();
+                if (this.debug()) {
+                    logger.info("presign cost time: " + (presignEndTime - presignStartTime) / 1000000.0 + "ms");
+                }
                 Headers h = ctx.getHeaders();
                 String presignUrl = ctx.getUrl();
                 DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
+                long uploadStartTime = System.nanoTime();
                 cli.presignUpload(null, dataStream, h, presignUrl, fileSize, true);
+                long uploadEndTime = System.nanoTime();
+                if (this.debug()) {
+                    logger.info("upload cost time: " + (uploadEndTime - uploadStartTime) / 1000000.0 + "ms");
+                }
             }
         } catch (JsonProcessingException e) {
             System.out.println(e.getMessage());

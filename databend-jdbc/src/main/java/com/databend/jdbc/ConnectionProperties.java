@@ -17,6 +17,8 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Boolean> SSL = new Ssl();
 
     public static final ConnectionProperty<Boolean> USE_VERIFY = new UseVerify();
+
+    public static final ConnectionProperty<Boolean> DEBUG = new Debug();
     public static final ConnectionProperty<Boolean> STRNULL_AS_NULL = new StrNullAsNull();
     public static final ConnectionProperty<String> WAREHOUSE = new Warehouse();
     public static final ConnectionProperty<String> SSL_MODE = new SSLMode();
@@ -43,6 +45,7 @@ public final class ConnectionProperties {
             .add(PASSWORD)
             .add(SSL)
             .add(USE_VERIFY)
+            .add(DEBUG)
             .add(STRNULL_AS_NULL)
             .add(WAREHOUSE)
             .add(SSL_MODE)
@@ -93,6 +96,13 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<Boolean> {
         public UseVerify() {
             super("use_verify", Optional.of("true"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    public static class Debug
+            extends AbstractConnectionProperty<Boolean> {
+        public Debug() {
+            super("debug", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 
