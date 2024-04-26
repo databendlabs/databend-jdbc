@@ -105,6 +105,7 @@ public class TestBasicDriver {
         }
     }
 
+    @Test
     public void testCreateUserFunction() throws SQLException {
         String s = "create or replace function add_plus(int,int)\n" +
                 "returns int\n" +
