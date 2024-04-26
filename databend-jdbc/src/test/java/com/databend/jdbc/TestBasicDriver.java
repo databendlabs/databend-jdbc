@@ -102,6 +102,7 @@ public class TestBasicDriver {
             System.out.println(statement.getUpdateCount());
         } catch (SQLException throwables) {
             throwables.printStackTrace();
+            throw throwables;
         }
     }
 
@@ -131,6 +132,7 @@ public class TestBasicDriver {
             Assert.assertEquals(r.getInt(1), 3);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
+            throw throwables;
         }
     }
 
@@ -138,7 +140,7 @@ public class TestBasicDriver {
     public void TestMergeinto() throws SQLException {
         try (Connection connection = createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.target_table (\n" +
+            statement.execute("CREATE OR REPLACE TABLE test_basic_driver.target_table (\n" +
                     "    ID INT,\n" +
                     "    Name VARCHAR(50),\n" +
                     "    Age INT,\n" +
@@ -149,7 +151,7 @@ public class TestBasicDriver {
                     "    (1, 'Alice', 25, 'Toronto'),\n" +
                     "    (2, 'Bob', 30, 'Vancouver'),\n" +
                     "    (3, 'Carol', 28, 'Montreal');");
-            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.source_table (\n" +
+            statement.execute("CREATE OR REPLACE TABLE test_basic_driver.source_table (\n" +
                     "    ID INT,\n" +
                     "    Name VARCHAR(50),\n" +
                     "    Age INT,\n" +
@@ -174,6 +176,7 @@ public class TestBasicDriver {
             System.out.println(statement.getUpdateCount());
         } catch (SQLException throwables) {
             throwables.printStackTrace();
+            throw throwables;
         }
     }
 
