@@ -10,6 +10,7 @@ import java.sql.*;
 import java.util.Properties;
 
 import static org.testng.AssertJUnit.assertEquals;
+
 @Test(timeOut = 10000)
 public class TestBasicDriver {
     private Connection createConnection()
@@ -68,6 +69,8 @@ public class TestBasicDriver {
     }
 
     @Test
+<<<<<<<HEAD
+
     public void TestInsertInto() throws SQLException {
         try (Connection connection = createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
@@ -99,6 +102,34 @@ public class TestBasicDriver {
             r.next();
             Assert.assertEquals(3, statement.getUpdateCount());
             System.out.println(statement.getUpdateCount());
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    public void testCreateUserFunction() throws SQLException {
+        String s = "create or replace function add_plus(int,int)\n" +
+                "returns int\n" +
+                "language javascript\n" +
+                "handler = 'add_plus_js'\n" +
+                "as\n" +
+                "$$\n" +
+                "export function add_plus_js(i,k){\n" +
+                "    return i+k;\n" +
+                "}\n" +
+                "$$;";
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute(s);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("select add_plus(1,2)");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assert.assertEquals(r.getInt(1), 3);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
