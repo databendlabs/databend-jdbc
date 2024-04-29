@@ -9,6 +9,7 @@ import org.testng.annotations.Test;
 import java.sql.*;
 import java.util.Properties;
 
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.testng.AssertJUnit.assertEquals;
 @Test(timeOut = 10000)
 public class TestBasicDriver {
@@ -65,6 +66,16 @@ public class TestBasicDriver {
         } finally {
 
         }
+    }
+
+    @Test(groups = {"IT"})
+    public void testExecuteInvalidSql() {
+        assertThrows(SQLException.class, () -> {
+            try (Connection connection = createConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.execute("create tabl xxx (a int, b varchar)");
+            }
+        });
     }
 
     @Test
