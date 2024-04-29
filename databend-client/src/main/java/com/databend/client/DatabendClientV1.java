@@ -162,7 +162,7 @@ public class DatabendClientV1
                 continue;
             }
 
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
+            if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
                 // q
                 processResponse(response.getHeaders(), response.getValue());
                 return true;
