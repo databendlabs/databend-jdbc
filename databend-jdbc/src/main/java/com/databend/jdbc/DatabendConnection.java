@@ -12,6 +12,7 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
+import javax.management.RuntimeMBeanException;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
@@ -702,12 +703,13 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     logger.info("upload cost time: " + (uploadEndTime - uploadStartTime) / 1000000.0 + "ms");
                 }
             }
-        } catch (JsonProcessingException e) {
+        } catch (RuntimeException e) {
             System.out.println(e.getMessage());
             // For datax batch insert test, do not throw exception
             throw new SQLException(e);
         } catch (IOException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
+            throw new SQLException(e);
         }
     }
 
@@ -721,7 +723,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
             return cli.presignDownloadStream(h, presignUrl);
-        } catch (JsonProcessingException e) {
+        } catch (RuntimeException e) {
             throw new SQLException(e);
         }
     }

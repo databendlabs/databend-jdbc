@@ -40,7 +40,7 @@ public final class PresignContext {
     }
 
     public static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
-            throws SQLException, JsonProcessingException {
+            throws SQLException  {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");
         Statement statement = connection.createStatement();
