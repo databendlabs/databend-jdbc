@@ -20,6 +20,7 @@ public class DatabendConnectionPool extends GenericObjectPool<DatabendConnection
 
         // Get a connection from the pool
         DatabendConnection connection = pool.borrowObject();
+//        connection.uploadStream();
 
         // Use the connection
         connection.createStatement().executeQuery("SELECT version()");
