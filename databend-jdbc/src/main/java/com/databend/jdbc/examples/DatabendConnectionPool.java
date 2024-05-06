@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public class DatabendConnectionPool extends GenericObjectPool<DatabendConnection> {
     public DatabendConnectionPool(DatabendConnectionFactory factory, GenericObjectPoolConfig<DatabendConnection> config) {
-        super(factory);
+        super(factory,config);
     }
 
     public void testDemo() throws Exception {
