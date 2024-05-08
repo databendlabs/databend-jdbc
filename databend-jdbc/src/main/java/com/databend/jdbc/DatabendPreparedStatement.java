@@ -524,7 +524,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             String finalS1 = s;
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, finalS1));
         } else {
-            if (s.contains("'")){
+            if (s.contains("'")) {
                 s = s.replace("'", "\\\'");
             }
             String finalS = s;
@@ -557,7 +557,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (time == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
+            if (originalSql.toLowerCase().startsWith("select")) {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", time, "'")));
+            } else {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
+            }
         }
     }
 
@@ -568,7 +572,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (timestamp == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
+            if (originalSql.toLowerCase().startsWith("select")) {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", timestamp, "'")));
+            } else {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(timestamp)));
+            }
         }
     }
 
