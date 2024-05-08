@@ -11,6 +11,7 @@ import java.util.Properties;
 
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.testng.AssertJUnit.assertEquals;
+
 @Test(timeOut = 10000)
 public class TestBasicDriver {
     private Connection createConnection()
@@ -79,7 +80,7 @@ public class TestBasicDriver {
     }
 
     @Test
-    public void testCreateUserFunction() throws  SQLException {
+    public void testCreateUserFunction() throws SQLException {
         String s = "create or replace function add_plus(int,int)\n" +
                 "returns int\n" +
                 "language javascript\n" +
@@ -257,6 +258,20 @@ public class TestBasicDriver {
             connection.close();
         } catch (SQLException e) {
             Assert.assertTrue(e.getMessage().contains("Query failed"));
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testSelectWithPreparement()
+            throws SQLException {
+        try (Connection connection = createConnection()) {
+            connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp)");
+            connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00')");
+            PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ?");
+            statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            ResultSet r = statement.executeQuery();
+            r.next();
+            Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
         }
     }
 }
