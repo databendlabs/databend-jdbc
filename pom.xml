@@ -9,7 +9,7 @@
     </parent>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.2.5</version>
+    <version>0.2.6</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
