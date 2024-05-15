@@ -395,6 +395,12 @@ public class TestPrepareStatement {
                 Assertions.assertEquals(null, r.getString(2));
             }
         }
+        String insertSelectSql = "insert overwrite test_prepare_statement select * from test_prepare_statement";
+        try (PreparedStatement statement = conn.prepareStatement(insertSelectSql)) {
+            statement.execute();
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
 
     @Test

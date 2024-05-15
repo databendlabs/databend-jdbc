@@ -416,7 +416,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         try {
             for (int i = 0; i < statements.size(); i++) {
                 String sql = statements.get(i).getSql();
-                if (sql.toLowerCase().contains("insert")) {
+                if (sql.toLowerCase().contains("insert") && !sql.toLowerCase().contains("select")) {
                     handleBatchInsert();
                 } else {
                     execute(sql);
