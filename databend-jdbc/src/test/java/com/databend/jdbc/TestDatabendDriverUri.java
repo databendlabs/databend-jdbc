@@ -4,6 +4,7 @@ import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
@@ -206,5 +207,20 @@ public class TestDatabendDriverUri {
         Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertEquals("null", uri.nullDisplay().toString());
         Assert.assertEquals(false, uri.getStrNullAsNull());
+    }
+    @Test
+    public void TestSetSchema() throws SQLException {
+        String url = "jdbc:databend://databend:databend@localhost:8000/";
+        Properties p = new Properties();
+        DatabendConnection connection = (DatabendConnection) DriverManager.getConnection(url, p);
+        try {
+            connection.createStatement().execute("create or replace database test2");
+            connection.createStatement().execute("create or replace table test2.test2(id int)");
+        }catch (SQLException e){
+            throw new RuntimeException(e);
+        }
+        connection.setSchema("test2");
+        Assert.assertEquals(connection.getSchema(), "test2");
+        connection.createStatement().execute("insert into test2 values (1)");
     }
 }
