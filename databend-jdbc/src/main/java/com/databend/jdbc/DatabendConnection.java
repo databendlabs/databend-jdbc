@@ -77,9 +77,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
         this.httpUri = uri.getUri();
-        this.setSchema(uri.getDatabase());
         this.httpClient = httpClient;
         this.driverUri = uri;
+        this.setSchema(uri.getDatabase());
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         this.setSession(session);
     }
@@ -470,6 +470,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             throws SQLException {
         checkOpen();
         this.schema.set(schema);
+        this.startQuery("use " + schema);
     }
 
     @Override
