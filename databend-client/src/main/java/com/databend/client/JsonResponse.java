@@ -68,7 +68,7 @@ public final class JsonResponse<T>
         this.hasValue = (exception == null);
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit)
+    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit) throws RuntimeException
     {
         try (Response response = client.newCall(request).execute()) {
             // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
@@ -106,6 +106,7 @@ public final class JsonResponse<T>
                         message = format("Unable to create %s from JSON response", codec.getType());
                     }
                     exception = new IllegalArgumentException(message, e);
+                    throw exception;
                 }
                 return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, exception);
             }

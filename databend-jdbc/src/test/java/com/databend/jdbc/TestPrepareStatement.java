@@ -22,7 +22,7 @@ import java.util.List;
 public class TestPrepareStatement {
     private Connection createConnection()
             throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
+        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=true";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
@@ -31,26 +31,26 @@ public class TestPrepareStatement {
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    @BeforeTest
-    public void setUp()
-            throws SQLException {
-        // create table
-        Connection c = createConnection();
-        System.out.println("-----------------");
-        System.out.println("drop all existing test table");
-        c.createStatement().execute("drop table if exists test_prepare_statement");
-        c.createStatement().execute("drop table if exists test_prepare_time");
-        c.createStatement().execute("drop table if exists objects_test1");
-        c.createStatement().execute("drop table if exists binary1");
-        c.createStatement().execute("drop table if exists test_prepare_statement_null");
-        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
-        c.createStatement().execute("create table test_prepare_statement_null (a int, b string)");
-        c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
-        // json data
-        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
-        // Binary data
-        c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
-    }
+//    @BeforeTest
+//    public void setUp()
+//            throws SQLException {
+//        // create table
+//        Connection c = createConnection();
+//        System.out.println("-----------------");
+//        System.out.println("drop all existing test table");
+//        c.createStatement().execute("drop table if exists test_prepare_statement");
+//        c.createStatement().execute("drop table if exists test_prepare_time");
+//        c.createStatement().execute("drop table if exists objects_test1");
+//        c.createStatement().execute("drop table if exists binary1");
+//        c.createStatement().execute("drop table if exists test_prepare_statement_null");
+//        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
+//        c.createStatement().execute("create table test_prepare_statement_null (a int, b string)");
+//        c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
+//        // json data
+//        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
+//        // Binary data
+//        c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
+//    }
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
@@ -524,5 +524,33 @@ public class TestPrepareStatement {
         Assertions.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
         Assertions.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
         Assertions.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
+    }
+
+    @Test
+    public void testSelectWithClusterKey() throws SQLException {
+        Connection conn = createConnection();
+        conn.createStatement().execute("drop table if exists default.test_clusterkey");
+        conn.createStatement().execute("create table default.test_clusterkey (a int, b string)");
+        String insertSql = "insert into default.test_clusterkey values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "b");
+            statement.addBatch();
+            statement.setInt(1, 2);
+            statement.setString(2, "c");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+            Assertions.assertEquals(2, result.length);
+        }
+        conn.createStatement().execute("alter table default.test_clusterkey cluster by (a)");
+        String selectSQL = "select * from clustering_information('default','test_clusterkey')";
+        try (PreparedStatement statement = conn.prepareStatement(selectSQL)) {
+            ResultSet rs = statement.executeQuery();
+            while (rs.next()) {
+                System.out.println(rs.getString(5));
+                Assertions.assertEquals("NaN", rs.getString(5));
+            }
+        }
     }
 }
