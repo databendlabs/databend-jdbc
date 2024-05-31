@@ -548,7 +548,6 @@ public class TestPrepareStatement {
         try (PreparedStatement statement = conn.prepareStatement(selectSQL)) {
             ResultSet rs = statement.executeQuery();
             while (rs.next()) {
-                System.out.println(rs.getString(5));
                 Assertions.assertEquals("NaN", rs.getString(5));
             }
         }
