@@ -22,7 +22,7 @@ import java.util.List;
 public class TestPrepareStatement {
     private Connection createConnection()
             throws SQLException {
-        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=true";
+        String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
@@ -31,26 +31,26 @@ public class TestPrepareStatement {
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-//    @BeforeTest
-//    public void setUp()
-//            throws SQLException {
-//        // create table
-//        Connection c = createConnection();
-//        System.out.println("-----------------");
-//        System.out.println("drop all existing test table");
-//        c.createStatement().execute("drop table if exists test_prepare_statement");
-//        c.createStatement().execute("drop table if exists test_prepare_time");
-//        c.createStatement().execute("drop table if exists objects_test1");
-//        c.createStatement().execute("drop table if exists binary1");
-//        c.createStatement().execute("drop table if exists test_prepare_statement_null");
-//        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
-//        c.createStatement().execute("create table test_prepare_statement_null (a int, b string)");
-//        c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
-//        // json data
-//        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
-//        // Binary data
-//        c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
-//    }
+    @BeforeTest
+    public void setUp()
+            throws SQLException {
+        // create table
+        Connection c = createConnection();
+        System.out.println("-----------------");
+        System.out.println("drop all existing test table");
+        c.createStatement().execute("drop table if exists test_prepare_statement");
+        c.createStatement().execute("drop table if exists test_prepare_time");
+        c.createStatement().execute("drop table if exists objects_test1");
+        c.createStatement().execute("drop table if exists binary1");
+        c.createStatement().execute("drop table if exists test_prepare_statement_null");
+        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
+        c.createStatement().execute("create table test_prepare_statement_null (a int, b string)");
+        c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
+        // json data
+        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
+        // Binary data
+        c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
+    }
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
