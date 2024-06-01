@@ -465,6 +465,9 @@ class Float32Handler implements ColumnTypeHandler {
         if (value == null || value.equals("NULL")) {
             return null;
         }
+        if (value.equals("NaN") || value.equals("nan")) {
+            return Float.NaN;
+        }
         if (value instanceof String) {
             return Float.parseFloat((String) value);
         }
@@ -477,6 +480,9 @@ class Float32Handler implements ColumnTypeHandler {
     private float parseNonNullValue(Object value) {
         if (value == null || value.equals("NULL")) {
             throw new IllegalArgumentException("Float32 type is not nullable");
+        }
+        if (value.equals("NaN") || value.equals("nan")) {
+            return Float.NaN;
         }
         if (value instanceof String) {
             return Float.parseFloat((String) value);
@@ -518,6 +524,9 @@ class Float64Handler implements ColumnTypeHandler {
         if (value == null || value.equals("NULL")) {
             return null;
         }
+        if (value.equals("NaN") || value.equals("nan")) {
+            return Double.NaN;
+        }
         if (value instanceof String) {
             return Double.parseDouble((String) value);
         }
@@ -530,6 +539,9 @@ class Float64Handler implements ColumnTypeHandler {
     private double parseNonNullValue(Object value) {
         if (value == null || value.equals("NULL")) {
             throw new IllegalArgumentException("Float64 type is not nullable");
+        }
+        if (value.equals("NaN") || value.equals("nan")) {
+            return Double.NaN;
         }
         if (value instanceof String) {
             return Double.parseDouble((String) value);
@@ -631,7 +643,7 @@ class DecimalHandler implements ColumnTypeHandler {
         if (value == null || value.equals("NULL")) {
             return null;
         }
-        if(value instanceof Integer){
+        if (value instanceof Integer) {
             return BigDecimal.valueOf((int) value);
         }
         if (value instanceof String) {
@@ -647,7 +659,7 @@ class DecimalHandler implements ColumnTypeHandler {
         if (value == null || value.equals("NULL")) {
             throw new IllegalArgumentException("decimal type is not nullable");
         }
-        if(value instanceof Integer){
+        if (value instanceof Integer) {
             return BigDecimal.valueOf((int) value);
         }
         if (value instanceof String) {

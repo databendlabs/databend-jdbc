@@ -525,4 +525,31 @@ public class TestPrepareStatement {
         Assertions.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
         Assertions.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
     }
+
+    @Test
+    public void testSelectWithClusterKey() throws SQLException {
+        Connection conn = createConnection();
+        conn.createStatement().execute("drop table if exists default.test_clusterkey");
+        conn.createStatement().execute("create table default.test_clusterkey (a int, b string)");
+        String insertSql = "insert into default.test_clusterkey values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "b");
+            statement.addBatch();
+            statement.setInt(1, 2);
+            statement.setString(2, "c");
+            statement.addBatch();
+            int[] result = statement.executeBatch();
+            System.out.println(result);
+            Assertions.assertEquals(2, result.length);
+        }
+        conn.createStatement().execute("alter table default.test_clusterkey cluster by (a)");
+        String selectSQL = "select * from clustering_information('default','test_clusterkey')";
+        try (PreparedStatement statement = conn.prepareStatement(selectSQL)) {
+            ResultSet rs = statement.executeQuery();
+            while (rs.next()) {
+                Assertions.assertEquals("NaN", rs.getString(5));
+            }
+        }
+    }
 }

@@ -159,7 +159,8 @@ public class DatabendClientV1
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
                 cause = e;
-                continue;
+//                continue;
+                throw new RuntimeException("Query failed: " + e.getMessage());
             }
 
             if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
