@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.DatabendClient;
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.ColumnTypeHandler;
@@ -8,6 +9,7 @@ import com.databend.client.data.DatabendRawType;
 import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
+import com.databend.jdbc.exception.DatabendWithQueryIdSqlException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
@@ -100,14 +102,16 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final DateTimeZone resultTimeZone;
+    private final String queryId;
 
-    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results) {
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, String queryId) {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
         this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        this.queryId = queryId;
     }
 
     private static Map<String, Integer> getFieldMap(List<QueryRowField> columns) {
@@ -609,11 +613,11 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     public int columnIndex(String label)
             throws SQLException {
         if (label == null) {
-            throw new SQLException("Column label is null");
+            throw new DatabendWithQueryIdSqlException("Column label is null", queryId);
         }
         Integer index = fieldMap.get(label.toLowerCase(ENGLISH));
         if (index == null) {
-            throw new SQLException("Invalid column label: " + label);
+            throw new DatabendWithQueryIdSqlException("Invalid column label: " + label + ". Valid column labels are: " + fieldMap.keySet(), queryId);
         }
         return index;
     }

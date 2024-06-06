@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.DatabendClient;
 import com.databend.client.QueryRowField;
 
 import java.sql.SQLException;
@@ -21,7 +22,7 @@ public class DatabendUnboundQueryResultSet extends AbstractDatabendResultSet {
     private boolean closed = false;
 
     DatabendUnboundQueryResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results) {
-        super(statement, schema, results);
+        super(statement, schema, results, "NotQueryResultSet");
     }
 
     @Override
