@@ -177,6 +177,7 @@ public class TestBasicDriver {
         }
     }
 
+
     @Test(groups = {"IT"})
     public void testBasicWithProperties() throws SQLException {
         Properties p = new Properties();
@@ -185,6 +186,7 @@ public class TestBasicDriver {
         p.setProperty("max_rows_per_page", "100");
         p.setProperty("user", "databend");
         p.setProperty("password", "databend");
+
         //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
         try (Connection connection = createConnection("test_basic_driver", p)) {
             PaginationOptions options = connection.unwrap(DatabendConnection.class).getPaginationOptions();
@@ -265,10 +267,12 @@ public class TestBasicDriver {
     public void testSelectWithPreparement()
             throws SQLException {
         try (Connection connection = createConnection()) {
-            connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp)");
-            connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00')");
-            PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ?");
+            connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp, d date, ts timestamp)");
+            connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00', '2021-01-01', '2021-01-01 00:00:00')");
+            PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ? and d < ? and ts < ?");
             statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            statement.setDate(2, new Date(System.currentTimeMillis()));
+            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
             ResultSet r = statement.executeQuery();
             r.next();
             Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");

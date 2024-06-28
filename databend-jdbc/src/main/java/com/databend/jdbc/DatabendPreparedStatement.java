@@ -546,7 +546,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (date == null) {
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
+            if (originalSql.toLowerCase().startsWith("select")) {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", date, "'")));
+            } else {
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
+            }
         }
     }
 
