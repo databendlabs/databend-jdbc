@@ -1333,14 +1333,9 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     public int getDatabaseMajorVersion()
             throws SQLException {
         String version = getDatabaseProductVersion();
-        // split by empty space
-        String[] versionArray = version.split(" ");
-        if (versionArray.length < 2) {
-            return -1;
-        }
         // regex matching v%d.%d.%d
         Pattern pattern = Pattern.compile("v(\\d+)\\.(\\d+)\\.(\\d+)");
-        Matcher matcher = pattern.matcher(versionArray[1]);
+        Matcher matcher = pattern.matcher(version);
         if (matcher.find()) {
             return 10 * Integer.parseInt(matcher.group(1)) + Integer.parseInt(matcher.group(2));
         }
@@ -1352,14 +1347,9 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     public int getDatabaseMinorVersion()
             throws SQLException {
         String version = getDatabaseProductVersion();
-        // split by empty space
-        String[] versionArray = version.split(" ");
-        if (versionArray.length < 2) {
-            return -1;
-        }
         // regex matching v%d.%d.%d
         Pattern pattern = Pattern.compile("v(\\d+)\\.(\\d+)\\.(\\d+)");
-        Matcher matcher = pattern.matcher(versionArray[1]);
+        Matcher matcher = pattern.matcher(version);
         if (matcher.find()) {
             return Integer.parseInt(matcher.group(3));
         }
