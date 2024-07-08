@@ -86,14 +86,23 @@ public class TestDatabendDatabaseMetaData {
     }
 
     @Test(groups = {"IT"})
-    public void testGetDatabaseProductVersion()
+    public void testGetDatabaseProductName()
             throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             assertEquals(metaData.getDatabaseProductName(), "Databend");
-            StringBuilder sb = new StringBuilder();
-            sb.append(metaData.getDatabaseMinorVersion());
-            Assert.assertTrue(metaData.getDatabaseProductVersion().contains(sb.toString()));
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetDatabaseProductVersion()
+            throws Exception {
+        try (Connection connection = createConnection()) {
+            DatabaseMetaData metaData = connection.getMetaData();
+            float majorVersion = (float)metaData.getDatabaseMajorVersion() / 10;
+            int minorVersion = metaData.getDatabaseMinorVersion();
+            String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
+            Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
         }
     }
 
