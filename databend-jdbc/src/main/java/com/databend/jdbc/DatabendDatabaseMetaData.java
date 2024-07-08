@@ -1440,7 +1440,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 " name as FUNCTION_NAME, " +
                 " description as REMARKS, " +
                 " 1 as FUNCTION_TYPE, " +
-                " name as SPECIFIC_NAME" +
+                " name as SPECIFIC_NAME " +
                 "FROM system.functions");
         List<String> filters = new ArrayList<>();
         optionalStringLikeFilter(filters, "function_name", functionNamePattern);
