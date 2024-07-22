@@ -52,18 +52,8 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendConnection implements Connection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
-    private static final FileHandler FILE_HANDLER;
+    private static FileHandler FILE_HANDLER;
 
-    static {
-        try {
-            FILE_HANDLER = new FileHandler("databend-jdbc-debug.log");
-            FILE_HANDLER.setLevel(Level.ALL);
-            FILE_HANDLER.setFormatter(new SimpleFormatter());
-            logger.addHandler(FILE_HANDLER);
-        } catch (Exception e) {
-            throw new RuntimeException("Failed to create FileHandler", e);
-        }
-    }
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
@@ -74,6 +64,19 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private final DatabendDriverUri driverUri;
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
+    private void initializeFileHandler() {
+        if (this.debug()) {
+            try {
+                FILE_HANDLER = new FileHandler("databend-jdbc-debug.log");
+                FILE_HANDLER.setLevel(Level.ALL);
+                FILE_HANDLER.setFormatter(new SimpleFormatter());
+                logger.addHandler(FILE_HANDLER);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to create FileHandler", e);
+            }
+        }
+    }
+
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
         this.httpUri = uri.getUri();
@@ -82,6 +85,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.setSchema(uri.getDatabase());
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         this.setSession(session);
+
+        initializeFileHandler();
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
