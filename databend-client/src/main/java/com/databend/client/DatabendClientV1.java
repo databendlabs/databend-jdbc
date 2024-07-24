@@ -154,12 +154,8 @@ public class DatabendClientV1
             attempts++;
             JsonResponse<QueryResults> response;
             try {
-//                System.out.println("executeInternal: " + requestBodyToString(request));
-
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
-                cause = e;
-//                continue;
                 throw new RuntimeException("Query failed: " + e.getMessage());
             }
 
@@ -176,13 +172,13 @@ public class DatabendClientV1
                     if (errors.tryGetErrorKind().canRetry()) {
                         continue;
                     } else {
-                        throw new RuntimeException(errors.toString());
+                        throw new RuntimeException(String.valueOf(response.getValue().getError()));
                     }
                 }
             }
 
             if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Query failed: " + response.getResponseBody());
+                throw new RuntimeException("Query failed: " + response.getValue().getError());
             }
             return false;
         }
