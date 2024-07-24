@@ -18,7 +18,7 @@ import java.util.HashMap;
 import java.util.Map;
 
 public class ClientSettings {
-    public static final Integer DEFAULT_QUERY_TIMEOUT = 90;
+    public static final Integer DEFAULT_QUERY_TIMEOUT = 300;
     public static final Integer DEFAULT_CONNECTION_TIMEOUT = 0; // seconds
     public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
