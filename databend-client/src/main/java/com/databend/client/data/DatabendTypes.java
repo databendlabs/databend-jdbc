@@ -44,4 +44,5 @@ public final class DatabendTypes {
     public static final String VARIANT_OBJECT = "variantobject";
     public static final String INTERVAL = "interval";
     public static final String DECIMAL = "decimal";
+    public static final String GEOMETRY = "geometry";
 }

@@ -47,6 +47,8 @@ public class ColumnTypeHandlerFactory
                 return new BooleanHandler(type.isNullable());
             case DatabendTypes.DECIMAL:
                 return new DecimalHandler(type.isNullable());
+            case DatabendTypes.GEOMETRY:
+                return new GeometryHandler(type.isNullable());
             case DatabendTypes.ARRAY:
             case DatabendTypes.DATE:
             case DatabendTypes.DATETIME:

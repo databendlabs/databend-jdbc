@@ -2,6 +2,9 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -276,6 +279,33 @@ public class TestBasicDriver {
             ResultSet r = statement.executeQuery();
             r.next();
             Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testSelectGeometry() throws SQLException, ParseException {
+        try (Connection connection = createConnection()) {
+            connection.createStatement().execute("set enable_geo_create_table=1");
+            connection.createStatement().execute("CREATE or replace table cities ( id INT, name VARCHAR NOT NULL, location GEOMETRY);");
+            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
+            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (2, 'Null', null);");
+            Statement statement = connection.createStatement();
+            try (ResultSet r = statement.executeQuery("select location from cities")) {
+                r.next();
+                Assert.assertEquals("{\"type\": \"Point\", \"coordinates\": [-73.935242,40.73061]}", r.getObject(1));
+                r.next();
+                Assert.assertNull(r.getObject(1));
+            }
+
+            // set geometry_output_format to wkb
+            connection.createStatement().execute("set geometry_output_format='WKB'");
+            try (ResultSet r = statement.executeQuery("select location from cities")) {
+                r.next();
+                byte[] wkb = r.getBytes(1);
+                WKBReader wkbReader = new WKBReader();
+                Geometry geometry = wkbReader.read(wkb);
+                Assert.assertEquals("POINT (-73.935242 40.73061)", geometry.toText());
+            }
         }
     }
 }
