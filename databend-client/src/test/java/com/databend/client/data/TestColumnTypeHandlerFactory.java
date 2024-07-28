@@ -53,6 +53,8 @@ public class TestColumnTypeHandlerFactory
         assertTypeHandler("Nullable(UUID)", StringHandler.class, true);
         assertTypeHandler("IPv4", StringHandler.class, false);
         assertTypeHandler("Nullable(IPv4)", StringHandler.class, true);
+        assertTypeHandler("Geometry", GeometryHandler.class, false);
+        assertTypeHandler("Nullable(Geometry)", GeometryHandler.class, true);
     }
 
     private void assertTypeHandler(String typeStr, Class<?> clazz, boolean isNullable) {

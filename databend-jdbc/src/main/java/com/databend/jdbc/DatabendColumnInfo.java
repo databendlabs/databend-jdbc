@@ -1,15 +1,12 @@
 package com.databend.jdbc;
 
-import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
 import com.databend.client.data.DatabendTypes;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;
 
-import java.sql.Types;
 import java.util.List;
-import java.util.Locale;
 
 import static java.util.Objects.requireNonNull;
 

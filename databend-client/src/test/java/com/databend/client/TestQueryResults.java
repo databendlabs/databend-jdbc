@@ -120,6 +120,6 @@ public class TestQueryResults {
         Assert.assertEquals(queryResults.getSchema().get(0).getName(), "var");
         Assert.assertEquals(queryResults.getSchema().get(0).getDataType().getType(), "Variant");
         Assert.assertEquals(queryResults.getSchema().get(0).getDataType().isNullable(), true);
-
     }
+
 }

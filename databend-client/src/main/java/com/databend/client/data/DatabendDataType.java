@@ -50,6 +50,8 @@ public enum DatabendDataType {
 
     BINARY(Types.BINARY, DatabendTypes.BINARY, false, 0, false, "Binary"),
 
+    GEOMETRY(Types.OTHER, DatabendTypes.GEOMETRY, false, 0, false, "Geometry"),
+
     NULL(Types.NULL, DatabendTypes.NULL, false, 0, false, "NULL"),
     ;
 
@@ -119,6 +121,8 @@ public enum DatabendDataType {
             return TUPLE;
         } else if (startsWithIgnoreCase(typeName, DatabendTypes.BINARY)) {
             return BINARY;
+        } else if (startsWithIgnoreCase(typeName, DatabendTypes.GEOMETRY)) {
+            return GEOMETRY;
         }
         return NULL;
     }

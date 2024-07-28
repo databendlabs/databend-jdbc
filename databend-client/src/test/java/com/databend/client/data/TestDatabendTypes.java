@@ -22,5 +22,8 @@ public class TestDatabendTypes {
 
         DatabendRawType variant = new DatabendRawType("VARIANT");
         Assert.assertEquals(variant.getDataType().getDisplayName(), "variant");
+
+        DatabendRawType geometry = new DatabendRawType("Geometry");
+        Assert.assertEquals(geometry.getDataType().getDisplayName(), "geometry");
     }
 }
