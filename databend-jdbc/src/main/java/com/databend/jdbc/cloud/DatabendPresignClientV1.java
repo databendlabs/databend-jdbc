@@ -231,13 +231,12 @@ class InputStreamRequestBody extends RequestBody {
     }
 
     @Override
-    public long contentLength() throws IOException {
-        return inputStream.available() == 0 ? -1 : inputStream.available();
+    public long contentLength() {
+        return fileSize; // return the actual file size
     }
 
     @Override
     public void writeTo(@NonNull BufferedSink sink) throws IOException {
-
         try (Source source = Okio.source(inputStream)) {
             sink.writeAll(source);
         } catch (IOException e) {

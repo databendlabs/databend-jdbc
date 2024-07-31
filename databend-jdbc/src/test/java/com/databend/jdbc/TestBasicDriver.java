@@ -82,6 +82,26 @@ public class TestBasicDriver {
         });
     }
 
+    public void testSchema() {
+        try (Connection connection = createConnection()) {
+            PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
+            Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
+            Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
+            Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("set global timezone='Asia/Shanghai';");
+            statement.execute("SELEcT schema_name as TABLE_SCHEM, catalog_name as TABLE_CATALOG FROM information_schema.schemata where schema_name = 'default' order by catalog_name, schema_name");
+            ResultSet r = statement.getResultSet();
+
+            while (r.next()) {
+                System.out.println(r.getString(1));
+            }
+            connection.close();
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
     @Test
     public void testCreateUserFunction() throws SQLException {
         String s = "create or replace function add_plus(int,int)\n" +
