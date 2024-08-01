@@ -57,6 +57,7 @@ public class TestFileTransfer {
             throws SQLException {
         String url = "jdbc:databend://localhost:8000/default";
         return DriverManager.getConnection(url, "databend", "databend");
+
     }
 
     private Connection createConnection(boolean presignDisabled) throws SQLException {
@@ -76,6 +77,28 @@ public class TestFileTransfer {
             for (int i = 0; i < lines; i++) {
                 int num = (int) (Math.random() * 1000);
                 writer.write("a,b,c," + num + "\n");
+            }
+            writer.close();
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+        return csvPath;
+    }
+
+    private String generateLargeCSV() {
+        String tmpDir = System.getProperty("java.io.tmpdir");
+        String csvPath = tmpDir + "/large_test.csv";
+        long fileSizeInBytes = 0;
+        File f = new File(csvPath);
+        try {
+            FileWriter writer = new FileWriter(f);
+            while (fileSizeInBytes < 2L * 1024 * 1024 * 1024) { // 2GB
+                for (int i = 0; i < 1000; i++) { // write 1000 lines at a time
+                    int num = (int) (Math.random() * 1000);
+                    writer.write("a,b,c," + num + "\n");
+                }
+                writer.flush();
+                fileSizeInBytes = f.length();
             }
             writer.close();
         } catch (Exception e) {
