@@ -7,6 +7,7 @@ import okhttp3.OkHttpClient;
 
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -142,8 +143,9 @@ public final class DatabendDriverUri {
             if (colonPos > 0) {
                 String user = userPass.substring(0, colonPos);
                 String pass = userPass.substring(colonPos + 1);
+                String encodePass = URLUtils.urlEncode(pass);
                 properties.put(USER.getKey(), user);
-                properties.put(ConnectionProperties.PASSWORD.getKey(), pass);
+                properties.put(ConnectionProperties.PASSWORD.getKey(), encodePass);
             } else {
                 properties.put(USER.getKey(), userPass);
             }
