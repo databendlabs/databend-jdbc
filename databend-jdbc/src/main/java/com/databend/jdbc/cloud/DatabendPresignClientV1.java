@@ -233,6 +233,7 @@ class InputStreamRequestBody extends RequestBody {
     @Override
     public long contentLength() {
         return fileSize; // return the actual file size
+//        return inputStream.available() == 0 ? -1 : inputStream.available();
     }
 
     @Override
