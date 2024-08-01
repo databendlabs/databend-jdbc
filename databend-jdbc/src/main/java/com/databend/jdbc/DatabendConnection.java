@@ -12,10 +12,7 @@ import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.IOException;
-import java.io.InputStream;
+import java.io.*;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Blob;
@@ -54,7 +51,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
     private static FileHandler FILE_HANDLER;
 
-
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final URI httpUri;
@@ -66,8 +62,16 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     private void initializeFileHandler() {
         if (this.debug()) {
+            File file = new File("databend-jdbc-debug.log");
+            if (!file.canWrite()) {
+                logger.warning("No write access to file: " + file.getAbsolutePath());
+                return;
+            }
             try {
-                FILE_HANDLER = new FileHandler("databend-jdbc-debug.log");
+                System.setProperty("java.util.logging.FileHandler.limit", "524288000"); // 500MB
+                System.setProperty("java.util.logging.FileHandler.count", "10");
+                System.setProperty("java.util.logging.FileHandler.append", "true"); // Enable log file reuse
+                FILE_HANDLER = new FileHandler(file.getAbsolutePath(), true); // Pass 'true' to the FileHandler constructor to enable appending
                 FILE_HANDLER.setLevel(Level.ALL);
                 FILE_HANDLER.setFormatter(new SimpleFormatter());
                 logger.addHandler(FILE_HANDLER);

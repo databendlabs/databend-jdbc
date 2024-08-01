@@ -22,7 +22,7 @@ import java.util.List;
 public class TestPrepareStatement {
     private Connection createConnection()
             throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
+        String url = "jdbc:databend://localhost:8000?debug=true";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
