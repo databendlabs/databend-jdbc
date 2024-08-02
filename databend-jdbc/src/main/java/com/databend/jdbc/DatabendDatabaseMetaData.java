@@ -558,7 +558,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     @Override
     public boolean supportsCatalogsInDataManipulation()
             throws SQLException {
-        return false;
+        return true;
     }
 
     @Override
@@ -570,7 +570,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     @Override
     public boolean supportsCatalogsInTableDefinitions()
             throws SQLException {
-        return false;
+        return true;
     }
 
     @Override
