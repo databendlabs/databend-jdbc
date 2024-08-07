@@ -64,6 +64,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private final DatabendDriverUri driverUri;
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
+    private String routeHint = "";
+
     private void initializeFileHandler() {
         if (this.debug()) {
             try {
@@ -83,10 +85,21 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.httpClient = httpClient;
         this.driverUri = uri;
         this.setSchema(uri.getDatabase());
+        this.routeHint = randRouteHint();
         DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
         this.setSession(session);
 
         initializeFileHandler();
+    }
+
+    public static String randRouteHint() {
+        String charset = "abcdef0123456789";
+        Random rand = new Random();
+        StringBuilder sb = new StringBuilder(16);
+        for (int i = 0; i < 16; i++) {
+            sb.append(charset.charAt(rand.nextInt(charset.length())));
+        }
+        return sb.toString();
     }
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -123,6 +136,10 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     public DatabendSession getSession() {
         return this.session.get();
+    }
+
+    public boolean inActiveTransaction() {
+        return this.session.get().inActiveTransaction();
     }
 
     public void setSession(DatabendSession session) {
@@ -594,6 +611,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
+        if (!inActiveTransaction()) {
+            this.routeHint = randRouteHint();
+        }
         PaginationOptions options = getPaginationOptions();
         Map<String, String> additionalHeaders = setAdditionalHeaders();
         ClientSettings s = new ClientSettings.Builder().
@@ -632,6 +652,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         }
         if (!this.driverUri.getTenant().isEmpty()) {
             additionalHeaders.put(DatabendTenantHeader, this.driverUri.getTenant());
+        }
+        if (!this.routeHint.isEmpty()) {
+            additionalHeaders.put(X_DATABEND_ROUTE_HINT, this.routeHint);
         }
         return additionalHeaders;
     }

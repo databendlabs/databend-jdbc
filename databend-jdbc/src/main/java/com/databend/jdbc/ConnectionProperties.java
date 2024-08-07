@@ -215,6 +215,13 @@ public final class ConnectionProperties {
         }
     }
 
+    private static class RouteHint
+            extends AbstractConnectionProperty<String> {
+        public RouteHint() {
+            super("route_hint", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
     static {
         ImmutableMap.Builder<String, String> defaults = ImmutableMap.builder();
         for (ConnectionProperty<?> property : ALL_PROPERTIES) {

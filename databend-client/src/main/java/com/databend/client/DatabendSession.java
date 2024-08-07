@@ -32,6 +32,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 public class DatabendSession {
     private static final String DEFAULT_DATABASE = "default";
     private static final String AUTO_COMMIT = "AutoCommit";
+    private static final String TXN_STATE_ACTIVE = "Active";
 
     private final String database;
     private final AtomicBoolean autoCommit = new AtomicBoolean(false);
@@ -96,6 +97,10 @@ public class DatabendSession {
 
     public boolean getAutoCommit() {
         return autoCommit.get();
+    }
+
+    public boolean inActiveTransaction() {
+        return txnState != null && txnState.equals(TXN_STATE_ACTIVE);
     }
 
     public void setAutoCommit(boolean autoCommit) {
