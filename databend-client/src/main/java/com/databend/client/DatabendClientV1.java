@@ -213,6 +213,9 @@ public class DatabendClientV1
         if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
+        if (headers != null  && headers.get(ClientSettings.X_DATABEND_ROUTE_HINT) != null){
+            this.additonalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, headers.get(ClientSettings.X_DATABEND_ROUTE_HINT));
+        }
         currentResults.set(results);
     }
 

@@ -16,6 +16,8 @@ package com.databend.client;
 
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Objects;
+import java.util.Random;
 
 public class ClientSettings {
     public static final Integer DEFAULT_QUERY_TIMEOUT = 300;
@@ -23,6 +25,7 @@ public class ClientSettings {
     public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     public static final String X_Databend_Query_ID = "X-DATABEND-QUERY-ID";
+    public static final String X_DATABEND_ROUTE_HINT = "X-DATABEND-ROUTE-HINT";
     public static final String DatabendWarehouseHeader = "X-DATABEND-WAREHOUSE";
     public static final String DatabendTenantHeader = "X-DATABEND-TENANT";
     private final String host;
