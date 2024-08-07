@@ -22,7 +22,7 @@ import java.util.List;
 public class TestPrepareStatement {
     private Connection createConnection()
             throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
+        String url = "jdbc:databend://localhost:8000?debug=true";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
@@ -551,5 +551,16 @@ public class TestPrepareStatement {
                 Assertions.assertEquals("0.0", rs.getString(5));
             }
         }
+    }
+
+    @Test
+    public void testEncodePass() throws SQLException {
+        Connection conn = createConnection();
+        conn.createStatement().execute("create user if not exists 'u01' identified by 'mS%aFRZW*GW';");
+        conn.createStatement().execute("GRANT ALL PRIVILEGES ON default.* TO 'u01'@'%'");
+
+        Connection conn2 = DriverManager.getConnection("jdbc:databend://localhost:8000", "u01", "mS%aFRZW*GW");
+        conn2.createStatement().execute("select 1");
+        conn.createStatement().execute("drop user if exists 'u01'");
     }
 }
