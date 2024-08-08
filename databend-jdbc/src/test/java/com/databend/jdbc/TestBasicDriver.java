@@ -200,7 +200,7 @@ public class TestBasicDriver {
             statement.execute("SELECT * FROM test_basic_driver.table_double");
             ResultSet r = statement.getResultSet();
             r.next();
-            Assert.assertEquals(r.getDouble(5), "Infinity");
+            Assert.assertEquals(r.getDouble(5), Double.POSITIVE_INFINITY);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
