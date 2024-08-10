@@ -98,7 +98,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
 
     private static String stringColumnLike(String columnName, String pattern) {
         StringBuilder filter = new StringBuilder();
-        filter.append(columnName).append(" = ");
+        filter.append(columnName).append(" LIKE ");
         quoteStringLiteral(filter, pattern);
 
         return filter.toString();
