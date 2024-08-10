@@ -527,6 +527,9 @@ class Float64Handler implements ColumnTypeHandler {
         if (value.equals("NaN") || value.equals("nan")) {
             return Double.NaN;
         }
+        if (value.equals("Infinity") || value.equals("inf")) {
+            return Double.POSITIVE_INFINITY;
+        }
         if (value instanceof String) {
             return Double.parseDouble((String) value);
         }
@@ -542,6 +545,9 @@ class Float64Handler implements ColumnTypeHandler {
         }
         if (value.equals("NaN") || value.equals("nan")) {
             return Double.NaN;
+        }
+        if (value.equals("Infinity") || value.equals("inf")) {
+            return Double.POSITIVE_INFINITY;
         }
         if (value instanceof String) {
             return Double.parseDouble((String) value);

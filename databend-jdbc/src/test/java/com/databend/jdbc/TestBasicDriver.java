@@ -175,6 +175,38 @@ public class TestBasicDriver {
     }
 
     @Test
+    public void testWriteDouble() throws SQLException {
+        try (Connection connection = createConnection()) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.table_double (\n" +
+                    "    ID INT,\n" +
+                    "    Name VARCHAR(50),\n" +
+                    "    Age INT,\n" +
+                    "    City VARCHAR(50),\n" +
+                    "    Score DOUBLE\n" +
+                    ");");
+            Double infDouble = Double.POSITIVE_INFINITY;
+
+            String sql = "INSERT INTO test_basic_driver.table_double (ID, Name, Age, City, Score) values";
+            PreparedStatement prepareStatement = connection.prepareStatement(sql);
+            prepareStatement.setInt(1, 1);
+            prepareStatement.setString(2, "Alice");
+            prepareStatement.setInt(3, 25);
+            prepareStatement.setString(4, "Toronto");
+            prepareStatement.setDouble(5, infDouble);
+
+            prepareStatement.addBatch();
+            prepareStatement.executeBatch();
+            statement.execute("SELECT * FROM test_basic_driver.table_double");
+            ResultSet r = statement.getResultSet();
+            r.next();
+            Assert.assertEquals(r.getDouble(5), Double.POSITIVE_INFINITY);
+        } catch (SQLException throwables) {
+            throwables.printStackTrace();
+        }
+    }
+
+    @Test
     public void testDefaultSelectNullValue() throws SQLException {
         try (Connection connection = createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
