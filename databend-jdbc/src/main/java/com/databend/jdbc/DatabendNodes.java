@@ -9,7 +9,7 @@ public class DatabendNodes implements DatabendNodeManager {
 
     private List<URI> query_nodes_uris;
     protected final AtomicInteger index;
-    private final DatabendClientLoadBalancingPolicy policy;
+    protected DatabendClientLoadBalancingPolicy policy;
     public DatabendNodes(List<URI> queryNodesUris, DatabendClientLoadBalancingPolicy policy) {
         this.query_nodes_uris = queryNodesUris;
         this.policy = policy;
@@ -24,6 +24,10 @@ public class DatabendNodes implements DatabendNodeManager {
 
     public void updateNodes(List<URI> query_nodes_uris) {
         this.query_nodes_uris = query_nodes_uris;
+    }
+
+    public void updatePolicy(DatabendClientLoadBalancingPolicy policy) {
+        this.policy = policy;
     }
 
     @Override

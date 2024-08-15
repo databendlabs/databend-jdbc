@@ -5,6 +5,13 @@ import java.util.List;
 import java.util.Random;
 
 public class DatabendClientLoadBalancingPolicy {
+    static class DisabledPolicy extends DatabendClientLoadBalancingPolicy {
+        @Override
+        public String toString() {
+            return "Disabled";
+        }
+        // do nothing
+    }
     static class RandomPolicy extends DatabendClientLoadBalancingPolicy {
         @Override
         protected URI pickUri(String query_id, DatabendNodes nodes) {
@@ -23,6 +30,10 @@ public class DatabendClientLoadBalancingPolicy {
             return uris.get(index);
         }
 
+        @Override
+        public String toString() {
+            return "Random";
+        }
     }
 
     static class RoundRobinPolicy extends DatabendClientLoadBalancingPolicy {
@@ -39,7 +50,16 @@ public class DatabendClientLoadBalancingPolicy {
 
             return uris.get(index);
         }
+
+        @Override
+        public String toString() {
+            return "RoundRobin";
+        }
     }
+    /**
+     * Policy that disable load balance and always use the first node.
+     */
+    public static final String DISABLED = "disabled";
     /**
      * Policy to pick a node randomly from the list of available nodes.
      */
@@ -57,6 +77,8 @@ public class DatabendClientLoadBalancingPolicy {
             policy = new RandomPolicy();
         } else if (ROUND_ROBIN.equalsIgnoreCase(name)) {
             policy = new RoundRobinPolicy();
+        } else if (DISABLED.equalsIgnoreCase(name)) {
+            policy = new DisabledPolicy();
         } else {
             throw new IllegalArgumentException("Unknown load balancing policy: " + name);
         }

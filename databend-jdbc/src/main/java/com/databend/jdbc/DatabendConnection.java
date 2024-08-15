@@ -10,6 +10,7 @@ import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Blob;
@@ -614,16 +615,49 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         setSession(session);
     }
 
+    /**
+     * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
+     * It will find next target host based on configured Load balancing Policy.
+     * @param sql The SQL statement to execute.
+     * @param attach The stage attachment to use for the query.
+     * @param e The exception that occurred during the initial query execution.
+     * @param retry The number of times the query has been retried.
+     * @return A DatabendClient instance representing the successful query execution.
+     * @throws SQLException If the query fails after retrying the specified number of times.
+     * @see DatabendClientLoadBalancingPolicy
+     */
+    DatabendClient failover(String sql, StageAttachment attach, Exception e, int retry) throws SQLException {
+        if (e != null && !(e.getCause() instanceof ConnectException)) {
+            throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        }
+        if (retry > this.getFailOver()) {
+            throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        }
+        try {
+//            if (!inActiveTransaction()) {
+//                this.routeHint = randRouteHint();
+//            }
+            // configure query and choose host based on load balancing policy.
+            ClientSettings.Builder sb = this.makeClientSettings();
+            if (attach != null) {
+               sb.setStageAttachment(attach);
+            }
+            ClientSettings s = sb.build();
+            logger.log(Level.FINE, "retry " + retry + " times to execute query: " + sql + " on " + s.getHost());
+            return new DatabendClientV1(httpClient, sql, s, this);
+        } catch (RuntimeException e1) {
+            return failover(sql, attach, e1, retry + 1);
+        } catch (Exception e1) {
+            throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
+        }
+    }
+
     DatabendClient startQuery(String sql) throws SQLException {
-        return new DatabendClientV1(httpClient, sql, makeClientSettings().build(), this);
+        return failover(sql, null, null, 0);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        if (!inActiveTransaction()) {
-            this.routeHint = randRouteHint();
-        }
-        ClientSettings settings = this.makeClientSettings().setStageAttachment(attach).build();
-        return new DatabendClientV1(httpClient, sql, settings, this);
+        return failover(sql, attach, null, 0);
     }
 
     private ClientSettings.Builder makeClientSettings() {

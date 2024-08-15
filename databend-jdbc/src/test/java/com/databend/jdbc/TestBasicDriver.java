@@ -19,7 +19,7 @@ import static org.testng.AssertJUnit.assertEquals;
 public class TestBasicDriver {
     private Connection createConnection()
             throws SQLException {
-        String url = "jdbc:databend://localhost:12311";
+        String url = "jdbc:databend://localhost:8000/default";
         return DriverManager.getConnection(url, "databend", "databend");
     }
 

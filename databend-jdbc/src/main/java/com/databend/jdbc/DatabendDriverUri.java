@@ -10,6 +10,8 @@ import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.basicAuthInterceptor;
 import static com.databend.client.OkHttpUtils.setupInsecureSsl;
@@ -24,6 +26,7 @@ import static java.util.Objects.requireNonNull;
  * Parses and extracts parameters from a databend JDBC URL
  */
 public final class DatabendDriverUri {
+    private static final Logger logger = Logger.getLogger(DatabendDriverUri.class.getPackage().getName());
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "databend://";
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
@@ -66,9 +69,12 @@ public final class DatabendDriverUri {
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
         List<URI> finalUris = parseFinalUris(uris, this.useSecureConnection, this.sslmode);
+        DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
         DatabendNodes nodes = uriAndProperties.getKey();
         nodes.updateNodes(finalUris);
+        nodes.updatePolicy(policy);
         this.nodes = nodes;
+        System.out.println(nodes);
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
@@ -255,7 +261,7 @@ public final class DatabendDriverUri {
             uris.clear();
             uris.addAll(uriSet);
             // Create DatabendNodes object
-            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.ROUND_ROBIN); // You might want to make this configurable
+            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED); // You might want to make this configurable
             DatabendNodes databendNodes = new DatabendNodes(uris, policy);
             return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
