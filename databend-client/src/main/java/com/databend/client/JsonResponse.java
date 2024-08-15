@@ -15,6 +15,7 @@
 package com.databend.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.google.common.util.concurrent.UncheckedExecutionException;
 import okhttp3.Headers;
 import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
@@ -26,6 +27,7 @@ import javax.annotation.Nullable;
 
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.net.ConnectException;
 import java.util.Optional;
 import java.util.OptionalLong;
 

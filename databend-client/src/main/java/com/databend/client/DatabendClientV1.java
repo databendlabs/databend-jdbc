@@ -25,6 +25,8 @@ import okio.Buffer;
 import javax.annotation.concurrent.ThreadSafe;
 
 import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.ConnectException;
 import java.net.URI;
 import java.time.Duration;
 import java.util.Map;
@@ -156,7 +158,11 @@ public class DatabendClientV1
             try {
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
-                throw new RuntimeException("Query failed: " + e.getMessage());
+                if (e.getCause() instanceof ConnectException) {
+                    // specially handle connection refused exception for retry purpose.
+                    throw e;
+                }
+                throw new RuntimeException("Query failed: " + e.getMessage(), e);
             }
 
             if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
@@ -258,6 +264,11 @@ public class DatabendClientV1
     @Override
     public DatabendSession getSession() {
         return databendSession.get();
+    }
+
+    @Override
+    public String getHost() {
+        return this.host;
     }
 
     @Override

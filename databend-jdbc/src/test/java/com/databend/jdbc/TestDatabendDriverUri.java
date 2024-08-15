@@ -39,18 +39,46 @@ public class TestDatabendDriverUri {
     @Test(groups = {"unit"})
     public void testBasic() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost", null);
-
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
     @Test(groups = {"unit"})
+    public void testMultiHost() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost,localhost:9991,localhost:31919/d2?ssl=true", null);
+        Assert.assertEquals(uri.getNodes().getUris().size(), 3);
+        for (int i = 0; i < 3; i++) {
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getScheme(), "https");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getHost(), "localhost");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getPath(), "/d2");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getQuery(), "ssl=true");
+        }
+        Assert.assertEquals(uri.getNodes().getUris().get(0).getPort(), 443);
+        Assert.assertEquals(uri.getNodes().getUris().get(1).getPort(), 9991);
+        Assert.assertEquals(uri.getNodes().getUris().get(2).getPort(), 31919);
+    }
+
+    @Test(groups = {"unit"})
+    public void testSameHost() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1:p1@localhost,localhost:9991,localhost/d2?ssl=false", null);
+        System.out.println(uri.getNodes().toString());
+        Assert.assertEquals(uri.getNodes().getUris().size(), 2);
+
+        for (int i = 0; i < 2; i++) {
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getScheme(), "http");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getHost(), "localhost");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getPath(), "/d2");
+            Assert.assertEquals(uri.getNodes().getUris().get(i).getQuery(), "ssl=false");
+        }
+        Assert.assertEquals(uri.getNodes().getUris().get(0).getPort(), 8000);
+        Assert.assertEquals(uri.getNodes().getUris().get(1).getPort(), 9991);
+    }
+
+    @Test(groups = {"unit"})
     public void testDefaultSSL() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost", null);
 
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 8000);
@@ -60,7 +88,6 @@ public class TestDatabendDriverUri {
     public void testSSLSetFalse() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?SSL=false", null);
 
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 8000);
@@ -70,7 +97,6 @@ public class TestDatabendDriverUri {
     public void testSSLSetTrue() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?ssl=true", null);
 
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 443);
@@ -80,7 +106,6 @@ public class TestDatabendDriverUri {
     public void testSSLCustomPort() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:33101", null);
 
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);
@@ -90,7 +115,6 @@ public class TestDatabendDriverUri {
     public void testSSLCustomPort2() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost:33101", null);
 
-        Assert.assertEquals(uri.getAddress().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getScheme(), "http");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 33101);

@@ -6,11 +6,8 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
-import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 
 import java.io.*;
 import java.net.URI;
@@ -85,12 +82,14 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
+        // only used for presign url on non-object storage, which mainly served for demo pupose.
+        // TODO: may also add query id and load balancing on the part.
         this.httpUri = uri.getUri();
         this.httpClient = httpClient;
         this.driverUri = uri;
         this.setSchema(uri.getDatabase());
         this.routeHint = randRouteHint();
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
+        DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).build();
         this.setSession(session);
 
         initializeFileHandler();
@@ -346,6 +345,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     public int getHoldability() throws SQLException {
         return 0;
+    }
+
+    // TODO(zhihanz): allow config through jdbc params
+    public int getFailOver() {
+        return 3;
     }
 
     @Override
@@ -611,46 +615,34 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     }
 
     DatabendClient startQuery(String sql) throws SQLException {
-        return new DatabendClientV1(httpClient, sql, makeClientSettings(), this);
+        return new DatabendClientV1(httpClient, sql, makeClientSettings().build(), this);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
         if (!inActiveTransaction()) {
             this.routeHint = randRouteHint();
         }
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        ClientSettings s = new ClientSettings.Builder().
-                setSession(this.session.get()).
-                setHost(this.getURI().toString()).
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setPaginationOptions(options).
-                setAdditionalHeaders(additionalHeaders).
-                setStageAttachment(attach).
-                build();
-        return new DatabendClientV1(httpClient, sql, s, this);
+        ClientSettings settings = this.makeClientSettings().setStageAttachment(attach).build();
+        return new DatabendClientV1(httpClient, sql, settings, this);
     }
 
-    private ClientSettings makeClientSettings() {
+    private ClientSettings.Builder makeClientSettings() {
         PaginationOptions options = getPaginationOptions();
         Map<String, String> additionalHeaders = setAdditionalHeaders();
-        ClientSettings s = new ClientSettings.Builder().
+        String query_id = UUID.randomUUID().toString();
+        additionalHeaders.put(X_Databend_Query_ID, query_id);
+        return new Builder().
                 setSession(this.session.get()).
-                setHost(this.getURI().toString()).
+                setHost(this.driverUri.getUri(query_id).toString()).
                 setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
                 setConnectionTimeout(this.driverUri.getConnectionTimeout()).
                 setSocketTimeout(this.driverUri.getSocketTimeout()).
                 setPaginationOptions(options).
-                setAdditionalHeaders(additionalHeaders).
-                build();
-        return s;
+                setAdditionalHeaders(additionalHeaders);
     }
 
     private Map<String, String> setAdditionalHeaders() {
         Map<String, String> additionalHeaders = new HashMap<>();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
         if (!this.driverUri.getWarehouse().isEmpty()) {
             additionalHeaders.put(DatabendWarehouseHeader, this.driverUri.getWarehouse());
         }

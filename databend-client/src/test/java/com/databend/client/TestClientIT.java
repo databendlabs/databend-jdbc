@@ -18,6 +18,9 @@ import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.net.ConnectException;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -47,6 +50,23 @@ public class TestClientIT {
             Assert.assertEquals((Short) data.get(0), Short.valueOf("1"));
         }
         cli.close();
+    }
+
+    @Test(groups = {"it"})
+    public void testConnectionRefused() {
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
+        ClientSettings settings = new ClientSettings("http://localhost:13191");
+
+        try {
+            DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null);
+            cli.getResults(); // This should trigger the connection attempt
+            Assert.fail("Expected exception was not thrown");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue(
+                    e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be IOException or contain IOException as cause");
+
+        }
     }
 
     @Test(groups = {"it"})

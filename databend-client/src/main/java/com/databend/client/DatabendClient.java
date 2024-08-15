@@ -25,6 +25,7 @@ public interface DatabendClient extends Closeable {
     void close();
 
     DatabendSession getSession();
+    String getHost();
     Map<String, String> getAdditionalHeaders();
     QueryResults getResults();
     // execute Restful query request for the first time.
