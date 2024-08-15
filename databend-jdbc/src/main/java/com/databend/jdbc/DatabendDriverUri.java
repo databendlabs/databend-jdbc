@@ -74,7 +74,6 @@ public final class DatabendDriverUri {
         nodes.updateNodes(finalUris);
         nodes.updatePolicy(policy);
         this.nodes = nodes;
-        System.out.println(nodes);
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
