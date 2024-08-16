@@ -2,10 +2,9 @@ package com.databend.jdbc;
 
 import java.net.URI;
 import java.util.List;
-import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
 
-public class DatabendNodes implements DatabendNodeManager {
+public class DatabendNodes implements DatabendNodeRouter {
 
     private List<URI> query_nodes_uris;
     protected final AtomicInteger index;

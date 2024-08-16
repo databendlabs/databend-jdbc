@@ -10,7 +10,6 @@ import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.basicAuthInterceptor;
@@ -48,6 +47,7 @@ public final class DatabendDriverUri {
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
+    private final Integer maxFailoverRetry;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
@@ -68,7 +68,8 @@ public final class DatabendDriverUri {
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
-        List<URI> finalUris = parseFinalUris(uris, this.useSecureConnection, this.sslmode);
+        this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(0);
+        List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
         DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
         DatabendNodes nodes = uriAndProperties.getKey();
         nodes.updateNodes(finalUris);
@@ -105,10 +106,10 @@ public final class DatabendDriverUri {
         uriProperties.put(DATABASE.getKey(), db);
     }
 
-    private static List<URI> parseFinalUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
+    private static List<URI> canonicalizeUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
         List<URI> finalUris = new ArrayList<>();
         for (URI uri : uris) {
-            finalUris.add(parseFinalURI(uri, isSSLSecured, sslmode));
+            finalUris.add(canonicalizeUri(uri, isSSLSecured, sslmode));
         }
         // Sort the finalUris list
         finalUris.sort(new Comparator<URI>() {
@@ -128,7 +129,7 @@ public final class DatabendDriverUri {
         return finalUris;
     }
 
-    private static URI parseFinalURI(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
+    private static URI canonicalizeUri(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
         requireNonNull(uri, "uri is null");
         String authority = uri.getAuthority();
         String scheme;
@@ -369,6 +370,10 @@ public final class DatabendDriverUri {
 
     public Integer getMaxRowsPerPage() {
         return maxRowsPerPage;
+    }
+
+    public Integer getMaxFailoverRetry() {
+        return maxFailoverRetry;
     }
 
 //    public HostAndPort getAddress() {
