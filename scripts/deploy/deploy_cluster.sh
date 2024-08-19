@@ -47,7 +47,7 @@ echo 'Start Meta service HA cluster(3 nodes)...'
 mkdir -p ./.databend/
 
 nohup ./databend/bin/databend-meta -c scripts/deploy/config/databend-meta-node-1.toml >./.databend/meta-1.out 2>&1 &
-python3 ./scripts/wait_tcp.py --timeout 30 --port 9191
+python3 scripts/wait_tcp.py --timeout 30 --port 9191
 
 # wait for cluster formation to complete.
 sleep 1
@@ -56,18 +56,18 @@ echo 'Start databend-query node-1'
 nohup env RUST_BACKTRACE=1 ./databend/bin/databend-query -c scripts/deploy/config/databend-query-node-1.toml --internal-enable-sandbox-tenant >./.databend/query-1.out 2>&1 &
 
 echo "Waiting on node-1..."
-python3 ./scripts/wait_tcp.py --timeout 30 --port 9191
+python3 scripts/wait_tcp.py --timeout 30 --port 9091
 
 echo 'Start databend-query node-2'
 env "RUST_BACKTRACE=1" nohup ./databend/bin/databend-query -c scripts/deploy/config/databend-query-node-2.toml --internal-enable-sandbox-tenant >./.databend/query-2.out 2>&1 &
 
 echo "Waiting on node-2..."
-python3 ./scripts/wait_tcp.py --timeout 30 --port 9191
+python3 scripts/wait_tcp.py --timeout 30 --port 9092
 
 echo 'Start databend-query node-3'
 env "RUST_BACKTRACE=1" nohup ./databend/bin/databend-query -c scripts/deploy/config/databend-query-node-3.toml --internal-enable-sandbox-tenant >./.databend/query-3.out 2>&1 &
 
 echo "Waiting on node-3..."
-python3 ./scripts/wait_tcp.py --timeout 30 --port 9191
+python3 scripts/wait_tcp.py --timeout 30 --port 9093
 
 echo "All done..."
