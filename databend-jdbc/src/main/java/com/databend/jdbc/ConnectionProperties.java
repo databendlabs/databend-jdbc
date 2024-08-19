@@ -23,6 +23,8 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> WAREHOUSE = new Warehouse();
     public static final ConnectionProperty<String> SSL_MODE = new SSLMode();
     static final ConnectionProperty<String> TENANT = new Tenant();
+    public static final ConnectionProperty<Integer> MAX_FAILOVER_RETRY = new MaxFailoverRetry();
+    public static final ConnectionProperty<String> LOAD_BALANCING_POLICY = new LoadBalancingPolicy();
     public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
@@ -50,6 +52,7 @@ public final class ConnectionProperties {
             .add(WAREHOUSE)
             .add(SSL_MODE)
             .add(TENANT)
+            .add(LOAD_BALANCING_POLICY)
             .add(DATABASE)
             .add(ACCESS_TOKEN)
             .add(PRESIGNED_URL_DISABLED)
@@ -137,6 +140,19 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public Tenant() {
             super("tenant", NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class MaxFailoverRetry extends AbstractConnectionProperty<Integer> {
+        public MaxFailoverRetry() {
+            super("max_failover_retry", Optional.of("0"), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+        }
+    }
+
+    private static class LoadBalancingPolicy
+            extends AbstractConnectionProperty<String> {
+        public LoadBalancingPolicy() {
+            super("load_balancing_policy", Optional.of("disabled"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

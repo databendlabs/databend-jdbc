@@ -6,13 +6,11 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
-import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
-import okhttp3.HttpUrl;
 import okhttp3.OkHttpClient;
-import okhttp3.Request;
 
 import java.io.*;
+import java.net.ConnectException;
 import java.net.URI;
 import java.sql.Array;
 import java.sql.Blob;
@@ -85,12 +83,14 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
+        // only used for presign url on non-object storage, which mainly served for demo pupose.
+        // TODO: may also add query id and load balancing on the part.
         this.httpUri = uri.getUri();
         this.httpClient = httpClient;
         this.driverUri = uri;
         this.setSchema(uri.getDatabase());
         this.routeHint = randRouteHint();
-        DatabendSession session = new DatabendSession.Builder().setHost(this.getURI()).setDatabase(this.getSchema()).build();
+        DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).build();
         this.setSession(session);
 
         initializeFileHandler();
@@ -143,6 +143,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     }
 
     public boolean inActiveTransaction() {
+        if (this.session.get() == null) {
+            return false;
+        }
         return this.session.get().inActiveTransaction();
     }
 
@@ -346,6 +349,10 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     public int getHoldability() throws SQLException {
         return 0;
+    }
+
+    public int getMaxFailoverRetries() {
+        return this.driverUri.getMaxFailoverRetry();
     }
 
     @Override
@@ -610,47 +617,69 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         setSession(session);
     }
 
+    /**
+     * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
+     * It will find next target host based on configured Load balancing Policy.
+     * @param sql The SQL statement to execute.
+     * @param attach The stage attachment to use for the query.
+     * @return A DatabendClient instance representing the successful query execution.
+     * @throws SQLException If the query fails after retrying the specified number of times.
+     * @see DatabendClientLoadBalancingPolicy
+     */
+    DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
+        Exception e = null;
+        int times = getMaxFailoverRetries() + 1;
+
+        for( int i = 1; i <= times; i++) {
+            if (e != null && !(e.getCause() instanceof ConnectException)) {
+                throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+            }
+            try {
+                if (!inActiveTransaction()) {
+                    this.routeHint = randRouteHint();
+                }
+                // configure query and choose host based on load balancing policy.
+                ClientSettings.Builder sb = this.makeClientSettings();
+                if (attach != null) {
+                    sb.setStageAttachment(attach);
+                }
+                ClientSettings s = sb.build();
+                logger.log(Level.FINE, "retry " + times + " times to execute query: " + sql + " on " + s.getHost());
+                return new DatabendClientV1(httpClient, sql, s, this);
+            } catch (RuntimeException e1) {
+                e = e1;
+            } catch (Exception e1) {
+                throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
+            }
+        }
+        throw new SQLException("Failover Retry Error executing query after" + getMaxFailoverRetries() +  "failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+    }
+
     DatabendClient startQuery(String sql) throws SQLException {
-        return new DatabendClientV1(httpClient, sql, makeClientSettings(), this);
+        return startQueryWithFailover(sql, null);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        if (!inActiveTransaction()) {
-            this.routeHint = randRouteHint();
-        }
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        ClientSettings s = new ClientSettings.Builder().
-                setSession(this.session.get()).
-                setHost(this.getURI().toString()).
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setPaginationOptions(options).
-                setAdditionalHeaders(additionalHeaders).
-                setStageAttachment(attach).
-                build();
-        return new DatabendClientV1(httpClient, sql, s, this);
+        return startQueryWithFailover(sql, attach);
     }
 
-    private ClientSettings makeClientSettings() {
+    private ClientSettings.Builder makeClientSettings() {
         PaginationOptions options = getPaginationOptions();
         Map<String, String> additionalHeaders = setAdditionalHeaders();
-        ClientSettings s = new ClientSettings.Builder().
+        String query_id = UUID.randomUUID().toString();
+        additionalHeaders.put(X_Databend_Query_ID, query_id);
+        return new Builder().
                 setSession(this.session.get()).
-                setHost(this.getURI().toString()).
+                setHost(this.driverUri.getUri(query_id).toString()).
                 setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
                 setConnectionTimeout(this.driverUri.getConnectionTimeout()).
                 setSocketTimeout(this.driverUri.getSocketTimeout()).
                 setPaginationOptions(options).
-                setAdditionalHeaders(additionalHeaders).
-                build();
-        return s;
+                setAdditionalHeaders(additionalHeaders);
     }
 
     private Map<String, String> setAdditionalHeaders() {
         Map<String, String> additionalHeaders = new HashMap<>();
-        additionalHeaders.put(X_Databend_Query_ID, UUID.randomUUID().toString());
         if (!this.driverUri.getWarehouse().isEmpty()) {
             additionalHeaders.put(DatabendWarehouseHeader, this.driverUri.getWarehouse());
         }

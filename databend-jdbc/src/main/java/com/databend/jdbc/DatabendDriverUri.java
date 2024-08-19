@@ -7,10 +7,10 @@ import okhttp3.OkHttpClient;
 
 import java.net.URI;
 import java.net.URISyntaxException;
-import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.*;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.basicAuthInterceptor;
 import static com.databend.client.OkHttpUtils.setupInsecureSsl;
@@ -25,15 +25,15 @@ import static java.util.Objects.requireNonNull;
  * Parses and extracts parameters from a databend JDBC URL
  */
 public final class DatabendDriverUri {
+    private static final Logger logger = Logger.getLogger(DatabendDriverUri.class.getPackage().getName());
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "databend://";
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
     private static final int DEFAULT_HTTPS_PORT = 443;
     private static final int DEFAULT_HTTP_PORT = 8000;
-    private final HostAndPort address;
     private final Properties properties;
-    private final URI uri;
+    private final DatabendNodes nodes;
     private final boolean useSecureConnection;
     private final boolean useVerify;
     private final boolean debug;
@@ -47,6 +47,7 @@ public final class DatabendDriverUri {
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
+    private final Integer maxFailoverRetry;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
@@ -57,8 +58,9 @@ public final class DatabendDriverUri {
 
     private DatabendDriverUri(String url, Properties driverProperties)
             throws SQLException {
-        Map.Entry<URI, Map<String, String>> uriAndProperties = parse(url);
-        this.properties = mergeProperties(uriAndProperties.getKey(), uriAndProperties.getValue(), driverProperties);
+        Map.Entry<DatabendNodes, Map<String, String>> uriAndProperties = parse(url);
+        List<URI> uris = uriAndProperties.getKey().getUris();
+        this.properties = mergeProperties(uris.get(uris.size() - 1), uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
         this.useVerify = USE_VERIFY.getValue(properties).orElse(false);
         this.debug = DEBUG.getValue(properties).orElse(false);
@@ -66,8 +68,13 @@ public final class DatabendDriverUri {
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
-        this.uri = parseFinalURI(uriAndProperties.getKey(), this.useSecureConnection, this.sslmode);
-        this.address = HostAndPort.fromParts(uri.getHost(), uri.getPort());
+        this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(0);
+        List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
+        DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
+        DatabendNodes nodes = uriAndProperties.getKey();
+        nodes.updateNodes(finalUris);
+        nodes.updatePolicy(policy);
+        this.nodes = nodes;
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
@@ -99,7 +106,30 @@ public final class DatabendDriverUri {
         uriProperties.put(DATABASE.getKey(), db);
     }
 
-    private static URI parseFinalURI(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
+    private static List<URI> canonicalizeUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
+        List<URI> finalUris = new ArrayList<>();
+        for (URI uri : uris) {
+            finalUris.add(canonicalizeUri(uri, isSSLSecured, sslmode));
+        }
+        // Sort the finalUris list
+        finalUris.sort(new Comparator<URI>() {
+            @Override
+            public int compare(URI uri1, URI uri2) {
+                // First, compare by host
+                int hostComparison = uri1.getHost().compareTo(uri2.getHost());
+                if (hostComparison != 0) {
+                    return hostComparison;
+                }
+
+                // If hosts are the same, compare by port
+                return Integer.compare(uri1.getPort(), uri2.getPort());
+            }
+        });
+
+        return finalUris;
+    }
+
+    private static URI canonicalizeUri(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
         requireNonNull(uri, "uri is null");
         String authority = uri.getAuthority();
         String scheme;
@@ -167,7 +197,7 @@ public final class DatabendDriverUri {
     }
 
     // needs to parse possible host, port, username, password, tenant, warehouse, database, etc.
-    private static Map.Entry<URI, Map<String, String>> parse(String url)
+    private static Map.Entry<DatabendNodes, Map<String, String>> parse(String url)
             throws SQLException {
         if (url == null) {
             throw new SQLException("URL is null");
@@ -183,34 +213,57 @@ public final class DatabendDriverUri {
         String host = null;
         int port = -1;
         raw = tryParseUriUserPassword(raw, uriProperties);
-        if (raw.startsWith("https://")) {
-            uriProperties.put(SSL.getKey(), "true");
-            uriProperties.put(SSL_MODE.getKey(), "enable");
-        } else if (raw.startsWith("http://")) {
-            uriProperties.put(SSL.getKey(), "false");
-            uriProperties.put(SSL_MODE.getKey(), "disable");
-        } else {
-            raw = "http://" + raw;
-            uriProperties.put(SSL.getKey(), "false");
-            uriProperties.put(SSL_MODE.getKey(), "disable");
-        }
+
+        // Split the URL into hosts and the rest
+        // todo process bracket wrapped comma
+        String[] hosts = raw.split(",");
+        List<URI> uris = new ArrayList<>();
         try {
-            URI uri = new URI(raw);
-            String authority = uri.getAuthority();
-            String[] hostAndPort = authority.split(":");
-            if (hostAndPort.length == 2) {
-                host = hostAndPort[0];
-                port = Integer.parseInt(hostAndPort[1]);
-            } else if (hostAndPort.length == 1) {
-                host = hostAndPort[0];
-            } else {
-                throw new SQLException("Invalid host and port, url: " + url);
+            for (String raw_host : hosts) {
+                String fullUri = (raw_host.startsWith("http://") || raw_host.startsWith("https://")) ?
+                        raw_host  :
+                        "http://" + raw_host;
+
+                URI uri = new URI(fullUri);
+                String authority = uri.getAuthority();
+                String[] hostAndPort = authority.split(":");
+                if (hostAndPort.length == 2) {
+                    host = hostAndPort[0];
+                    port = Integer.parseInt(hostAndPort[1]);
+                } else if (hostAndPort.length == 1) {
+                    host = hostAndPort[0];
+                } else {
+                    throw new SQLException("Invalid host and port, url: " + url);
+                }
+                if (host == null || host.isEmpty()) {
+                    throw new SQLException("Invalid host " + host);
+                }
+                // Set SSL properties based on the scheme
+                if ("https".equals(uri.getScheme())) {
+                    uriProperties.put(SSL.getKey(), "true");
+                    uriProperties.put(SSL_MODE.getKey(), "enable");
+                } else {
+                    uriProperties.put(SSL.getKey(), "false");
+                    uriProperties.put(SSL_MODE.getKey(), "disable");
+                }
+                uris.add(uri);
             }
-            if (host == null || host.isEmpty()) {
-                throw new SQLException("Invalid host " + host);
+            URI lastUri = uris.get(uris.size() - 1);
+            // Initialize database from the last URI
+            initDatabase(lastUri, uriProperties);
+            // Sync path and query from lastUri for the rest of uri
+            for (int i = 0; i < uris.size() - 1; i++) {
+                URI uri = uris.get(i);
+                uris.set(i, new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), lastUri.getPath(), lastUri.getQuery(), lastUri.getFragment()));
             }
-            initDatabase(uri, uriProperties);
-            return new AbstractMap.SimpleImmutableEntry<>(uri, uriProperties);
+            // remove duplicate uris
+            Set<URI> uriSet = new LinkedHashSet<>(uris);
+            uris.clear();
+            uris.addAll(uriSet);
+            // Create DatabendNodes object
+            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED); // You might want to make this configurable
+            DatabendNodes databendNodes = new DatabendNodes(uris, policy);
+            return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + raw, e);
         }
@@ -240,8 +293,15 @@ public final class DatabendDriverUri {
         return result;
     }
 
+    public DatabendNodes getNodes() {
+        return nodes;
+    }
+
     public URI getUri() {
-        return uri;
+        return nodes.getUris().get(0);
+    }
+    public URI getUri(String query_id) {
+        return nodes.pickUri(query_id);
     }
 
     public String getDatabase() {
@@ -312,9 +372,13 @@ public final class DatabendDriverUri {
         return maxRowsPerPage;
     }
 
-    public HostAndPort getAddress() {
-        return address;
+    public Integer getMaxFailoverRetry() {
+        return maxFailoverRetry;
     }
+
+//    public HostAndPort getAddress() {
+//        return address;
+//    }
 
     public Properties getProperties() {
         return properties;

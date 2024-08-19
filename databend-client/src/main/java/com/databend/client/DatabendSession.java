@@ -111,7 +111,6 @@ public class DatabendSession {
     }
 
     public static final class Builder {
-        private URI host;
         private String database;
         private final AtomicBoolean autoCommit = new AtomicBoolean(false);
         private Map<String, String> settings;
@@ -119,10 +118,6 @@ public class DatabendSession {
         // txn
         private String txnState;
 
-        public Builder setHost(URI host) {
-            this.host = host;
-            return this;
-        }
 
         public Builder setDatabase(String database) {
             this.database = database;
