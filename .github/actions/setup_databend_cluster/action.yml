@@ -1,0 +1,44 @@
+name: "Setup Stateful Cluster Linux"
+description: "Running stateful tests in cluster mode"
+inputs:
+  version:
+    description: "query and meta service version"
+    required: true
+    default: "1.2.616-nightly"
+  target:
+    description: ""
+    required: true
+    default: "x86_64-unknown-linux-gnu"
+runs:
+  using: "composite"
+  steps:
+
+    - name: Minio Setup for (ubuntu-latest only)
+      shell: bash
+      run: |
+        docker run -d --network host --name minio \
+                -e "MINIO_ACCESS_KEY=minioadmin" \
+                -e "MINIO_SECRET_KEY=minioadmin" \
+                -e "MINIO_ADDRESS=:9900" \
+                -v /tmp/data:/data \
+                -v /tmp/config:/root/.minio \
+                minio/minio server /data
+
+        export AWS_ACCESS_KEY_ID=minioadmin
+        export AWS_SECRET_ACCESS_KEY=minioadmin
+        export AWS_EC2_METADATA_DISABLED=true
+
+        aws --endpoint-url http://127.0.0.1:9900/ s3 mb s3://testbucket
+
+    - name: Download binary and extract into target directory
+      shell: bash
+      run: |
+        wget https://github.com/datafuselabs/databend/releases/download/v${{ inputs.version }}/databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz
+        mkdir -p databend
+        tar -xzf databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz -C databend --strip-components=1
+        rm databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz
+
+    - name: Start Databend Cluster
+      shell: bash
+      run: |
+          ./scripts/deploy_cluster.sh
