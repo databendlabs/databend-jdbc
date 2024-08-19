@@ -41,6 +41,7 @@ runs:
     - name: Start Databend Cluster
       shell: bash
       run: |
+          ls -l ./scripts
           chmod +x ./scripts/wait_tcp.py
           chmod +x ./scripts/deploy/deploy_cluster.sh
           ./scripts/deploy/deploy_cluster.sh
