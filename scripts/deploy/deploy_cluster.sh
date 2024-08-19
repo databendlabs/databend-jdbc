@@ -42,13 +42,12 @@ done
 # Wait for killed process to cleanup resources
 sleep 1
 
-echo 'Start Meta service HA cluster(3 nodes)...'
+echo 'Start Meta service ...'
 
 mkdir -p ./.databend/
 
 nohup ./databend/bin/databend-meta -c scripts/deploy/config/databend-meta-node-1.toml >./.databend/meta-1.out 2>&1 &
-python3 scripts/wait_tcp.py --timeout 30 --port 9191
-
+python3 scripts/wait_tcp.py --timeout 30 --port 9191 || { echo "wait_tcp failed. Showing  meta-1.out:"; cat ./.databend/meta-1.out; exit 1; }
 # wait for cluster formation to complete.
 sleep 1
 
