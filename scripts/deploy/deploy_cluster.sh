@@ -19,7 +19,7 @@ export STORAGE_S3_SECRET_ACCESS_KEY=minioadmin
 export STORAGE_ALLOW_INSECURE=true
 
 SCRIPT_PATH="$(cd "$(dirname "$0")" >/dev/null 2>&1 && pwd)"
-cd "$SCRIPT_PATH/../../.." || exit
+cd "$SCRIPT_PATH/../.." || exit
 BUILD_PROFILE=${BUILD_PROFILE:-debug}
 
 # Caveat: has to kill query first.

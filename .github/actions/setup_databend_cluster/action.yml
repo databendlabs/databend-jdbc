@@ -41,26 +41,6 @@ runs:
     - name: Start Databend Cluster
       shell: bash
       run: |
-        # Get absolute path of wait_tcp.py
-        WAIT_TCP_PATH=$(realpath ./scripts/wait_tcp.py)
-        echo "Absolute path of wait_tcp.py: $WAIT_TCP_PATH"
-        echo "WAIT_TCP_PATH=$WAIT_TCP_PATH" >> $GITHUB_ENV
-
-        # Update deploy_cluster.sh with absolute path
-        sed -i "s|python3 scripts/wait_tcp.py|python3 $WAIT_TCP_PATH|g" ./scripts/deploy/deploy_cluster.sh
-        sed -i "s|python3 ./scripts/wait_tcp.py|python3 $WAIT_TCP_PATH|g" ./scripts/deploy/deploy_cluster.sh
-
-        # Add debugging to deploy_cluster.sh
-        sed -i '1s/^/set -x\n/' ./scripts/deploy/deploy_cluster.sh
-        sed -i '2s/^/pwd\n/' ./scripts/deploy/deploy_cluster.sh
-
-        # Make scripts executable (if not already)
-        chmod +x $WAIT_TCP_PATH
-        chmod +x ./scripts/deploy/deploy_cluster.sh
-
-        # Run deploy script
-        echo "Current working directory: $(pwd)"
-        echo "Content of scripts directory:"
-        ls -R ./scripts
-        echo "Running deploy_cluster.sh:"
-        bash ./scripts/deploy/deploy_cluster.sh
+          chmod +x ./scripts/wait_tcp.py
+          chmod +x ./scripts/deploy/deploy_cluster.sh
+          ./scripts/deploy/deploy_cluster.sh
