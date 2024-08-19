@@ -41,8 +41,6 @@ runs:
     - name: Start Databend Cluster
       shell: bash
       run: |
-          ls -l ./databend
-          ls -l ./databend/bin
           chmod +x ./databend/bin/databend-meta
           chmod +x ./databend/bin/databend-query
           chmod +x ./scripts/wait_tcp.py
