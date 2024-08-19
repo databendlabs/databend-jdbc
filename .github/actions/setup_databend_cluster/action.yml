@@ -34,13 +34,14 @@ runs:
       shell: bash
       run: |
         wget  --progress=bar:force:noscroll https://github.com/datafuselabs/databend/releases/download/v${{ inputs.version }}/databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz
-        mkdir -p databend
-        tar -xzf databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz -C databend --strip-components=1
+        mkdir -p ./databend
+        tar -xzvf databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz -C ./databend
         rm databend-v${{ inputs.version }}-${{ inputs.target }}.tar.gz
 
     - name: Start Databend Cluster
       shell: bash
       run: |
+          ls -l ./databend
           ls -l ./databend/bin
           chmod +x ./databend/bin/databend-meta
           chmod +x ./databend/bin/databend-query
