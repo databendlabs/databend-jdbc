@@ -41,4 +41,5 @@ runs:
     - name: Start Databend Cluster
       shell: bash
       run: |
+          chmod +x ./scripts/deploy/deploy_cluster.sh
           ./scripts/deploy/deploy_cluster.sh
