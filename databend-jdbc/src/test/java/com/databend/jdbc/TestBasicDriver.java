@@ -334,8 +334,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Ignore("Skipping due to failed cluster tests")
-    @Test(groups = {"IT"})
+    @Test(groups = {"IT", "FLAKY"})
     public void testSelectGeometry() throws SQLException, ParseException {
         // skip due to failed cluster tests
 
