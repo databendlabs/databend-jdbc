@@ -1038,7 +1038,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "table_catalog", catalog);
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
-        optionalStringLikeFilter(filters, "table_name", tableNamePattern.replace("\\", ""));
+        if (tableNamePattern != null) {
+            optionalStringLikeFilter(filters, "table_name", tableNamePattern.replace("\\", ""));
+        }else {
+            optionalStringLikeFilter(filters, "table_name", null);
+        }
         optionalStringLikeFilter(filters, "column_name", columnNamePattern);
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_catalog, table_schema, table_name, ordinal_position");
