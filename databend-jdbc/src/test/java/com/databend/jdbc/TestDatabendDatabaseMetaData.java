@@ -170,14 +170,15 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testColumnsMeta() throws Exception {
         try (Connection connection = createConnection()) {
-            try (ResultSet rs = connection.getMetaData().getColumns(null, "default", "test_column_meta", null)) {
+            try (ResultSet rs = connection.getMetaData().getColumns("default", "default", "trino_sjh", null)) {
                 while (rs.next()) {
+                    String tableCat = rs.getString("table_cat");
                     String tableSchem = rs.getString("table_schem");
                     String tableName = rs.getString("table_name");
                     String columnName = rs.getString("COLUMN_NAME");
                     int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
-                    System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
+                    System.out.println(tableCat + " "+tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
             }
             System.out.println("====================================");
