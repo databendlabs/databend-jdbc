@@ -926,30 +926,31 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
      * It's a list with fixed fields, so we make a uniform variable.
      */
     private static final List<QueryRowField> META_ROW_FIELDS = new ArrayList<QueryRowField>() {{
-        add(new QueryRowField("TABLE_TYPE", new DatabendRawType("String")));// 1
+        add(new QueryRowField("TABLE_CAT", new DatabendRawType("String")));// 1
         add(new QueryRowField("TABLE_SCHEM", new DatabendRawType("String")));// 2
-        add(new QueryRowField("TABLE_NAME", new DatabendRawType("String")));// 3
-        add(new QueryRowField("COLUMN_NAME", new DatabendRawType("String")));// 4
-        add(new QueryRowField("DATA_TYPE", new DatabendRawType("Int32")));// 5
-        add(new QueryRowField("TYPE_NAME", new DatabendRawType("String")));// 6
-        add(new QueryRowField("COLUMN_SIZE", new DatabendRawType("Int32")));// 7
-        add(new QueryRowField("BUFFER_LENGTH", new DatabendRawType("Int32")));// 8
-        add(new QueryRowField("DECIMAL_DIGITS", new DatabendRawType("Int32")));// 9
-        add(new QueryRowField("NUM_PREC_RADIX", new DatabendRawType("Int32")));// 10
-        add(new QueryRowField("NULLABLE", new DatabendRawType("Int32")));// 11
-        add(new QueryRowField("REMARKS", new DatabendRawType("String")));// 12
-        add(new QueryRowField("COLUMN_DEF", new DatabendRawType("String")));// 13
-        add(new QueryRowField("SQL_DATA_TYPE", new DatabendRawType("Int32")));// 14
-        add(new QueryRowField("SQL_DATETIME_SUB", new DatabendRawType("Int32")));// 15
-        add(new QueryRowField("CHAR_OCTET_LENGTH", new DatabendRawType("Int32")));// 16
-        add(new QueryRowField("ORDINAL_POSITION", new DatabendRawType("Int32")));// 17
-        add(new QueryRowField("IS_NULLABLE", new DatabendRawType("String")));// 18
-        add(new QueryRowField("SCOPE_CATALOG", new DatabendRawType("String")));// 19
-        add(new QueryRowField("SCOPE_SCHEMA", new DatabendRawType("String")));// 20
-        add(new QueryRowField("SCOPE_TABLE", new DatabendRawType("String")));// 21
-        add(new QueryRowField("SOURCE_DATA_TYPE", new DatabendRawType("Int16")));// 22
-        add(new QueryRowField("IS_AUTOINCREMENT", new DatabendRawType("String")));// 23
-        add(new QueryRowField("IS_GENERATEDCOLUMN", new DatabendRawType("String")));// 24
+//        add(new QueryRowField("TABLE_TYPE", new DatabendRawType("String")));// 3
+        add(new QueryRowField("TABLE_NAME", new DatabendRawType("String")));// 4
+        add(new QueryRowField("COLUMN_NAME", new DatabendRawType("String")));// 5
+        add(new QueryRowField("DATA_TYPE", new DatabendRawType("Int32")));// 6
+        add(new QueryRowField("TYPE_NAME", new DatabendRawType("String")));// 7
+        add(new QueryRowField("COLUMN_SIZE", new DatabendRawType("Int32")));// 8
+        add(new QueryRowField("BUFFER_LENGTH", new DatabendRawType("Int32")));// 9
+        add(new QueryRowField("DECIMAL_DIGITS", new DatabendRawType("Int32")));// 10
+        add(new QueryRowField("NUM_PREC_RADIX", new DatabendRawType("Int32")));// 11
+        add(new QueryRowField("NULLABLE", new DatabendRawType("Int32")));// 12
+        add(new QueryRowField("REMARKS", new DatabendRawType("String")));// 13
+        add(new QueryRowField("COLUMN_DEF", new DatabendRawType("String")));// 14
+        add(new QueryRowField("SQL_DATA_TYPE", new DatabendRawType("Int32")));// 15
+        add(new QueryRowField("SQL_DATETIME_SUB", new DatabendRawType("Int32")));// 16
+        add(new QueryRowField("CHAR_OCTET_LENGTH", new DatabendRawType("Int32")));// 17
+        add(new QueryRowField("ORDINAL_POSITION", new DatabendRawType("Int32")));// 18
+        add(new QueryRowField("IS_NULLABLE", new DatabendRawType("String")));// 19
+        add(new QueryRowField("SCOPE_CATALOG", new DatabendRawType("String")));// 20
+        add(new QueryRowField("SCOPE_SCHEMA", new DatabendRawType("String")));// 21
+        add(new QueryRowField("SCOPE_TABLE", new DatabendRawType("String")));// 22
+        add(new QueryRowField("SOURCE_DATA_TYPE", new DatabendRawType("Int16")));// 23
+        add(new QueryRowField("IS_AUTOINCREMENT", new DatabendRawType("String")));// 24
+        add(new QueryRowField("IS_GENERATEDCOLUMN", new DatabendRawType("String")));// 25
     }};
 
     private static StringBuilder columnMetaSqlTemplate() {
@@ -1037,7 +1038,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         List<String> filters = new ArrayList<>();
         emptyStringEqualsFilter(filters, "table_catalog", catalog);
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
-        optionalStringLikeFilter(filters, "table_name", tableNamePattern);
+        if (tableNamePattern != null) {
+            optionalStringLikeFilter(filters, "table_name", tableNamePattern.replace("\\", ""));
+        }else {
+            optionalStringLikeFilter(filters, "table_name", null);
+        }
         optionalStringLikeFilter(filters, "column_name", columnNamePattern);
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_catalog, table_schema, table_name, ordinal_position");
