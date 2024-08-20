@@ -86,6 +86,8 @@ When configuring SSL, it's recommended to use the approach shown in the last exa
 
 Remember to replace the hostnames, ports, and file paths with your actual Databend cluster configuration and SSL certificate locations.
 
+Failover retry occur only for connection issues (java.net.ConnectException), other exception will NOT trigger retry 
+
 ## Connection parameters
 
 The driver supports various parameters that may be set as URL parameters or as properties passed to DriverManager. Both
