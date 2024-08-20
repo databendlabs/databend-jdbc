@@ -54,6 +54,40 @@ Then the above URL within warehouse DSN can be used as follows:
         Connection conn=DriverManager.getConnection(url);
 ```
 
+### Configure load balancing and failover
+
+Load balancing in Databend JDBC works by routing queries to different endpoints specified in the JDBC URL based on the chosen policy. This allows for better distribution of workload across multiple Databend nodes.
+
+#### Load Balancing Options
+
+There are three load balancing options available:
+
+1. **disabled**: Only routes queries to the first endpoint provided (sorted in alphabetic order).
+2. **random**: Randomly distributes queries based on the query ID.
+3. **round_robin**: Distributes queries evenly to each node in a circular order.
+
+#### Configurable Parameters
+
+| Parameter | Description | Default | Example |
+|-----------|-------------|---------|---------|
+| load_balancing_policy | Specifies the load balancing policy for multi-host connections. Options are "disabled", "random", and "round_robin". | disabled | jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random |
+| max_failover_retry | Specifies the maximum number of retry attempts for failover connections. | 0 | jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?max_failover_retry=4 |
+
+#### Examples
+
+1. Basic load balancing with round-robin policy: `jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=round_robin`
+2. Load balancing with random policy and failover configuration:: `jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random&max_failover_retry=3
+`
+3. Load balancing with SSL enabled:`jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?ssl=true&load_balancing_policy=round_robin`
+
+**NOTICE:**
+
+When configuring SSL, it's recommended to use the approach shown in the last example, which allows for more detailed SSL configuration including certificate verification.
+
+Remember to replace the hostnames, ports, and file paths with your actual Databend cluster configuration and SSL certificate locations.
+
+Failover retry occur only for connection issues (java.net.ConnectException), other exception will NOT trigger retry 
+
 ## Connection parameters
 
 The driver supports various parameters that may be set as URL parameters or as properties passed to DriverManager. Both
@@ -75,20 +109,22 @@ String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend";
 
 ### Parameter References
 
-| Parameter              | Description                                                                                                               | Default | example                                                                 |
-|------------------------|---------------------------------------------------------------------------------------------------------------------------|---------|-------------------------------------------------------------------------|
-| user                   | Databend user name                                                                                                        | none    | jdbc:databend://0.0.0.0:8000/hello_databend?user=test                   |
-| password               | Databend user password                                                                                                    | none    | jdbc:databend://0.0.0.0:8000/hello_databend?password=secret             |
-| SSL                    | Enable SSL                                                                                                                | false   | jdbc:databend://0.0.0.0:8000/hello_databend?SSL=true                    |
-| sslmode                | SSL mode                                                                                                                  | disable | jdbc:databend://0.0.0.0:8000/hello_databend?sslmode=enable              |
-| copy_purge             | If True, the command will purge the files in the stage after they are loaded successfully into the table                  | false   | jdbc:databend://0.0.0.0:8000/hello_databend?copy_purge=true             |
-| presigned_url_disabled | whether use presigned url to upload data, generally if you use local disk as your storage layer, it should be set as true | false   | jdbc:databend://0.0.0.0:8000/hello_databend?presigned_url_disabled=true |
-| wait_time_secs         | Restful query api blocking time, if the query is not finished, the api will block for wait_time_secs seconds              | 10      | jdbc:databend://0.0.0.0:8000/hello_databend?wait_time_secs=10           |
-| max_rows_in_buffer     | the maximum rows in server session buffer                                                                                 | 5000000 | jdbc:databend://0.0.0.0:8000/hello_databend?max_rows_in_buffer=5000000  |
-| max_rows_per_page      | the maximum rows per page in response data body                                                                           | 100000  | jdbc:databend://0.0.0.0:8000/default?max_rows_per_page=100000           |
-| connection_timeout     | okhttp connection_timeout param                                                                                           | 0       | jdbc:databend://0.0.0.0:8000/default?connection_timeout=100000          |
-| query_timeout          | time that you wait a SQL execution                                                                                        | 90      | jdbc:databend://0.0.0.0:8000/default?query_timeout=120                  |
-| null_display           | null value display                                                                                                        | \N      | jdbc:databend://0.0.0.0:8000/hello_databend?null_display=null           |
-| binary_format          | binary format, support hex and base64                                                                                     | hex     | jdbc:databend://0.0.0.0:8000/default?binary_format=hex                  |
-| use_verify             | whether verify the server before establishing the connection                                                              | true    | jdbc:databend://0.0.0.0:8000/default?use_verify=true                    |
-| debug                  | whether enable debug mode                                                                                                 | false   | jdbc:databend://0.0.0.0:8000/default?debug=true                         |
+| Parameter              | Description                                                                                                               | Default  | example                                                                 |
+|------------------------|---------------------------------------------------------------------------------------------------------------------------|----------|-------------------------------------------------------------------------|
+| user                   | Databend user name                                                                                                        | none     | jdbc:databend://0.0.0.0:8000/hello_databend?user=test                   |
+| password               | Databend user password                                                                                                    | none     | jdbc:databend://0.0.0.0:8000/hello_databend?password=secret             |
+| SSL                    | Enable SSL                                                                                                                | false    | jdbc:databend://0.0.0.0:8000/hello_databend?SSL=true                    |
+| sslmode                | SSL mode                                                                                                                  | disable  | jdbc:databend://0.0.0.0:8000/hello_databend?sslmode=enable              |
+| copy_purge             | If True, the command will purge the files in the stage after they are loaded successfully into the table                  | false    | jdbc:databend://0.0.0.0:8000/hello_databend?copy_purge=true             |
+| presigned_url_disabled | whether use presigned url to upload data, generally if you use local disk as your storage layer, it should be set as true | false    | jdbc:databend://0.0.0.0:8000/hello_databend?presigned_url_disabled=true |
+| wait_time_secs         | Restful query api blocking time, if the query is not finished, the api will block for wait_time_secs seconds              | 10       | jdbc:databend://0.0.0.0:8000/hello_databend?wait_time_secs=10           |
+| max_rows_in_buffer     | the maximum rows in server session buffer                                                                                 | 5000000  | jdbc:databend://0.0.0.0:8000/hello_databend?max_rows_in_buffer=5000000  |
+| max_rows_per_page      | the maximum rows per page in response data body                                                                           | 100000   | jdbc:databend://0.0.0.0:8000/default?max_rows_per_page=100000           |
+| connection_timeout     | okhttp connection_timeout param                                                                                           | 0        | jdbc:databend://0.0.0.0:8000/default?connection_timeout=100000          |
+| query_timeout          | time that you wait a SQL execution                                                                                        | 90       | jdbc:databend://0.0.0.0:8000/default?query_timeout=120                  |
+| null_display           | null value display                                                                                                        | \N       | jdbc:databend://0.0.0.0:8000/hello_databend?null_display=null           |
+| binary_format          | binary format, support hex and base64                                                                                     | hex      | jdbc:databend://0.0.0.0:8000/default?binary_format=hex                  |
+| use_verify             | whether verify the server before establishing the connection                                                              | true     | jdbc:databend://0.0.0.0:8000/default?use_verify=true                    |
+| debug                  | whether enable debug mode                                                                                                 | false    | jdbc:databend://0.0.0.0:8000/default?debug=true                         |
+| load_balancing_policy | Specifies the load balancing policy for multi-host connections. Options are "disabled", "random", and "round_robin". | disabled | jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random |
+| max_failover_retry | Specifies the maximum number of retry attempts for failover connections. | 0        | jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?max_failover_retry=4 |

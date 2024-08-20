@@ -644,7 +644,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     sb.setStageAttachment(attach);
                 }
                 ClientSettings s = sb.build();
-                logger.log(Level.FINE, "retry " + times + " times to execute query: " + sql + " on " + s.getHost());
+                logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
                 return new DatabendClientV1(httpClient, sql, s, this);
             } catch (RuntimeException e1) {
                 e = e1;
