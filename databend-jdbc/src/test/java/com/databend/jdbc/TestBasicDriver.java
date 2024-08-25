@@ -325,7 +325,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test(groups = {"IT", "FLAKY"})
+    @Test(groups = {"IT"})
     public void testSelectGeometry() throws SQLException, ParseException {
         // skip due to failed cluster tests
 
@@ -335,7 +335,7 @@ public class TestBasicDriver {
             connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
             connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (2, 'Null', null);");
             Statement statement = connection.createStatement();
-            try (ResultSet r = statement.executeQuery("select location from cities")) {
+            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
                 r.next();
                 Assert.assertEquals("{\"type\": \"Point\", \"coordinates\": [-73.935242,40.73061]}", r.getObject(1));
                 r.next();
@@ -344,7 +344,7 @@ public class TestBasicDriver {
 
             // set geometry_output_format to wkb
             connection.createStatement().execute("set geometry_output_format='WKB'");
-            try (ResultSet r = statement.executeQuery("select location from cities")) {
+            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
                 r.next();
                 byte[] wkb = r.getBytes(1);
                 WKBReader wkbReader = new WKBReader();

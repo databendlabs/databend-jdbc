@@ -59,9 +59,11 @@ public class TestDatabendDatabaseMetaData {
         c.createStatement().execute("drop table if exists test_column_meta");
         c.createStatement().execute("drop table if exists decimal_test");
         c.createStatement().execute("drop table if exists test_comment");
+        c.createStatement().execute("drop view if exists v_test_comment");
         c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
         c.createStatement().execute("create table decimal_test (a decimal(4,2))");
         c.createStatement().execute("create table test_comment (a int comment 'test comment')");
+        c.createStatement().execute("create view v_test_comment as select * from test_comment");
         // json data
     }
 
@@ -110,6 +112,15 @@ public class TestDatabendDatabaseMetaData {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
                 assertTableMetadata(rs);
+                // test for view
+                boolean foundView = false;
+                while (rs.next()) {
+                    if ("v_test_comment".equals(rs.getString(3))) {
+                        foundView = true;
+                        break;
+                    }
+                }
+                Assert.assertTrue(foundView, "can not found view [v_test_comment]");
             }
         }
     }
