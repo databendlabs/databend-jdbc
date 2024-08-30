@@ -766,7 +766,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             }
         } catch (RuntimeException e) {
             System.out.println(e.getMessage());
-            // For datax batch insert test, do not throw exception
             throw new SQLException(e);
         } catch (IOException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());

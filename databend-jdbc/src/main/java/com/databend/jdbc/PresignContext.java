@@ -40,7 +40,7 @@ public final class PresignContext {
     }
 
     public static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
-            throws SQLException  {
+            throws SQLException {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");
         Statement statement = connection.createStatement();
@@ -60,7 +60,7 @@ public final class PresignContext {
                 throw new SQLException("Failed to get presign url");
             }
         } catch (Throwable e) {
-            throw new SQLException("Failed to do presign");
+            throw new SQLException("Failed to do presign. Exception: " + e.toString(), e);
         } finally {
             statement.close();
         }
