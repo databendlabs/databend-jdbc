@@ -81,7 +81,7 @@ public class DatabendRawType {
                     .map(DatabendRawType::new)
                     .collect(Collectors.toList());
             this.columnSize = subType.size();
-        }  else if (dataType == DatabendDataType.MAP) {
+        } else if (dataType == DatabendDataType.MAP) {
             // remove "Map(" and last ")"
             String subTypes = this.type.substring(4, this.type.length() - 1);
             // split by ","

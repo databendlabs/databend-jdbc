@@ -15,25 +15,20 @@
 package com.databend.client;
 
 import com.databend.client.errors.CloudErrors;
-import okhttp3.Headers;
-import okhttp3.HttpUrl;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
+import okhttp3.*;
 import okio.Buffer;
 
 import javax.annotation.concurrent.ThreadSafe;
-
 import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.ConnectException;
 import java.net.URI;
 import java.time.Duration;
+import java.util.List;
 import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.Logger;
 import java.util.function.Consumer;
+import java.util.logging.Logger;
 
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -51,12 +46,14 @@ public class DatabendClientV1
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    public static final JsonCodec<DiscoveryResponseCodec.DiscoveryResponse> DISCOVERY_RESULT_CODEC = jsonCodec(DiscoveryResponseCodec.DiscoveryResponse.class);
     public static final String succeededState = "succeeded";
     public static final String failedState = "failed";
     public static final String runningState = "running";
 
 
     public static final String QUERY_PATH = "/v1/query";
+    public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
     private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
     private final OkHttpClient httpClient;
     private final String query;
@@ -96,14 +93,23 @@ public class DatabendClientV1
         }
     }
 
-    public Request.Builder prepareRequest(HttpUrl url) {
+    public static List<DiscoveryNode> dicoverNodes(OkHttpClient httpClient, ClientSettings settings) {
+        requireNonNull(httpClient, "httpClient is null");
+        requireNonNull(settings, "settings is null");
+        requireNonNull(settings.getHost(), "settings.host is null");
+        Request request = buildDiscoveryRequest(settings);
+        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request, OptionalLong.empty(), settings.getQueryTimeoutSecs());
+        return response.getNodes();
+    }
+
+    public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders) {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
                 .header("Accept", "application/json")
                 .header("Content-Type", "application/json");
-        if (this.getAdditionalHeaders() != null) {
-            this.getAdditionalHeaders().forEach(builder::addHeader);
+        if (additionalHeaders != null) {
+            additionalHeaders.forEach(builder::addHeader);
         }
         return builder;
     }
@@ -121,13 +127,88 @@ public class DatabendClientV1
             throw new IllegalArgumentException("Invalid request: " + req);
         }
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
-        Request.Builder builder = prepareRequest(url);
+        Request.Builder builder = prepareRequest(url, this.additonalHeaders);
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
+    }
+
+    private static Request buildDiscoveryRequest(ClientSettings settings) {
+        HttpUrl url = HttpUrl.get(settings.getHost());
+        if (url == null) {
+            // TODO(zhihanz) use custom exception
+            throw new IllegalArgumentException("Invalid host: " + settings.getHost());
+        }
+        url = url.newBuilder().encodedPath(DISCOVERY_PATH).build();
+        Request.Builder builder = prepareRequest(url, settings.getAdditionalHeaders());
+        return builder.get().build();
     }
 
     @Override
     public String getQuery() {
         return query;
+    }
+
+    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, OptionalLong materializedJsonSizeLimit, int requestTimeoutSecs) {
+        requireNonNull(request, "request is null");
+
+        long start = System.nanoTime();
+        int attempts = 0;
+        Exception lastException = null;
+
+        while (true) {
+            if (attempts > 0) {
+                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
+                    throw new RuntimeException(format("Error fetching discovery nodes (attempts: %s, duration: %s)", attempts, sinceStart.getSeconds()), lastException);
+                }
+
+                try {
+                    MILLISECONDS.sleep(attempts * 100); // Exponential backoff
+                } catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted while fetching discovery nodes", e);
+                }
+            }
+            attempts++;
+
+            JsonResponse<DiscoveryResponseCodec.DiscoveryResponse> response;
+            try {
+                response = JsonResponse.execute(
+                        DISCOVERY_RESULT_CODEC,
+                        httpClient,
+                        request,
+                        materializedJsonSizeLimit);
+            } catch (RuntimeException e) {
+                lastException = e;
+                if (e.getCause() instanceof ConnectException) {
+                    // Retry on connection refused errors
+                    continue;
+                }
+                throw new RuntimeException("Failed to fetch discovery nodes: " + e.getMessage(), e);
+            }
+
+            if (response.getStatusCode() == HTTP_OK && response.hasValue()) {
+                DiscoveryResponseCodec.DiscoveryResponse discoveryResponse = response.getValue();
+                if (discoveryResponse.getError() == null) {
+                    return discoveryResponse; // Successful response
+                }
+                if (discoveryResponse.getError().notFound()) {
+                    throw new UnsupportedOperationException("Discovery request feature not supported: " + discoveryResponse.getError());
+                }
+                throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
+            }
+
+            // Handle other HTTP error codes and response body parsing for errors
+            if (response.getResponseBody().isPresent()) {
+                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
+                if (errors != null && errors.tryGetErrorKind().canRetry()) {
+                    continue;
+                }
+            }
+
+            if (response.getStatusCode() != 520) {
+                throw new RuntimeException("Discovery request failed with status code: " + response.getStatusCode());
+            }
+        }
     }
 
     private boolean executeInternal(Request request, OptionalLong materializedJsonSizeLimit) {
@@ -219,7 +300,7 @@ public class DatabendClientV1
         if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
-        if (headers != null  && headers.get(ClientSettings.X_DATABEND_ROUTE_HINT) != null){
+        if (headers != null && headers.get(ClientSettings.X_DATABEND_ROUTE_HINT) != null) {
             this.additonalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, headers.get(ClientSettings.X_DATABEND_ROUTE_HINT));
         }
         currentResults.set(results);
@@ -241,7 +322,7 @@ public class DatabendClientV1
         String nextUriPath = this.currentResults.get().getNextUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
-        Request.Builder builder = prepareRequest(url);
+        Request.Builder builder = prepareRequest(url, this.additonalHeaders);
         Request request = builder.get().build();
         return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
     }
@@ -291,7 +372,7 @@ public class DatabendClientV1
         String path = uri.toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(path).build();
-        Request r = prepareRequest(url).get().build();
+        Request r = prepareRequest(url, this.additonalHeaders).get().build();
         try {
             httpClient.newCall(r).execute().close();
         } catch (IOException ignored) {

@@ -16,8 +16,6 @@ package com.databend.client;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Objects;
-import java.util.Random;
 
 public class ClientSettings {
     public static final Integer DEFAULT_QUERY_TIMEOUT = 300;

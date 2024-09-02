@@ -30,6 +30,7 @@ public class QueryStats {
     private final QueryProgress scanProgress;
     private final QueryProgress writeProgress;
     private final QueryProgress resultProgress;
+
     @JsonCreator
     public QueryStats(
             @JsonProperty("running_time_ms") float runningTimeMS,

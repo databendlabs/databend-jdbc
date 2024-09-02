@@ -17,8 +17,7 @@ package com.databend.client.errors;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 // CloudErrorKinds is a list of error kinds that can be returned by the databend cloud service.
-public enum CloudErrorKinds
-{
+public enum CloudErrorKinds {
     TENANT_NOT_FOUND("TenantNotFound", "Tenant not found, please check your tenant id", false),
     TENANT_BOOTSTRAP_FAILED("TenantBootstrapFailed", "tenant bootstrap failed", false),
     WAREHOUSE_NOT_FOUND("WarehouseNotFound", "warehouse not found", false),
@@ -41,9 +40,9 @@ public enum CloudErrorKinds
     HEALTH_CHECK_FAILED("HealthCheckFailed", "health check failed", false),
     BAD_TENANT("BadTenant", "bad tenant", false);
 
-    private  final String kind;
-    private  final String description;
-    private  final boolean canRetry;
+    private final String kind;
+    private final String description;
+    private final boolean canRetry;
 
     CloudErrorKinds(String kind, String description, boolean canRetry) {
         this.kind = kind;

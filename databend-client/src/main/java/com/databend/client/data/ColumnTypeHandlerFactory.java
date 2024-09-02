@@ -16,8 +16,7 @@ package com.databend.client.data;
 
 import java.util.Locale;
 
-public class ColumnTypeHandlerFactory
-{
+public class ColumnTypeHandlerFactory {
     public static ColumnTypeHandler getTypeHandler(DatabendRawType type) {
         if (type == null) {
             return null;

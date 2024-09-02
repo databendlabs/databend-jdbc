@@ -31,7 +31,7 @@ jobs:
       - uses: ./.github/actions/setup_databend_cluster
         timeout-minutes: 15
         with:
-          version: '1.2.616-nightly'
+          version: '1.2.629-nightly'
           target: 'x86_64-unknown-linux-gnu'
       - name: Run Maven clean deploy with release profile
         run: mvn test -DexcludedGroups=FLAKY

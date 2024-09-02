@@ -115,6 +115,7 @@ public abstract class QueryAffect {
             this.values = values;
             this.isGlobals = isGlobals;
         }
+
         @JsonProperty
         public List<String> getKeys() {
             return keys;

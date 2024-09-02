@@ -14,10 +14,10 @@
 
 package com.databend.client.data;
 
-public interface ColumnTypeHandler
-{
+public interface ColumnTypeHandler {
     /**
      * Convert the input object to the corresponding Java Type
+     *
      * @param value raw input row value
      * @return parsed java type value
      */

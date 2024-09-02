@@ -15,19 +15,11 @@
 package com.databend.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.google.common.util.concurrent.UncheckedExecutionException;
-import okhttp3.Headers;
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
+import okhttp3.*;
 
 import javax.annotation.Nullable;
-
 import java.io.IOException;
 import java.io.UncheckedIOException;
-import java.net.ConnectException;
 import java.util.Optional;
 import java.util.OptionalLong;
 
@@ -36,8 +28,7 @@ import static com.google.common.net.HttpHeaders.LOCATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
-public final class JsonResponse<T>
-{
+public final class JsonResponse<T> {
     private final int statusCode;
     private final String statusMessage;
     private final Headers headers;
@@ -47,8 +38,7 @@ public final class JsonResponse<T>
     private final T value;
     private final IllegalArgumentException exception;
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, String responseBody)
-    {
+    private JsonResponse(int statusCode, String statusMessage, Headers headers, String responseBody) {
         this.statusCode = statusCode;
         this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
@@ -59,8 +49,7 @@ public final class JsonResponse<T>
         this.exception = null;
     }
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, @Nullable String responseBody, @Nullable T value, @Nullable IllegalArgumentException exception)
-    {
+    private JsonResponse(int statusCode, String statusMessage, Headers headers, @Nullable String responseBody, @Nullable T value, @Nullable IllegalArgumentException exception) {
         this.statusCode = statusCode;
         this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
@@ -70,8 +59,7 @@ public final class JsonResponse<T>
         this.hasValue = (exception == null);
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit) throws RuntimeException
-    {
+    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit) throws RuntimeException {
         try (Response response = client.newCall(request).execute()) {
             // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
             if ((response.code() == 307) || (response.code() == 308)) {
@@ -92,19 +80,16 @@ public final class JsonResponse<T>
                         // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
                         // will not be available if parsing fails
                         value = codec.fromJson(responseBody.byteStream());
-                    }
-                    else {
+                    } else {
                         // parse from materialized response body string
                         body = responseBody.string();
                         value = codec.fromJson(body);
                     }
-                }
-                catch (JsonProcessingException e) {
+                } catch (JsonProcessingException e) {
                     String message;
                     if (body != null) {
                         message = format("Unable to create %s from JSON response:\n[%s]", codec.getType(), body);
-                    }
-                    else {
+                    } else {
                         message = format("Unable to create %s from JSON response", codec.getType());
                     }
                     exception = new IllegalArgumentException(message, e);
@@ -113,59 +98,49 @@ public final class JsonResponse<T>
                 return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, exception);
             }
             return new JsonResponse<>(response.code(), response.message(), response.headers(), responseBody.string());
-        }
-        catch (IOException e) {
+        } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
     }
 
-    private static boolean isJson(MediaType type)
-    {
+    private static boolean isJson(MediaType type) {
         return (type != null) && "application".equals(type.type()) && "json".equals(type.subtype());
     }
 
-    public int getStatusCode()
-    {
+    public int getStatusCode() {
         return statusCode;
     }
 
-    public String getStatusMessage()
-    {
+    public String getStatusMessage() {
         return statusMessage;
     }
 
-    public Headers getHeaders()
-    {
+    public Headers getHeaders() {
         return headers;
     }
 
-    public boolean hasValue()
-    {
+    public boolean hasValue() {
         return hasValue;
     }
 
-    public T getValue()
-    {
+    public T getValue() {
         if (!hasValue) {
             throw new IllegalStateException("Response does not contain a JSON value", exception);
         }
         return value;
     }
 
-    public Optional<String> getResponseBody()
-    {
+    public Optional<String> getResponseBody() {
         return Optional.ofNullable(responseBody);
     }
 
     @Nullable
-    public IllegalArgumentException getException()
-    {
+    public IllegalArgumentException getException() {
         return exception;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         return toStringHelper(this)
                 .add("statusCode", statusCode)
                 .add("statusMessage", statusMessage)

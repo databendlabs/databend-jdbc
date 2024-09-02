@@ -14,26 +14,23 @@
 
 package com.databend.client.data;
 
-class StringHandler implements ColumnTypeHandler
-{
+class StringHandler implements ColumnTypeHandler {
     private final boolean isNullable;
+
     public StringHandler() {
         this.isNullable = false;
     }
 
-    public StringHandler(boolean isNullable)
-    {
+    public StringHandler(boolean isNullable) {
         this.isNullable = isNullable;
     }
 
     @Override
-    public Object parseValue(Object value)
-    {
+    public Object parseValue(Object value) {
         if (value == null) {
             if (isNullable) {
                 return null;
-            }
-            else {
+            } else {
                 throw new IllegalArgumentException("String type is not nullable");
             }
         }
@@ -44,8 +41,7 @@ class StringHandler implements ColumnTypeHandler
     }
 
     @Override
-    public void setNullable(boolean isNullable)
-    {
+    public void setNullable(boolean isNullable) {
         // do nothing
     }
 }

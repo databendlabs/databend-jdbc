@@ -22,16 +22,14 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 /**
  * QueryErrors represent errors from databend server
  */
-public class QueryErrors
-{
+public class QueryErrors {
     private final int code;
     private final String message;
 
     @JsonCreator
     public QueryErrors(
             @JsonProperty("code") int code,
-            @JsonProperty("message") String message)
-    {
+            @JsonProperty("message") String message) {
         this.code = code;
         this.message = message;
     }
@@ -57,6 +55,10 @@ public class QueryErrors
                 .add("code", code)
                 .add("message", message)
                 .toString();
+    }
+
+    public boolean notFound() {
+        return code == 404;
     }
 
     public static final class Builder {

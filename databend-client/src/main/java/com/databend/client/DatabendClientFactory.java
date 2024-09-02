@@ -15,6 +15,7 @@
 package com.databend.client;
 
 public final class DatabendClientFactory {
-    private DatabendClientFactory() {}
+    private DatabendClientFactory() {
+    }
 
 }
