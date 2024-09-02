@@ -18,8 +18,6 @@ import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.IOException;
-import java.io.UncheckedIOException;
 import java.net.ConnectException;
 import java.util.HashMap;
 import java.util.List;
@@ -94,6 +92,21 @@ public class TestClientIT {
         System.out.println(cli1.getResults().getData());
         System.out.println(cli1.getAdditionalHeaders());
         Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
+    }
+
+    @Test(groups = {"it"})
+    public void testDiscoverNodes() {
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
+        String expectedUUID = UUID.randomUUID().toString();
+
+        Map<String, String> additionalHeaders = new HashMap<>();
+        additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
+        ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
+        List<DiscoveryNode> nodes = DatabendClientV1.dicoverNodes(client, settings);
+        Assert.assertFalse(nodes.isEmpty());
+        for (DiscoveryNode node : nodes) {
+            System.out.println(node.getAddress());
+        }
     }
 
 }

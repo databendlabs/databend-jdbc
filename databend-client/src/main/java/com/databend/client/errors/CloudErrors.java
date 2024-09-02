@@ -21,25 +21,22 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import static com.google.common.base.MoreObjects.toStringHelper;
 
 /**
- *  CloudErrors is a list of errors that can be returned by the databend cloud service.
+ * CloudErrors is a list of errors that can be returned by the databend cloud service.
  */
-public class CloudErrors
-{
+public class CloudErrors {
     private final String kind;
     private final String message;
 
     @JsonCreator
     public CloudErrors(
             @JsonProperty("kind") String kind,
-            @JsonProperty("message") String message)
-    {
+            @JsonProperty("message") String message) {
         this.kind = kind;
         this.message = message;
     }
 
     // return null if parse failed
-    public static CloudErrors tryParse(String json)
-    {
+    public static CloudErrors tryParse(String json) {
         try {
             ObjectMapper mapper = new ObjectMapper();
             return mapper.readValue(json, CloudErrors.class);

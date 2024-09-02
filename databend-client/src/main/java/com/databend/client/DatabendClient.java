@@ -21,13 +21,18 @@ import java.util.Map;
 
 public interface DatabendClient extends Closeable {
     String getQuery();
+
     @Override
     void close();
 
     DatabendSession getSession();
+
     String getHost();
+
     Map<String, String> getAdditionalHeaders();
+
     QueryResults getResults();
+
     // execute Restful query request for the first time.
     // @param request the request to be executed
     // @return true if request finished with result

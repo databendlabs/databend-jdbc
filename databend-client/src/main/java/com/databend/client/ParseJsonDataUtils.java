@@ -24,18 +24,18 @@ import java.util.List;
 import static java.util.Collections.unmodifiableList;
 
 
-final class ParseJsonDataUtils
-{
-    private ParseJsonDataUtils() {}
+final class ParseJsonDataUtils {
+    private ParseJsonDataUtils() {
+    }
+
     /**
      * parseRawData is used to convert json data an immutable list of data
      * input QuerySchema: contains column names and types
      * input List<List<Object>> : a list of rows parsed from QueryResponse
      * output Iterable<List<Object>> : convert the input rows into DatabendType and return an immutable list
      */
-    public static List<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data)
-    {
-        if (data == null || schema == null ) {
+    public static List<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data) {
+        if (data == null || schema == null) {
             return null;
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(schema);

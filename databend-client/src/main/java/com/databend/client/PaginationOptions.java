@@ -28,6 +28,7 @@ public class PaginationOptions {
     private final int waitTimeSecs;
     private final int maxRowsInBuffer;
     private final int maxRowsPerPage;
+
     @JsonCreator
     public PaginationOptions(
             @JsonProperty("wait_time_secs") int waitTimeSecs
