@@ -675,7 +675,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
             }
             try {
-                // route hint is used when transaction occured,
+                // route hint is used when transaction occured or when multi-cluster warehouse adopted(CLOUD ONLY)
+                // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
                 // transaction procedure:
                 // 1. server return session body where txn state is active
                 // 2. when there is a active transaction, it will route all query to target route hint uri if exists
