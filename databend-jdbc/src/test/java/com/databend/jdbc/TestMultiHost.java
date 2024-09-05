@@ -90,19 +90,19 @@ public class TestMultiHost {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("BEGIN");
             statement.execute("create table if not exists test (id int)");
+            Assert.fail();
         } catch (SQLException e) {
             e.printStackTrace();
             // there should have exception because change query node
-            Assert.fail();
         }
         try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("insert into test values (1)");
             statement.execute("COMMIT");
+            Assert.fail();
         } catch (SQLException e) {
             e.printStackTrace();
             // there should have exception because change query node
-            Assert.fail();
         }
     }
 
