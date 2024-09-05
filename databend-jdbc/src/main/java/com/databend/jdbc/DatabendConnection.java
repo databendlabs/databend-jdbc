@@ -701,9 +701,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 ClientSettings s = sb.build();
                 logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
                 // discover new hosts in need.
-                if (this.autoDiscovery) {
-
-                }
+//                if (this.autoDiscovery) {
+//
+//                }
                 return new DatabendClientV1(httpClient, sql, s, this);
             } catch (RuntimeException e1) {
                 e = e1;
