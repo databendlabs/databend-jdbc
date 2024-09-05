@@ -25,6 +25,8 @@ public final class ConnectionProperties {
     static final ConnectionProperty<String> TENANT = new Tenant();
     public static final ConnectionProperty<Integer> MAX_FAILOVER_RETRY = new MaxFailoverRetry();
     public static final ConnectionProperty<String> LOAD_BALANCING_POLICY = new LoadBalancingPolicy();
+    public static final ConnectionProperty<Boolean> AUTO_DISCOVERY = new AutoDiscovery();
+
     public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
@@ -153,6 +155,12 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public LoadBalancingPolicy() {
             super("load_balancing_policy", Optional.of("disabled"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class AutoDiscovery extends  AbstractConnectionProperty<Boolean> {
+        public AutoDiscovery() {
+            super("auto_discovery", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

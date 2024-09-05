@@ -109,4 +109,21 @@ public class TestClientIT {
         }
     }
 
+    @Test(groups = {"it"})
+    public void testDiscoverNodesUnSupported() {
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
+        String expectedUUID = UUID.randomUUID().toString();
+
+        Map<String, String> additionalHeaders = new HashMap<>();
+        additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
+        additionalHeaders.put("~mock.unsupported.discovery", "true");
+        ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
+        try {
+            DatabendClientV1.dicoverNodes(client, settings);
+            Assert.fail("Expected exception was not thrown");
+        } catch (Exception e) {
+            System.out.println(e.getMessage());
+            Assert.assertTrue(e instanceof UnsupportedOperationException, "Exception should be UnsupportedOperationException");
+        }
+    }
 }
