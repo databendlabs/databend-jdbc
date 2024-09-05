@@ -118,6 +118,40 @@ public class TestMultiHost {
     }
 
     @Test(groups = {"IT", "cluster"})
+    public void testRoundRobinTransaction()
+            throws SQLException {
+        // try connect with three nodes 1000 times and count for each node
+        try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("drop table if exists test_transaction;");
+            statement.execute("create table if not exists test_transaction(id int);");
+
+        }
+        for (int i = 0; i < 30; i++) {
+            try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
+                DatabendStatement statement = (DatabendStatement) connection.createStatement();
+                // use transaction select a table, drop a table, insert data into table bring i index
+                statement.execute("begin;");
+                statement.execute("insert into test_transaction values(" + i + ");");
+                statement.execute("select * from test_transaction;");
+                statement.execute("commit;");
+            }
+        }
+
+        // query on test
+        try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
+            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+            statement.execute("select * from test_transaction;");
+            ResultSet r = statement.getResultSet();
+            int count = 0;
+            while (r.next()) {
+                count++;
+            }
+            Assert.assertEquals(count, 30);
+        }
+    }
+
+    @Test(groups = {"IT", "cluster"})
     public void testFailOver()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node

@@ -48,6 +48,7 @@ public final class DatabendDriverUri {
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
     private final Integer maxFailoverRetry;
+    private final boolean autoDiscovery;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
@@ -69,11 +70,13 @@ public final class DatabendDriverUri {
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
         this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(0);
+        this.autoDiscovery = AUTO_DISCOVERY.getValue(properties).orElse(false);
         List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
         DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
         DatabendNodes nodes = uriAndProperties.getKey();
         nodes.updateNodes(finalUris);
         nodes.updatePolicy(policy);
+        nodes.setSSL(this.useSecureConnection, this.sslmode);
         this.nodes = nodes;
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
@@ -251,10 +254,13 @@ public final class DatabendDriverUri {
             URI lastUri = uris.get(uris.size() - 1);
             // Initialize database from the last URI
             initDatabase(lastUri, uriProperties);
+            String uriPath = lastUri.getPath();
+            String uriQuery = lastUri.getQuery();
+            String uriFragment = lastUri.getFragment();
             // Sync path and query from lastUri for the rest of uri
             for (int i = 0; i < uris.size() - 1; i++) {
                 URI uri = uris.get(i);
-                uris.set(i, new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), lastUri.getPath(), lastUri.getQuery(), lastUri.getFragment()));
+                uris.set(i, new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), uriPath, uriQuery, uriFragment));
             }
             // remove duplicate uris
             Set<URI> uriSet = new LinkedHashSet<>(uris);
@@ -262,7 +268,7 @@ public final class DatabendDriverUri {
             uris.addAll(uriSet);
             // Create DatabendNodes object
             DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED); // You might want to make this configurable
-            DatabendNodes databendNodes = new DatabendNodes(uris, policy);
+            DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment);
             return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + raw, e);
@@ -304,6 +310,9 @@ public final class DatabendDriverUri {
         return nodes.pickUri(query_id);
     }
 
+    public Boolean autoDiscovery() {
+        return autoDiscovery;
+    }
     public String getDatabase() {
         return database;
     }

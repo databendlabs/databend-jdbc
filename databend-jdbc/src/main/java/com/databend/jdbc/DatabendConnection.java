@@ -12,6 +12,7 @@ import okhttp3.OkHttpClient;
 import java.io.*;
 import java.net.ConnectException;
 import java.net.URI;
+import java.net.URISyntaxException;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -42,6 +43,7 @@ import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
 import static com.google.common.base.Preconditions.checkState;
+import static java.net.URI.create;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 
@@ -56,6 +58,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private final OkHttpClient httpClient;
     private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
     private final DatabendDriverUri driverUri;
+    private boolean autoDiscovery;
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     private String routeHint = "";
@@ -90,6 +93,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.driverUri = uri;
         this.setSchema(uri.getDatabase());
         this.routeHint = randRouteHint();
+        // it maybe closed due to unsupported server versioning.
+        this.autoDiscovery = uri.autoDiscovery();
         DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).build();
         this.setSession(session);
 
@@ -105,6 +110,41 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         }
         return sb.toString();
     }
+
+    private static final char SPECIAL_CHAR = '#';
+
+    public static String uriRouteHint(String URI) {
+        // Encode the URI using Base64
+        String encodedUri = Base64.getEncoder().encodeToString(URI.getBytes());
+
+        // Append the special character
+        return encodedUri + SPECIAL_CHAR;
+    }
+
+    public static URI parseRouteHint(String routeHint) {
+        if (routeHint == null || routeHint.isEmpty()) {
+            return null;
+        }
+        URI target;
+        try {
+            if (routeHint.charAt(routeHint.length() - 1) != SPECIAL_CHAR) {
+                return null;
+            }
+            // Remove the special character
+            String encodedUri = routeHint.substring(0, routeHint.length() - 1);
+
+            // Decode the Base64 string
+            byte[] decodedBytes = Base64.getDecoder().decode(encodedUri);
+            String decodedUri = new String(decodedBytes);
+
+            return create(decodedUri);
+        } catch (Exception e) {
+            logger.log(Level.FINE, "Failed to parse route hint: " + routeHint, e);
+            return null;
+        }
+    }
+
+
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
             throws SQLFeatureNotSupportedException {
@@ -635,16 +675,35 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
             }
             try {
+                // route hint is used when transaction occured,
+                // transaction procedure:
+                // 1. server return session body where txn state is active
+                // 2. when there is a active transaction, it will route all query to target route hint uri if exists
+                // 3. if there is not active transaction, it will use load balancing policy to choose a host to execute query
+                String query_id = UUID.randomUUID().toString();
+                String candidateHost = this.driverUri.getUri(query_id).toString();
                 if (!inActiveTransaction()) {
-                    this.routeHint = randRouteHint();
+                    this.routeHint = uriRouteHint(candidateHost);
                 }
+                // checkout the host to use from route hint
+                if (this.routeHint != null && !this.routeHint.isEmpty()) {
+                    URI uri = parseRouteHint(this.routeHint);
+                    if (uri != null) {
+                        candidateHost = uri.toString();
+                    }
+                }
+
                 // configure query and choose host based on load balancing policy.
-                ClientSettings.Builder sb = this.makeClientSettings();
+                ClientSettings.Builder sb = this.makeClientSettings(query_id, candidateHost);
                 if (attach != null) {
                     sb.setStageAttachment(attach);
                 }
                 ClientSettings s = sb.build();
                 logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
+                // discover new hosts in need.
+                if (this.autoDiscovery) {
+
+                }
                 return new DatabendClientV1(httpClient, sql, s, this);
             } catch (RuntimeException e1) {
                 e = e1;
@@ -663,14 +722,13 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         return startQueryWithFailover(sql, attach);
     }
 
-    private ClientSettings.Builder makeClientSettings() {
+    private ClientSettings.Builder makeClientSettings(String queryID, String host) {
         PaginationOptions options = getPaginationOptions();
         Map<String, String> additionalHeaders = setAdditionalHeaders();
-        String query_id = UUID.randomUUID().toString();
-        additionalHeaders.put(X_Databend_Query_ID, query_id);
+        additionalHeaders.put(X_Databend_Query_ID, queryID);
         return new Builder().
                 setSession(this.session.get()).
-                setHost(this.driverUri.getUri(query_id).toString()).
+                setHost(host).
                 setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
                 setConnectionTimeout(this.driverUri.getConnectionTimeout()).
                 setSocketTimeout(this.driverUri.getSocketTimeout()).

@@ -33,6 +33,7 @@ import java.util.logging.Logger;
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
+import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -137,7 +138,13 @@ public class DatabendClientV1
             // TODO(zhihanz) use custom exception
             throw new IllegalArgumentException("Invalid host: " + settings.getHost());
         }
-        url = url.newBuilder().encodedPath(DISCOVERY_PATH).build();
+        String discoveryPath = DISCOVERY_PATH;
+        // intentionally use unsupported discovery path for testing
+        if (settings.getAdditionalHeaders().get("~mock.unsupported.discovery") != null && settings.getAdditionalHeaders().get("~mock.unsupported.discovery").equals("true")) {
+            discoveryPath = "/v1/discovery_nodes_unsupported";
+        }
+
+        url = url.newBuilder().encodedPath(discoveryPath).build();
         Request.Builder builder = prepareRequest(url, settings.getAdditionalHeaders());
         return builder.get().build();
     }
@@ -195,6 +202,8 @@ public class DatabendClientV1
                     throw new UnsupportedOperationException("Discovery request feature not supported: " + discoveryResponse.getError());
                 }
                 throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
+            } else if (response.getStatusCode() == HTTP_NOT_FOUND) {
+                throw new UnsupportedOperationException("Discovery request feature not supported");
             }
 
             // Handle other HTTP error codes and response body parsing for errors
