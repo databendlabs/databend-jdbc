@@ -6,7 +6,6 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.sql.*;
-import java.util.Properties;
 
 
 public class TestDatabendParameterMetaData {

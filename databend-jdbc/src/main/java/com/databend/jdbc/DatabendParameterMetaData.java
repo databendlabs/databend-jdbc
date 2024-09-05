@@ -5,7 +5,6 @@ import java.sql.SQLException;
 import java.sql.Types;
 import java.util.List;
 import java.util.Locale;
-import java.util.Map;
 
 import static com.databend.jdbc.DatabendResultSetMetaData.getTypeClassName;
 import static java.util.Objects.requireNonNull;

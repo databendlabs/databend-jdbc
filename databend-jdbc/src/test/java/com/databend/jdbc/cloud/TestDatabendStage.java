@@ -4,11 +4,9 @@ import org.testng.annotations.Test;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestDatabendStage
-{
+public class TestDatabendStage {
     @Test(groups = {"Unit"})
-    public void testDatabendStage()
-    {
+    public void testDatabendStage() {
         DatabendStage stage = DatabendStage.builder()
                 .stageName("stage_name")
                 .path("path")
@@ -19,8 +17,7 @@ public class TestDatabendStage
     }
 
     @Test(groups = {"Unit"})
-    public void testDatabendStageWithExternalLocation()
-    {
+    public void testDatabendStageWithExternalLocation() {
         DatabendStage stage = DatabendStage.builder()
                 .externalLocationS3(ExternalLocationS3.builder()
                         .setLocation("s3://mybucket/path/a/b/c")

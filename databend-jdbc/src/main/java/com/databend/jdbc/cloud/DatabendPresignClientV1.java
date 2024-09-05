@@ -1,22 +1,12 @@
 package com.databend.jdbc.cloud;
 
-import com.databend.client.DatabendClientV1;
-import okhttp3.Headers;
-import okhttp3.HttpUrl;
-import okhttp3.MediaType;
-import okhttp3.MultipartBody;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.RequestBody;
-import okhttp3.Response;
-import okhttp3.ResponseBody;
+import okhttp3.*;
 import okio.BufferedSink;
 import okio.Okio;
 import okio.Source;
 import org.checkerframework.checker.nullness.qual.NonNull;
 
 import javax.annotation.Nullable;
-
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
@@ -27,7 +17,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.databend.jdbc.ConnectionProperties.SOCKET_TIMEOUT;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;

@@ -16,14 +16,14 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.Integer.parseInt;
 
-final class DriverInfo
-{
+final class DriverInfo {
     static final String DRIVER_NAME;
     static final String DRIVER_VERSION;
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
 
-    private DriverInfo() {}
+    private DriverInfo() {
+    }
 
     static {
         try {
@@ -31,8 +31,7 @@ final class DriverInfo
             URL url = getResource(DriverInfo.class, "driver.properties");
             try (InputStream in = url.openStream()) {
                 properties.load(in);
-            }
-            catch (IOException e) {
+            } catch (IOException e) {
                 throw new UncheckedIOException(e);
             }
 
@@ -47,8 +46,7 @@ final class DriverInfo
 
             DRIVER_VERSION_MAJOR = parseInt(matcher.group(1));
             DRIVER_VERSION_MINOR = parseInt(firstNonNull(matcher.group(3), "0"));
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             // log message since DriverManager hides initialization exceptions
             Logger.getLogger(DatabendDriver.class.getPackage().getName())
                     .log(Level.SEVERE, "Failed to load driver info", e);

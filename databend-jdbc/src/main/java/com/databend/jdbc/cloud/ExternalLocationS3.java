@@ -1,8 +1,7 @@
 package com.databend.jdbc.cloud;
 
 // https://databend.rs/doc/sql-commands/dml/dml-copy-into-table#externallocation
-public class ExternalLocationS3
-{
+public class ExternalLocationS3 {
     // for example: s3://bucket_name/path
     private final String location;
     private final String endpointUrl;
@@ -11,8 +10,8 @@ public class ExternalLocationS3
     private final String sessionToken;
     private final String region;
     private final boolean enableVirtualHostStyle;
-    private ExternalLocationS3(String location, String endpointUrl, String accessKeyId, String secretAccessKey, String sessionToken, String region, boolean enableVirtualHostStyle)
-    {
+
+    private ExternalLocationS3(String location, String endpointUrl, String accessKeyId, String secretAccessKey, String sessionToken, String region, boolean enableVirtualHostStyle) {
         this.location = location;
         this.endpointUrl = endpointUrl;
         this.accessKeyId = accessKeyId;
@@ -26,38 +25,31 @@ public class ExternalLocationS3
         return new ExternalLocationS3.Builder();
     }
 
-    public String getLocation()
-    {
+    public String getLocation() {
         return location;
     }
 
-    public String getEndpointUrl()
-    {
+    public String getEndpointUrl() {
         return endpointUrl;
     }
 
-    public String getAccessKeyId()
-    {
+    public String getAccessKeyId() {
         return accessKeyId;
     }
 
-    public String getSecretAccessKey()
-    {
+    public String getSecretAccessKey() {
         return secretAccessKey;
     }
 
-    public String getSessionToken()
-    {
+    public String getSessionToken() {
         return sessionToken;
     }
 
-    public String getRegion()
-    {
+    public String getRegion() {
         return region;
     }
 
-    public boolean isEnableVirtualHostStyle()
-    {
+    public boolean isEnableVirtualHostStyle() {
         return enableVirtualHostStyle;
     }
 
@@ -112,8 +104,7 @@ public class ExternalLocationS3
     }
 
     // builder pattern
-    public static class Builder
-    {
+    public static class Builder {
         private String location;
         private String endpointUrl;
         private String accessKeyId;
@@ -122,50 +113,42 @@ public class ExternalLocationS3
         private String region;
         private boolean enableVirtualHostStyle;
 
-        public Builder setLocation(String location)
-        {
+        public Builder setLocation(String location) {
             this.location = location;
             return this;
         }
 
-        public Builder setEndpointUrl(String endpointUrl)
-        {
+        public Builder setEndpointUrl(String endpointUrl) {
             this.endpointUrl = endpointUrl;
             return this;
         }
 
-        public Builder setAccessKeyId(String accessKeyId)
-        {
+        public Builder setAccessKeyId(String accessKeyId) {
             this.accessKeyId = accessKeyId;
             return this;
         }
 
-        public Builder setSecretAccessKey(String secretAccessKey)
-        {
+        public Builder setSecretAccessKey(String secretAccessKey) {
             this.secretAccessKey = secretAccessKey;
             return this;
         }
 
-        public Builder setSessionToken(String sessionToken)
-        {
+        public Builder setSessionToken(String sessionToken) {
             this.sessionToken = sessionToken;
             return this;
         }
 
-        public Builder setRegion(String region)
-        {
+        public Builder setRegion(String region) {
             this.region = region;
             return this;
         }
 
-        public Builder setEnableVirtualHostStyle(boolean enableVirtualHostStyle)
-        {
+        public Builder setEnableVirtualHostStyle(boolean enableVirtualHostStyle) {
             this.enableVirtualHostStyle = enableVirtualHostStyle;
             return this;
         }
 
-        public ExternalLocationS3 build()
-        {
+        public ExternalLocationS3 build() {
             return new ExternalLocationS3(location, endpointUrl, accessKeyId, secretAccessKey, sessionToken, region, enableVirtualHostStyle);
         }
     }

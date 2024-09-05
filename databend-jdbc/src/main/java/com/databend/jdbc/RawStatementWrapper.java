@@ -1,11 +1,11 @@
 package com.databend.jdbc;
-import java.util.Collection;
-import java.util.List;
-
-import org.apache.commons.lang3.StringUtils;
 
 import lombok.CustomLog;
 import lombok.Value;
+import org.apache.commons.lang3.StringUtils;
+
+import java.util.Collection;
+import java.util.List;
 
 @CustomLog
 @Value

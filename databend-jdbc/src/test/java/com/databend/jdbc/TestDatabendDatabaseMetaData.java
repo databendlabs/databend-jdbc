@@ -5,19 +5,14 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.DriverManager;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.SQLException;
-import java.sql.Types;
+import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+
 @Test(timeOut = 10000)
 public class TestDatabendDatabaseMetaData {
     private static void assertTableMetadata(ResultSet rs)
@@ -99,7 +94,7 @@ public class TestDatabendDatabaseMetaData {
             throws Exception {
         try (Connection connection = createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            float majorVersion = (float)metaData.getDatabaseMajorVersion() / 10;
+            float majorVersion = (float) metaData.getDatabaseMajorVersion() / 10;
             int minorVersion = metaData.getDatabaseMinorVersion();
             String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
@@ -178,7 +173,7 @@ public class TestDatabendDatabaseMetaData {
                     String columnName = rs.getString("COLUMN_NAME");
                     int dataType = rs.getInt("data_type");
                     String columnType = rs.getString("type_name");
-                    System.out.println(tableCat + " "+tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
+                    System.out.println(tableCat + " " + tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
                 }
             }
             System.out.println("====================================");
@@ -229,7 +224,7 @@ public class TestDatabendDatabaseMetaData {
         try (Connection connection = createConnection()) {
             connection.createStatement().execute("insert into decimal_test values(1.2)");
             ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
-            while (rs.next()){
+            while (rs.next()) {
                 assertTrue(rs.getObject(1) instanceof BigDecimal);
             }
         }

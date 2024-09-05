@@ -12,33 +12,17 @@ import okhttp3.OkHttpClient;
 import java.io.*;
 import java.net.ConnectException;
 import java.net.URI;
-import java.net.URISyntaxException;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.CallableStatement;
-import java.sql.Clob;
-import java.sql.Connection;
-import java.sql.DatabaseMetaData;
-import java.sql.NClob;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLClientInfoException;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Savepoint;
-import java.sql.Statement;
-import java.sql.Struct;
+import java.sql.*;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.*;
 import java.util.function.Consumer;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
@@ -143,7 +127,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             return null;
         }
     }
-
 
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -587,6 +570,10 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         return this.driverUri.copyPurge();
     }
 
+    public boolean isAutoDiscovery() {
+        return this.autoDiscovery;
+    }
+
     public String warehouse() {
         return this.driverUri.getWarehouse();
     }
@@ -660,6 +647,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     /**
      * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
      * It will find next target host based on configured Load balancing Policy.
+     *
      * @param sql The SQL statement to execute.
      * @param attach The stage attachment to use for the query.
      * @return A DatabendClient instance representing the successful query execution.
@@ -670,7 +658,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         Exception e = null;
         int times = getMaxFailoverRetries() + 1;
 
-        for( int i = 1; i <= times; i++) {
+        for (int i = 1; i <= times; i++) {
             if (e != null && !(e.getCause() instanceof ConnectException)) {
                 throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
             }
@@ -702,9 +690,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 ClientSettings s = sb.build();
                 logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
                 // discover new hosts in need.
-//                if (this.autoDiscovery) {
-//
-//                }
+                if (this.autoDiscovery) {
+                    tryAutoDiscovery(httpClient, s);
+                }
                 return new DatabendClientV1(httpClient, sql, s, this);
             } catch (RuntimeException e1) {
                 e = e1;
@@ -712,7 +700,32 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
             }
         }
-        throw new SQLException("Failover Retry Error executing query after" + getMaxFailoverRetries() +  "failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        throw new SQLException("Failover Retry Error executing query after " + getMaxFailoverRetries() + " failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+    }
+
+    /**
+     * Try to auto discovery the databend nodes it will log exceptions when auto discovery failed and not affect real query execution
+     *
+     * @param client the http client to query on
+     * @param settings the client settings to use
+     */
+    void tryAutoDiscovery(OkHttpClient client, ClientSettings settings) {
+        if (this.autoDiscovery) {
+            if (this.driverUri.enableMock()) {
+                settings.getAdditionalHeaders().put("~mock.unsupported.discovery", "true");
+            }
+            DatabendNodes nodes = this.driverUri.getNodes();
+            if (nodes != null && nodes.needDiscovery()) {
+                try {
+                    nodes.discoverUris(client, settings);
+                } catch (UnsupportedOperationException e) {
+                    logger.log(Level.WARNING, "Current Query Node do not support auto discovery, close the functionality: " + e.getMessage());
+                    this.autoDiscovery = false;
+                } catch (Exception e) {
+                    logger.log(Level.FINE, "Error auto discovery: " + " cause: " + e.getCause() + " message: " + e.getMessage());
+                }
+            }
+        }
     }
 
     DatabendClient startQuery(String sql) throws SQLException {

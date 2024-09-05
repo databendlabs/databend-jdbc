@@ -3,9 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.PaginationOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.checkerframework.checker.units.qual.C;
 
-import java.sql.Connection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -26,7 +24,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Integer> MAX_FAILOVER_RETRY = new MaxFailoverRetry();
     public static final ConnectionProperty<String> LOAD_BALANCING_POLICY = new LoadBalancingPolicy();
     public static final ConnectionProperty<Boolean> AUTO_DISCOVERY = new AutoDiscovery();
-
+    public static final ConnectionProperty<Boolean> ENABLE_MOCK = new EnableMock();
     public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
@@ -158,9 +156,15 @@ public final class ConnectionProperties {
         }
     }
 
-    private static class AutoDiscovery extends  AbstractConnectionProperty<Boolean> {
+    private static class AutoDiscovery extends AbstractConnectionProperty<Boolean> {
         public AutoDiscovery() {
             super("auto_discovery", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+        }
+    }
+
+    private static class EnableMock extends AbstractConnectionProperty<Boolean> {
+        public EnableMock() {
+            super("enable_mock", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
 

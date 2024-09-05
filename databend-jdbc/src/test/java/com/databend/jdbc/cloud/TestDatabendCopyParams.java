@@ -42,8 +42,8 @@ public class TestDatabendCopyParams {
         DatabendStage s = DatabendStage.builder().stageName("~").path("jdbc/c2/").build();
         prms = DatabendCopyParams.builder().setFiles(files).setDatabendStage(s).setPattern("a.txt").setType("parquet")
                 .setCopyOptions(copyOptions).setFileOptions(fileOptions).build();
-        assertEquals(prms.getDatabendStage().getStageName(),"~");
-        assertEquals(prms.getDatabendStage().getPath(),"jdbc/c2/");
+        assertEquals(prms.getDatabendStage().getStageName(), "~");
+        assertEquals(prms.getDatabendStage().getPath(), "jdbc/c2/");
         assertEquals(prms.getPattern(), "a.txt");
         assertEquals(prms.getType(), "parquet");
         assertEquals(prms.getFiles().size(), 2);

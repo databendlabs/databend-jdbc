@@ -1,13 +1,13 @@
 package com.databend.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.junit.jupiter.api.Test;
 
 import java.util.Map;
 
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
-import static org.junit.jupiter.api.Assertions.*;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
 public class StatementUtilTest {
     @Test
     void shouldGetAllQueryParamsFromIn() {
@@ -16,6 +16,7 @@ public class StatementUtilTest {
         System.out.println(StatementUtil.parseToRawStatementWrapper(sql).getSubStatements());
         assertEquals(1, StatementUtil.parseToRawStatementWrapper(sql).getSubStatements().size());
     }
+
     @Test
     void shouldGetAllQueryParams() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id = ?";

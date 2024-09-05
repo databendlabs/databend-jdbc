@@ -14,13 +14,12 @@ import static java.lang.String.format;
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static java.util.Locale.ENGLISH;
 
-final class ObjectCasts
-{
-    private ObjectCasts() {}
+final class ObjectCasts {
+    private ObjectCasts() {
+    }
 
     public static boolean castToBoolean(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (Boolean) x;
         }
@@ -39,16 +38,14 @@ final class ObjectCasts
                 }
                 throw new IllegalArgumentException("Invalid boolean value: " + x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static byte castToByte(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (byte) (((Boolean) x) ? 1 : 0);
         }
@@ -59,16 +56,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseByte((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static short castToShort(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (short) (((Boolean) x) ? 1 : 0);
         }
@@ -79,16 +74,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseShort((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static int castToInt(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (((Boolean) x) ? 1 : 0);
         }
@@ -99,16 +92,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseInt((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static long castToLong(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (((Boolean) x) ? 1 : 0);
         }
@@ -119,16 +110,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseLong((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static float castToFloat(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (((Boolean) x) ? 1 : 0);
         }
@@ -139,16 +128,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseFloat((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static double castToDouble(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return (((Boolean) x) ? 1 : 0);
         }
@@ -159,16 +146,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return parseDouble((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static BigDecimal castToBigDecimal(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof Boolean) {
             return BigDecimal.valueOf(((Boolean) x) ? 1 : 0);
         }
@@ -188,16 +173,14 @@ final class ObjectCasts
             if (x instanceof String) {
                 return new BigDecimal((String) x);
             }
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             throw invalidConversion(x, targetSqlType, e);
         }
         throw invalidConversion(x, targetSqlType);
     }
 
     public static byte[] castToBinary(Object x, int targetSqlType)
-            throws SQLException
-    {
+            throws SQLException {
         if (x instanceof byte[]) {
             return (byte[]) x;
         }
@@ -207,18 +190,15 @@ final class ObjectCasts
         throw invalidConversion(x, targetSqlType);
     }
 
-    private static SQLException invalidConversion(Object x, int sqlType)
-    {
+    private static SQLException invalidConversion(Object x, int sqlType) {
         return invalidConversion(x, sqlType, null);
     }
 
-    private static SQLException invalidConversion(Object x, int sqlType, Exception e)
-    {
+    private static SQLException invalidConversion(Object x, int sqlType, Exception e) {
         return new SQLException(format("Cannot convert instance of %s to SQL type %s", x.getClass().getName(), sqlType), e);
     }
 
-    static SQLException invalidConversion(Object x, String toType)
-    {
+    static SQLException invalidConversion(Object x, String toType) {
         return new SQLException(format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
     }
 }

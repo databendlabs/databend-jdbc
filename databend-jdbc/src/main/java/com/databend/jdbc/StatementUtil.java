@@ -1,18 +1,17 @@
 package com.databend.jdbc;
 
-import java.util.*;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-
+import lombok.CustomLog;
+import lombok.NonNull;
+import lombok.experimental.UtilityClass;
 import org.apache.commons.lang3.RegExUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
-import lombok.CustomLog;
-import lombok.NonNull;
-import lombok.experimental.UtilityClass;
+import java.util.*;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 @UtilityClass
 @CustomLog

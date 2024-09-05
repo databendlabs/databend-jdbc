@@ -30,6 +30,9 @@ public class DiscoveryNode {
         this.address = address;
     }
 
+    public static DiscoveryNode create(String address) {
+        return new DiscoveryNode(address);
+    }
     // add builder
 
     @JsonProperty

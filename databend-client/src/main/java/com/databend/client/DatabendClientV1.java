@@ -94,7 +94,7 @@ public class DatabendClientV1
         }
     }
 
-    public static List<DiscoveryNode> dicoverNodes(OkHttpClient httpClient, ClientSettings settings) {
+    public static List<DiscoveryNode> discoverNodes(OkHttpClient httpClient, ClientSettings settings) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");

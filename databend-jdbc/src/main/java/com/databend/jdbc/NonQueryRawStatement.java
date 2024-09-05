@@ -1,11 +1,10 @@
 package com.databend.jdbc;
 
-import static com.databend.jdbc.StatementType.NON_QUERY;
+import lombok.EqualsAndHashCode;
 
 import java.util.List;
 
-
-import lombok.EqualsAndHashCode;
+import static com.databend.jdbc.StatementType.NON_QUERY;
 
 /**
  * A non query statement is a statement that does not return data (such as

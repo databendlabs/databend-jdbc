@@ -1,10 +1,9 @@
 package com.databend.jdbc.examples;
+
 import com.databend.jdbc.DatabendConnection;
-import com.fasterxml.jackson.databind.annotation.JsonAppend;
-import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.PooledObject;
+import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
-import org.apache.commons.pool2.impl.GenericObjectPool;
 
 import java.sql.Connection;
 import java.sql.DriverManager;
@@ -13,13 +12,14 @@ import java.util.Properties;
 
 public class DatabendConnectionFactory implements PooledObjectFactory<DatabendConnection> {
 
-    private  String url;
+    private String url;
     private Properties properties;
 
     public DatabendConnectionFactory(String url, Properties properties) {
         this.url = url;
         this.properties = properties;
     }
+
     private Connection createConnection(String url, Properties p) throws SQLException {
         return DriverManager.getConnection(url, p);
     }

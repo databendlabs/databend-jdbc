@@ -8,7 +8,7 @@ import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
-import org.junit.Ignore;
+
 import java.sql.*;
 import java.util.Properties;
 
