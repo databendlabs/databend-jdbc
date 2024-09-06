@@ -3,7 +3,6 @@ package com.databend.jdbc;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
-import com.databend.client.data.DatabendTypes;
 import com.google.common.base.Joiner;
 
 import java.sql.Connection;
@@ -20,10 +19,7 @@ import java.util.Optional;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-import static com.databend.jdbc.DriverInfo.DRIVER_NAME;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
+import static com.databend.jdbc.DriverInfo.*;
 import static java.util.Objects.requireNonNull;
 
 public class DatabendDatabaseMetaData implements DatabaseMetaData {
@@ -1040,7 +1036,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         emptyStringLikeFilter(filters, "table_schema", schemaPattern);
         if (tableNamePattern != null) {
             optionalStringLikeFilter(filters, "table_name", tableNamePattern.replace("\\", ""));
-        }else {
+        } else {
             optionalStringLikeFilter(filters, "table_name", null);
         }
         optionalStringLikeFilter(filters, "column_name", columnNamePattern);

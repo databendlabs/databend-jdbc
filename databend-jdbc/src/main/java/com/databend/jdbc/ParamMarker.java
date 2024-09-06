@@ -1,4 +1,5 @@
 package com.databend.jdbc;
+
 import lombok.AllArgsConstructor;
 import lombok.Value;
 

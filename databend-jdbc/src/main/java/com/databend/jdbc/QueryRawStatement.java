@@ -1,15 +1,13 @@
 package com.databend.jdbc;
 
-import static com.databend.jdbc.StatementType.QUERY;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
+import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.List;
 import java.util.Optional;
 
-import org.apache.commons.lang3.tuple.Pair;
-
-
-import lombok.EqualsAndHashCode;
-import lombok.Getter;
+import static com.databend.jdbc.StatementType.QUERY;
 
 /**
  * A query statement is a statement that returns data (Typically starts with

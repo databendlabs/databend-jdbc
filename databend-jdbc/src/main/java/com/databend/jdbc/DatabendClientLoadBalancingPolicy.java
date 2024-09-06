@@ -2,7 +2,6 @@ package com.databend.jdbc;
 
 import java.net.URI;
 import java.util.List;
-import java.util.Random;
 
 public class DatabendClientLoadBalancingPolicy {
     static class DisabledPolicy extends DatabendClientLoadBalancingPolicy {
@@ -12,6 +11,7 @@ public class DatabendClientLoadBalancingPolicy {
         }
         // do nothing
     }
+
     static class RandomPolicy extends DatabendClientLoadBalancingPolicy {
         @Override
         protected URI pickUri(String query_id, DatabendNodes nodes) {
@@ -56,6 +56,7 @@ public class DatabendClientLoadBalancingPolicy {
             return "RoundRobin";
         }
     }
+
     /**
      * Policy that disable load balance and always use the first node.
      */
@@ -88,6 +89,7 @@ public class DatabendClientLoadBalancingPolicy {
 
     /**
      * Policy to pick a node based on the least loaded algorithm.
+     *
      * @param nodes the list of URIs to choose from
      * @return the URI to use
      */
@@ -101,6 +103,7 @@ public class DatabendClientLoadBalancingPolicy {
 
     /**
      * Get int hash value of given query id
+     *
      * @param query_id the query id used for choosing load balancing node
      * @return hash value of the query id
      */

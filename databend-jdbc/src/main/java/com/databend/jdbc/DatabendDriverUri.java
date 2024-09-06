@@ -8,13 +8,21 @@ import okhttp3.OkHttpClient;
 import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
-import java.util.*;
+import java.util.AbstractMap;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
 
-import static com.databend.client.OkHttpUtils.basicAuthInterceptor;
-import static com.databend.client.OkHttpUtils.setupInsecureSsl;
-import static com.databend.client.OkHttpUtils.tokenAuth;
+import static com.databend.client.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
@@ -224,7 +232,7 @@ public final class DatabendDriverUri {
         try {
             for (String raw_host : hosts) {
                 String fullUri = (raw_host.startsWith("http://") || raw_host.startsWith("https://")) ?
-                        raw_host  :
+                        raw_host :
                         "http://" + raw_host;
 
                 URI uri = new URI(fullUri);
@@ -306,6 +314,7 @@ public final class DatabendDriverUri {
     public URI getUri() {
         return nodes.getUris().get(0);
     }
+
     public URI getUri(String query_id) {
         return nodes.pickUri(query_id);
     }
@@ -313,6 +322,7 @@ public final class DatabendDriverUri {
     public Boolean autoDiscovery() {
         return autoDiscovery;
     }
+
     public String getDatabase() {
         return database;
     }

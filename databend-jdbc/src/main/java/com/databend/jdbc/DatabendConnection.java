@@ -1,6 +1,12 @@
 package com.databend.jdbc;
 
-import com.databend.client.*;
+import com.databend.client.ClientSettings;
+import com.databend.client.DatabendClient;
+import com.databend.client.DatabendClientV1;
+import com.databend.client.DatabendSession;
+import com.databend.client.PaginationOptions;
+import com.databend.client.QueryRequest;
+import com.databend.client.StageAttachment;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
@@ -9,10 +15,13 @@ import com.databend.jdbc.exception.DatabendFailedToPingException;
 import okhttp3.Headers;
 import okhttp3.OkHttpClient;
 
-import java.io.*;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.File;
+import java.io.IOException;
+import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URI;
-import java.net.URISyntaxException;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -30,15 +39,22 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.util.*;
+import java.util.Base64;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.Properties;
+import java.util.Random;
+import java.util.Set;
+import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.logging.*;
 import java.util.function.Consumer;
+import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.logging.SimpleFormatter;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
@@ -143,7 +159,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             return null;
         }
     }
-
 
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
@@ -660,6 +675,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     /**
      * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
      * It will find next target host based on configured Load balancing Policy.
+     *
      * @param sql The SQL statement to execute.
      * @param attach The stage attachment to use for the query.
      * @return A DatabendClient instance representing the successful query execution.
@@ -670,7 +686,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         Exception e = null;
         int times = getMaxFailoverRetries() + 1;
 
-        for( int i = 1; i <= times; i++) {
+        for (int i = 1; i <= times; i++) {
             if (e != null && !(e.getCause() instanceof ConnectException)) {
                 throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
             }
@@ -712,7 +728,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
             }
         }
-        throw new SQLException("Failover Retry Error executing query after" + getMaxFailoverRetries() +  "failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        throw new SQLException("Failover Retry Error executing query after" + getMaxFailoverRetries() + "failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
     }
 
     DatabendClient startQuery(String sql) throws SQLException {

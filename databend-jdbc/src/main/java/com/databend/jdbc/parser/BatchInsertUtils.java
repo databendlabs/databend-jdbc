@@ -2,7 +2,6 @@ package com.databend.jdbc.parser;
 
 import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
-import de.siegmar.fastcsv.writer.QuoteStrategy;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -12,12 +11,11 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.logging.Level;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
+import java.util.stream.Stream;
 
 public class BatchInsertUtils {
     private static final Logger logger = Logger.getLogger(BatchInsertUtils.class.getPackage().getName());

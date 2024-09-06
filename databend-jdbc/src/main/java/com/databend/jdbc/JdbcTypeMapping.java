@@ -3,7 +3,6 @@ package com.databend.jdbc;
 import com.databend.client.data.DatabendDataType;
 
 import java.sql.Types;
-import java.util.Map;
 
 public class JdbcTypeMapping {
     /**
