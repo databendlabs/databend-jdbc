@@ -14,9 +14,6 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.stream.Collectors;
 
-import static com.databend.jdbc.ConnectionProperties.SSL;
-import static com.databend.jdbc.ConnectionProperties.SSL_MODE;
-
 public class DatabendNodes implements DatabendNodeRouter {
 
     private AtomicReference<List<URI>> query_nodes_uris;
@@ -95,7 +92,7 @@ public class DatabendNodes implements DatabendNodeRouter {
             for (DiscoveryNode node : nodes) {
                 String raw_host = node.getAddress();
                 String fullUri = (raw_host.startsWith("http://") || raw_host.startsWith("https://")) ?
-                        raw_host  :
+                        raw_host :
                         "http://" + raw_host;
 
                 URI uri = new URI(fullUri);
@@ -121,9 +118,11 @@ public class DatabendNodes implements DatabendNodeRouter {
 
         return uris;
     }
+
     public URI pickUri(String query_id) {
         return policy.pickUri(query_id, this);
     }
+
     @Override
     public String toString() {
         return "DatabendNodes{" +

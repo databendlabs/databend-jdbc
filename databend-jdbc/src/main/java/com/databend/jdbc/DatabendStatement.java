@@ -1,6 +1,9 @@
 package com.databend.jdbc;
 
-import com.databend.client.*;
+import com.databend.client.DatabendClient;
+import com.databend.client.DatabendSession;
+import com.databend.client.QueryResults;
+import com.databend.client.StageAttachment;
 import com.databend.jdbc.annotation.NotImplemented;
 
 import java.sql.Connection;

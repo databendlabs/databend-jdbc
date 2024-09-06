@@ -9,11 +9,9 @@ import java.util.List;
 
 import static org.testng.Assert.assertEquals;
 
-public class TestCopyInto
-{
+public class TestCopyInto {
     @Test(groups = {"Unit"})
-    public void TestParseSql()
-    {
+    public void TestParseSql() {
         DatabendStage s = DatabendStage.builder().stageName("~").path("a/b/c").build();
         List<String> files = new ArrayList<>();
         files.add("file.csv");

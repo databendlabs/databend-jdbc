@@ -3,7 +3,6 @@ package com.databend.jdbc;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
-import java.io.IOException;
 import java.sql.Connection;
 import java.sql.Driver;
 import java.sql.DriverPropertyInfo;
@@ -13,10 +12,7 @@ import java.util.Properties;
 import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.userAgentInterceptor;
-import static com.databend.jdbc.DriverInfo.DRIVER_NAME;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MAJOR;
-import static com.databend.jdbc.DriverInfo.DRIVER_VERSION_MINOR;
+import static com.databend.jdbc.DriverInfo.*;
 
 public class NonRegisteringDatabendDriver implements Driver, Closeable {
     private final OkHttpClient httpClient = newHttpClient();

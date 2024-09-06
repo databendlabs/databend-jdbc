@@ -15,8 +15,7 @@ import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
-interface ConnectionProperty<T>
-{
+interface ConnectionProperty<T> {
     String getKey();
 
     Optional<String> getDefault();
@@ -31,8 +30,7 @@ interface ConnectionProperty<T>
             throws SQLException;
 
     default T getRequiredValue(Properties properties)
-            throws SQLException
-    {
+            throws SQLException {
         return getValue(properties).orElseThrow(() ->
                 new SQLException(format("Connection property '%s' is required", getKey())));
     }
@@ -42,8 +40,7 @@ interface ConnectionProperty<T>
 }
 
 abstract class AbstractConnectionProperty<T>
-        implements ConnectionProperty<T>
-{
+        implements ConnectionProperty<T> {
     protected static final Predicate<Properties> NOT_REQUIRED = properties -> false;
     protected static final Predicate<Properties> ALLOWED = properties -> true;
     protected static final Converter<String> STRING_CONVERTER = value -> value;
@@ -70,17 +67,16 @@ abstract class AbstractConnectionProperty<T>
     private final String[] choices;
 
     protected AbstractConnectionProperty(String key, Optional<String> defaultValue,
-            Predicate<Properties> isRequired, Predicate<Properties> isAllowed, Converter<T> converter, String[] choices, String[] aliases)
-    {
+                                         Predicate<Properties> isRequired, Predicate<Properties> isAllowed, Converter<T> converter, String[] choices, String[] aliases) {
         this.key = requireNonNull(key, "key is null");
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
         this.isAllowed = requireNonNull(isAllowed, "isAllowed is null");
         this.converter = requireNonNull(converter, "converter is null");
         if (choices == null || choices.length == 0) {
-            this.choices = inferChoices(converter);;
-        }
-        else {
+            this.choices = inferChoices(converter);
+            ;
+        } else {
             this.choices = choices;
         }
     }
@@ -90,8 +86,7 @@ abstract class AbstractConnectionProperty<T>
             Optional<String> defaultValue,
             Predicate<Properties> isRequired,
             Predicate<Properties> isAllowed,
-            Converter<T> converter)
-    {
+            Converter<T> converter) {
         this.key = requireNonNull(key, "key is null");
         this.defaultValue = requireNonNull(defaultValue, "defaultValue is null");
         this.isRequired = requireNonNull(isRequired, "isRequired is null");
@@ -105,8 +100,7 @@ abstract class AbstractConnectionProperty<T>
             String key,
             Predicate<Properties> required,
             Predicate<Properties> allowed,
-            Converter<T> converter)
-    {
+            Converter<T> converter) {
         this(key, Optional.empty(), required, allowed, converter);
     }
 
@@ -115,18 +109,15 @@ abstract class AbstractConnectionProperty<T>
             Predicate<Properties> required,
             Predicate<Properties> allowed,
             Converter<T> converter,
-            String[] aliases)
-    {
+            String[] aliases) {
         this(key, Optional.empty(), required, allowed, converter, null, aliases);
     }
 
-    protected static <T> Predicate<T> checkedPredicate(CheckedPredicate<T> predicate)
-    {
+    protected static <T> Predicate<T> checkedPredicate(CheckedPredicate<T> predicate) {
         return t -> {
             try {
                 return predicate.test(t);
-            }
-            catch (SQLException e) {
+            } catch (SQLException e) {
                 return false;
             }
         };
@@ -134,49 +125,43 @@ abstract class AbstractConnectionProperty<T>
 
     private String[] inferChoices(Converter<T> converter) {
         String[] choices = null;
-        Class<? super T> type = new TypeToken<T>(getClass()) {}.getRawType();
+        Class<? super T> type = new TypeToken<T>(getClass()) {
+        }.getRawType();
         if (type == Boolean.class) {
-            choices = new String[] {"true", "false"};
-        }
-        else if (Enum.class.isAssignableFrom(type)) {
+            choices = new String[]{"true", "false"};
+        } else if (Enum.class.isAssignableFrom(type)) {
             choices = Stream.of(type.getEnumConstants())
                     .map(Object::toString)
                     .toArray(String[]::new);
-        }
-        else {
+        } else {
             choices = null;
         }
-        return  choices;
+        return choices;
     }
 
     @Override
-    public String getKey()
-    {
+    public String getKey() {
         return key;
     }
 
     @Override
-    public Optional<String> getDefault()
-    {
+    public Optional<String> getDefault() {
         return defaultValue;
     }
 
     @Override
-    public boolean isRequired(Properties properties)
-    {
+    public boolean isRequired(Properties properties) {
         return isRequired.test(properties);
     }
 
     @Override
-    public boolean isAllowed(Properties properties)
-    {
+    public boolean isAllowed(Properties properties) {
         return isAllowed.test(properties);
     }
 
     @Override
     public Optional<T> getValue(Properties properties)
-            throws SQLException
-    {
+            throws SQLException {
         String value = properties.getProperty(key);
         if (value == null) {
             if (isRequired(properties)) {
@@ -187,8 +172,7 @@ abstract class AbstractConnectionProperty<T>
 
         try {
             return Optional.of(converter.convert(value));
-        }
-        catch (RuntimeException e) {
+        } catch (RuntimeException e) {
             if (value.isEmpty()) {
                 throw new SQLException(format("Connection property '%s' value is empty", key), e);
             }
@@ -197,8 +181,7 @@ abstract class AbstractConnectionProperty<T>
     }
 
     @Override
-    public DriverPropertyInfo getDriverPropertyInfo(Properties mergedProperties)
-    {
+    public DriverPropertyInfo getDriverPropertyInfo(Properties mergedProperties) {
         String currentValue = mergedProperties.getProperty(key);
         DriverPropertyInfo result = new DriverPropertyInfo(key, currentValue);
         result.required = isRequired.test(mergedProperties);
@@ -208,8 +191,7 @@ abstract class AbstractConnectionProperty<T>
 
     @Override
     public void validate(Properties properties)
-            throws SQLException
-    {
+            throws SQLException {
         if (properties.containsKey(key) && !isAllowed(properties)) {
             throw new SQLException(format("Connection property '%s' is not allowed", key));
         }
@@ -217,13 +199,11 @@ abstract class AbstractConnectionProperty<T>
         getValue(properties);
     }
 
-    interface Converter<T>
-    {
+    interface Converter<T> {
         T convert(String value);
     }
 
-    protected interface CheckedPredicate<T>
-    {
+    protected interface CheckedPredicate<T> {
         boolean test(T t)
                 throws SQLException;
     }

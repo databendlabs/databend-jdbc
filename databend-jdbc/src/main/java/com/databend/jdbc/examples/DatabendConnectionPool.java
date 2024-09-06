@@ -8,7 +8,7 @@ import java.util.Properties;
 
 public class DatabendConnectionPool extends GenericObjectPool<DatabendConnection> {
     public DatabendConnectionPool(DatabendConnectionFactory factory, GenericObjectPoolConfig<DatabendConnection> config) {
-        super(factory,config);
+        super(factory, config);
     }
 
     public void testDemo() throws Exception {
@@ -21,7 +21,7 @@ public class DatabendConnectionPool extends GenericObjectPool<DatabendConnection
         props.setProperty("SSL", "false");
         // Create a Databend connection pool
         DatabendConnectionFactory factory = new DatabendConnectionFactory("jdbc:databend://localhost:8000", props);
-        DatabendConnectionPool pool = new DatabendConnectionPool(factory,config);
+        DatabendConnectionPool pool = new DatabendConnectionPool(factory, config);
 
         // Get a connection from the pool
         DatabendConnection connection = pool.borrowObject();

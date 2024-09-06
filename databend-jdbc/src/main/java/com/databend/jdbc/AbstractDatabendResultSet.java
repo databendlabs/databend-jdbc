@@ -1,6 +1,5 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.ColumnTypeHandler;
@@ -365,7 +364,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null || value.toString().equals("NULL")) {
             wasNull.set(true);
             return null;
-        }else {
+        } else {
             wasNull.set(false);
         }
 

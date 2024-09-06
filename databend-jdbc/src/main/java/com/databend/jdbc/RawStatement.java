@@ -1,15 +1,11 @@
 package com.databend.jdbc;
 
-import java.util.List;
-import java.util.Optional;
-
+import lombok.Data;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.Pair;
 
-import com.databend.jdbc.ParamMarker;
-import com.databend.jdbc.StatementType;
-
-import lombok.Data;
+import java.util.List;
+import java.util.Optional;
 
 @Data
 public abstract class RawStatement {

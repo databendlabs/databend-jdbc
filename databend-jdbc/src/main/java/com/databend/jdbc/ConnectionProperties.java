@@ -3,9 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.PaginationOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
-import org.checkerframework.checker.units.qual.C;
 
-import java.sql.Connection;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
@@ -158,7 +156,7 @@ public final class ConnectionProperties {
         }
     }
 
-    private static class AutoDiscovery extends  AbstractConnectionProperty<Boolean> {
+    private static class AutoDiscovery extends AbstractConnectionProperty<Boolean> {
         public AutoDiscovery() {
             super("auto_discovery", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }

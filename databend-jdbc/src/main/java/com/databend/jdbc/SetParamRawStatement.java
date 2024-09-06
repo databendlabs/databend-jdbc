@@ -1,12 +1,12 @@
 package com.databend.jdbc;
-import static com.databend.jdbc.StatementType.PARAM_SETTING;
-
-import java.util.List;
-
-import org.apache.commons.lang3.tuple.Pair;
 
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
+import org.apache.commons.lang3.tuple.Pair;
+
+import java.util.List;
+
+import static com.databend.jdbc.StatementType.PARAM_SETTING;
 
 /**
  * A Set param statement is a special statement that sets a parameter internally

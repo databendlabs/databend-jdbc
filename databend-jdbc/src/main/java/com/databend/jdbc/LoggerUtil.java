@@ -1,15 +1,18 @@
 package com.databend.jdbc;
 
-import java.io.*;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
-
 import com.databend.jdbc.log.DatabendLogger;
 import com.databend.jdbc.log.JDKLogger;
 import com.databend.jdbc.log.SLF4JLogger;
-
 import lombok.CustomLog;
 import lombok.experimental.UtilityClass;
+
+import java.io.BufferedReader;
+import java.io.ByteArrayInputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
+import java.util.stream.Collectors;
 
 @UtilityClass
 @CustomLog

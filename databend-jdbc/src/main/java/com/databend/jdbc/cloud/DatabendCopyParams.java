@@ -1,6 +1,5 @@
 package com.databend.jdbc.cloud;
 
-import javax.xml.crypto.Data;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;

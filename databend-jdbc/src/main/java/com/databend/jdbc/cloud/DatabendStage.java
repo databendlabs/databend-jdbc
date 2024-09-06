@@ -1,46 +1,40 @@
 package com.databend.jdbc.cloud;
 
-public class DatabendStage
-{
+public class DatabendStage {
     private static final String defaultStageName = "~";
     private final String stageName;
     private final String path;
     private final ExternalLocationS3 externalLocationS3;
+
     // TODO(zhihanz) support more external location such as Azure/GCS
-    private DatabendStage(String stageName, String path, ExternalLocationS3 externalLocationS3)
-    {
+    private DatabendStage(String stageName, String path, ExternalLocationS3 externalLocationS3) {
         if (stageName == null || stageName.isEmpty()) {
-           this.stageName = defaultStageName;
+            this.stageName = defaultStageName;
         } else {
-           this.stageName = stageName;
+            this.stageName = stageName;
         }
         this.path = path;
         this.externalLocationS3 = externalLocationS3;
     }
 
-    public static DatabendStage.Builder builder()
-    {
+    public static DatabendStage.Builder builder() {
         return new DatabendStage.Builder();
     }
 
-    public String getStageName()
-    {
+    public String getStageName() {
         return stageName;
     }
 
-    public String getPath()
-    {
+    public String getPath() {
         return path;
     }
 
-    public ExternalLocationS3 getExternalLocationS3()
-    {
+    public ExternalLocationS3 getExternalLocationS3() {
         return externalLocationS3;
     }
 
     @Override
-    public String toString()
-    {
+    public String toString() {
         if (this.externalLocationS3 != null) {
             return this.externalLocationS3.toString();
         }
@@ -51,32 +45,27 @@ public class DatabendStage
     }
 
 
-    public static class Builder
-    {
+    public static class Builder {
         private String stageName;
         private String path;
         private ExternalLocationS3 externalLocationS3;
 
-        public Builder stageName(String stageName)
-        {
+        public Builder stageName(String stageName) {
             this.stageName = stageName;
             return this;
         }
 
-        public Builder path(String path)
-        {
+        public Builder path(String path) {
             this.path = path;
             return this;
         }
 
-        public Builder externalLocationS3(ExternalLocationS3 externalLocationS3)
-        {
+        public Builder externalLocationS3(ExternalLocationS3 externalLocationS3) {
             this.externalLocationS3 = externalLocationS3;
             return this;
         }
 
-        public DatabendStage build()
-        {
+        public DatabendStage build() {
             return new DatabendStage(stageName, path, externalLocationS3);
         }
     }

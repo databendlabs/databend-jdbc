@@ -9,6 +9,7 @@ import java.sql.SQLException;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
+
 @Test(timeOut = 10000)
 public class TestDatabendDriverUri {
     private static DatabendDriverUri createDriverUri(String url)
@@ -232,6 +233,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals("null", uri.nullDisplay().toString());
         Assert.assertEquals(false, uri.getStrNullAsNull());
     }
+
     @Test
     public void TestSetSchema() throws SQLException {
         String url = "jdbc:databend://databend:databend@localhost:8000/";
@@ -240,7 +242,7 @@ public class TestDatabendDriverUri {
         try {
             connection.createStatement().execute("create or replace database test2");
             connection.createStatement().execute("create or replace table test2.test2(id int)");
-        }catch (SQLException e){
+        } catch (SQLException e) {
             throw new RuntimeException(e);
         }
         connection.setSchema("test2");

@@ -9,7 +9,6 @@ import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import javax.annotation.concurrent.GuardedBy;
-
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;

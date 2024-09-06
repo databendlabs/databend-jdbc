@@ -7,7 +7,7 @@ import java.net.URI;
 import java.util.List;
 
 /**
- *  Node manager manage a list of hosts
+ * Node manager manage a list of hosts
  */
 public interface DatabendNodeRouter {
     /**
@@ -24,6 +24,7 @@ public interface DatabendNodeRouter {
 
     /**
      * Discover all possible query uris through databend discovery api and update candidate node router list in need
+     *
      * @return true if update operation executed, false otherwise
      * Ref PR:
      * https://github.com/datafuselabs/databend-jdbc/pull/264

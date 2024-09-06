@@ -7,14 +7,13 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
 
-public class TestPresignContext
-{
+public class TestPresignContext {
     private Connection createConnection()
-            throws SQLException
-    {
+            throws SQLException {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
+
     @Test(groups = {"Unit"})
     public void TestPreisgnUrlBuild() {
         String presignSql = PresignContext.buildRequestSQL(PresignContext.PresignMethod.UPLOAD, "test_bucket", "test.csv");
@@ -33,8 +32,7 @@ public class TestPresignContext
             Assert.assertNotNull(ctx);
             Assert.assertNotNull(ctx.getUrl());
             Assert.assertNotNull(ctx.getHeaders());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
@@ -49,8 +47,7 @@ public class TestPresignContext
             Assert.assertNotNull(ctx);
             Assert.assertNotNull(ctx.getUrl());
             Assert.assertNotNull(ctx.getHeaders());
-        }
-        catch (Exception e) {
+        } catch (Exception e) {
             throw new RuntimeException(e);
         }
     }
