@@ -63,6 +63,7 @@ public final class DatabendDriverUri {
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
     private final Integer maxRowsPerPage;
+    private final int nodeDiscoveryInterval;
 
 //    private final boolean useSecureConnection;
 
@@ -81,12 +82,14 @@ public final class DatabendDriverUri {
         this.tenant = TENANT.getValue(properties).orElse("");
         this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(0);
         this.autoDiscovery = AUTO_DISCOVERY.getValue(properties).orElse(false);
+        this.nodeDiscoveryInterval = NODE_DISCOVERY_INTERVAL.getValue(properties).orElse(5 * 60 * 1000);
         List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
         DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
         DatabendNodes nodes = uriAndProperties.getKey();
         nodes.updateNodes(finalUris);
         nodes.updatePolicy(policy);
         nodes.setSSL(this.useSecureConnection, this.sslmode);
+        nodes.setDiscoveryInterval(this.nodeDiscoveryInterval);
         this.nodes = nodes;
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
@@ -278,7 +281,7 @@ public final class DatabendDriverUri {
             uris.addAll(uriSet);
             // Create DatabendNodes object
             DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED); // You might want to make this configurable
-            DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment);
+            DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment, 5 * 60 * 1000);
             return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + raw, e);

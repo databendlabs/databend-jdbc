@@ -26,7 +26,7 @@ public class DatabendNodes implements DatabendNodeRouter {
     @Setter
     private boolean debug = false;
     // minimum time between discovery
-    protected long discoveryInterval = 1000 * 60 * 5;
+    protected long discoveryInterval;
     protected DatabendClientLoadBalancingPolicy policy;
 
     private final String uriPath;
@@ -36,13 +36,14 @@ public class DatabendNodes implements DatabendNodeRouter {
     private boolean useSecureConnection = false;
     private String sslmode = "disable";
 
-    public DatabendNodes(List<URI> queryNodesUris, DatabendClientLoadBalancingPolicy policy, String UriPath, String UriQuery, String UriFragment) {
+    public DatabendNodes(List<URI> queryNodesUris, DatabendClientLoadBalancingPolicy policy, String UriPath, String UriQuery, String UriFragment, long discoveryInterval) {
         this.query_nodes_uris = new AtomicReference<>(queryNodesUris);
         this.policy = policy;
         this.index = new AtomicInteger(0);
         this.uriPath = UriPath;
         this.uriQuery = UriQuery;
         this.uriFragment = UriFragment;
+        this.discoveryInterval = discoveryInterval;
     }
 
     @Override
@@ -53,6 +54,10 @@ public class DatabendNodes implements DatabendNodeRouter {
     public void setSSL(boolean useSecureConnection, String sslmode) {
         this.useSecureConnection = useSecureConnection;
         this.sslmode = sslmode;
+    }
+
+    public void setDiscoveryInterval(long discoveryInterval) {
+        this.discoveryInterval = discoveryInterval;
     }
 
     public void updateNodes(List<URI> query_nodes_uris) {
