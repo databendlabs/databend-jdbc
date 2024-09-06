@@ -24,11 +24,8 @@ public interface DatabendNodeRouter {
 
     /**
      * Discover all possible query uris through databend discovery api and update candidate node router list in need
-     *
-     * @return true if update operation executed, false otherwise
-     * Ref PR:
-     * https://github.com/datafuselabs/databend-jdbc/pull/264
-     * https://github.com/datafuselabs/databend/pull/16353
      */
-    boolean discoverUris(OkHttpClient client, ClientSettings settings);
+    void discoverUris(OkHttpClient client, ClientSettings settings) throws UnsupportedOperationException;
+
+    boolean needDiscovery();
 }

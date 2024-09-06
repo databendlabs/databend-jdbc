@@ -102,7 +102,7 @@ public class TestClientIT {
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        List<DiscoveryNode> nodes = DatabendClientV1.dicoverNodes(client, settings);
+        List<DiscoveryNode> nodes = DatabendClientV1.discoverNodes(client, settings);
         Assert.assertFalse(nodes.isEmpty());
         for (DiscoveryNode node : nodes) {
             System.out.println(node.getAddress());
@@ -119,7 +119,7 @@ public class TestClientIT {
         additionalHeaders.put("~mock.unsupported.discovery", "true");
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
         try {
-            DatabendClientV1.dicoverNodes(client, settings);
+            DatabendClientV1.discoverNodes(client, settings);
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
             System.out.println(e.getMessage());

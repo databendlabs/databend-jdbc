@@ -602,6 +602,10 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         return this.driverUri.copyPurge();
     }
 
+    public boolean isAutoDiscovery() {
+        return this.autoDiscovery;
+    }
+
     public String warehouse() {
         return this.driverUri.getWarehouse();
     }
@@ -718,9 +722,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 ClientSettings s = sb.build();
                 logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
                 // discover new hosts in need.
-//                if (this.autoDiscovery) {
-//
-//                }
+                if (this.autoDiscovery) {
+                    tryAutoDiscovery(httpClient, s);
+                }
                 return new DatabendClientV1(httpClient, sql, s, this);
             } catch (RuntimeException e1) {
                 e = e1;
@@ -728,7 +732,33 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
             }
         }
-        throw new SQLException("Failover Retry Error executing query after" + getMaxFailoverRetries() + "failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        throw new SQLException("Failover Retry Error executing query after " + getMaxFailoverRetries() + " failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+    }
+
+    /**
+     * Try to auto discovery the databend nodes it will log exceptions when auto discovery failed and not affect real query execution
+     *
+     * @param client the http client to query on
+     * @param settings the client settings to use
+     */
+    void tryAutoDiscovery(OkHttpClient client, ClientSettings settings) {
+        if (this.autoDiscovery) {
+            if (this.driverUri.enableMock()) {
+                settings.getAdditionalHeaders().put("~mock.unsupported.discovery", "true");
+            }
+            DatabendNodes nodes = this.driverUri.getNodes();
+            if (nodes != null && nodes.needDiscovery()) {
+                try {
+                    nodes.discoverUris(client, settings);
+                } catch (UnsupportedOperationException e) {
+                    logger.log(Level.WARNING, "Current Query Node do not support auto discovery, close the functionality: " + e.getMessage());
+                    this.autoDiscovery = false;
+                } catch (Exception e) {
+                    logger.log(Level.FINE, "Error auto discovery: " + " cause: " + e.getCause() + " message: " + e.getMessage());
+                }
+            }
+        }
+
     }
 
     DatabendClient startQuery(String sql) throws SQLException {

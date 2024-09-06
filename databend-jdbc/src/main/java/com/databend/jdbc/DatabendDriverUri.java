@@ -57,6 +57,7 @@ public final class DatabendDriverUri {
     private final Integer connectionTimeout;
     private final Integer maxFailoverRetry;
     private final boolean autoDiscovery;
+    private final boolean enableMock;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
@@ -73,6 +74,7 @@ public final class DatabendDriverUri {
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
         this.useVerify = USE_VERIFY.getValue(properties).orElse(false);
         this.debug = DEBUG.getValue(properties).orElse(false);
+        this.enableMock = ENABLE_MOCK.getValue(properties).orElse(false);
         this.strNullAsNull = STRNULL_AS_NULL.getValue(properties).orElse(true);
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
@@ -117,7 +119,7 @@ public final class DatabendDriverUri {
         uriProperties.put(DATABASE.getKey(), db);
     }
 
-    private static List<URI> canonicalizeUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
+    public static List<URI> canonicalizeUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
         List<URI> finalUris = new ArrayList<>();
         for (URI uri : uris) {
             finalUris.add(canonicalizeUri(uri, isSSLSecured, sslmode));
@@ -349,6 +351,10 @@ public final class DatabendDriverUri {
 
     public boolean getDebug() {
         return debug;
+    }
+
+    public boolean enableMock() {
+        return enableMock;
     }
 
     public String getSslmode() {
