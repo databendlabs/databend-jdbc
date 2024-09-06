@@ -15,6 +15,8 @@ admin_api_address = "0.0.0.0:8082"
 # Databend Query metrics RESET API.
 metric_api_address = "0.0.0.0:7072"
 
+discovery_address = "localhost:8002"
+
 # Databend Query MySQL Handler.
 mysql_handler_host = "0.0.0.0"
 mysql_handler_port = 3308
