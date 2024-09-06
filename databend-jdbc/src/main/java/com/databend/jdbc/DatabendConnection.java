@@ -758,6 +758,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 }
             }
         }
+
     }
 
     DatabendClient startQuery(String sql) throws SQLException {

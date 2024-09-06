@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.DiscoveryNode;
+
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -19,6 +20,7 @@ public class TestMultiHost {
     private final String FAIL_OVER_JDBC_URL = "jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?load_balancing_policy=round_robin&max_failover_retry=4";
     private final String AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8000/default?load_balancing_policy=round_robin&auto_discovery=true";
     private final String UNSUPPORT_AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8000/default?load_balancing_policy=round_robin&auto_discovery=true&enable_mock=true";
+
 
     private Connection createConnection(String url)
             throws SQLException {
