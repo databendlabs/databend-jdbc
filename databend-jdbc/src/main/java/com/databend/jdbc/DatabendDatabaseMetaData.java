@@ -5,7 +5,13 @@ import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
 import com.google.common.base.Joiner;
 
-import java.sql.*;
+import java.sql.Connection;
+import java.sql.DatabaseMetaData;
+import java.sql.ResultSet;
+import java.sql.RowIdLifetime;
+import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
