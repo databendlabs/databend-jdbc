@@ -87,10 +87,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 return;
             }
             try {
-                System.setProperty("java.util.logging.FileHandler.limit", "524288000"); // 500MB
-                System.setProperty("java.util.logging.FileHandler.count", "10");
+                System.setProperty("java.util.logging.FileHandler.limit", "5242880000"); // 5000MB
+                System.setProperty("java.util.logging.FileHandler.count", "200");
                 System.setProperty("java.util.logging.FileHandler.append", "true"); // Enable log file reuse
-                FILE_HANDLER = new FileHandler(file.getAbsolutePath(), true); // Pass 'true' to the FileHandler constructor to enable appending
+                FILE_HANDLER = new FileHandler(file.getAbsolutePath(), Integer.parseInt(System.getProperty("java.util.logging.FileHandler.limit")),
+                        Integer.parseInt(System.getProperty("java.util.logging.FileHandler.count")), true);
                 FILE_HANDLER.setLevel(Level.ALL);
                 FILE_HANDLER.setFormatter(new SimpleFormatter());
                 logger.addHandler(FILE_HANDLER);
