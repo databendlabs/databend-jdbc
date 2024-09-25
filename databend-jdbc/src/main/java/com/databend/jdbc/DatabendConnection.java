@@ -704,7 +704,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 // 3. if there is not active transaction, it will use load balancing policy to choose a host to execute query
                 String query_id = UUID.randomUUID().toString();
                 String candidateHost = this.driverUri.getUri(query_id).toString();
-                if (!inActiveTransaction()) {
+                if (inActiveTransaction()) {
                     this.routeHint = uriRouteHint(candidateHost);
                 }
                 // checkout the host to use from route hint
