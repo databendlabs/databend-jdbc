@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest
     services:
       databend:
-        image: datafuselabs/databend:nightly
+        image: docker.io/datafuselabs/databend
         env:
           QUERY_DEFAULT_USER: databend
           QUERY_DEFAULT_PASSWORD: databend
