@@ -78,6 +78,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     private String routeHint = "";
+    private AtomicReference<String> lastNodeID = new AtomicReference<>();
 
     private void initializeFileHandler() {
         if (this.debug()) {
@@ -696,12 +697,12 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
             }
             try {
-                // route hint is used when transaction occured or when multi-cluster warehouse adopted(CLOUD ONLY)
+                // route hint is used when transaction occurred or when multi-cluster warehouse adopted(CLOUD ONLY)
                 // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
                 // transaction procedure:
                 // 1. server return session body where txn state is active
-                // 2. when there is a active transaction, it will route all query to target route hint uri if exists
-                // 3. if there is not active transaction, it will use load balancing policy to choose a host to execute query
+                // 2. when there is an active transaction, it will route all query to target route hint uri if exists
+                // 3. if there is not an active transaction, it will use load balancing policy to choose a host to execute query
                 String query_id = UUID.randomUUID().toString();
                 String candidateHost = this.driverUri.getUri(query_id).toString();
                 if (!inActiveTransaction()) {
@@ -726,7 +727,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 if (this.autoDiscovery) {
                     tryAutoDiscovery(httpClient, s);
                 }
-                return new DatabendClientV1(httpClient, sql, s, this);
+                return new DatabendClientV1(httpClient, sql, s, this, lastNodeID);
             } catch (RuntimeException e1) {
                 e = e1;
             } catch (Exception e1) {

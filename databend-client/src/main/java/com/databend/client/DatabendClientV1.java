@@ -67,12 +67,13 @@ public class DatabendClientV1
     private final Map<String, String> additonalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
+    private String nodeID;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
     private Consumer<DatabendSession> on_session_state_update;
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update) {
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -87,11 +88,13 @@ public class DatabendClientV1
         this.maxRetryAttempts = settings.getRetryAttempts();
         // need atomic reference since it may get updated when query returned.
         this.databendSession = new AtomicReference<>(settings.getSession());
+        this.nodeID = last_node_id.get();
         Request request = buildQueryRequest(query, settings);
         boolean completed = this.execute(request);
         if (!completed) {
             throw new RuntimeException("Query failed to complete");
         }
+        last_node_id.set(this.nodeID);
     }
 
     public static List<DiscoveryNode> discoverNodes(OkHttpClient httpClient, ClientSettings settings) {
@@ -127,8 +130,13 @@ public class DatabendClientV1
         if (reqString == null || reqString.isEmpty()) {
             throw new IllegalArgumentException("Invalid request: " + req);
         }
+
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
         Request.Builder builder = prepareRequest(url, this.additonalHeaders);
+        DatabendSession session = databendSession.get();
+        if (session != null && session.getNeedSticky()) {
+            builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, nodeID);
+        }
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
     }
 
@@ -299,6 +307,7 @@ public class DatabendClientV1
     }
 
     private void processResponse(Headers headers, QueryResults results) {
+        nodeID = results.getNodeId();
         DatabendSession session = results.getSession();
         if (session != null) {
             databendSession.set(session);
@@ -332,6 +341,7 @@ public class DatabendClientV1
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
         Request.Builder builder = prepareRequest(url, this.additonalHeaders);
+        builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
         return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
     }
