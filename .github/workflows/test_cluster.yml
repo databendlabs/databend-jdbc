@@ -33,7 +33,14 @@ jobs:
         with:
           version: '1.2.629-nightly'
           target: 'x86_64-unknown-linux-gnu'
-      - name: Run Maven clean deploy with release profile
+
+      - name: Test with conn to node 1
         run: mvn test -DexcludedGroups=FLAKY
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Test with conn to nginx
+        run: mvn test -DexcludedGroups=FLAKY
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          DATABEND_TEST_CONN_PORT: 8010

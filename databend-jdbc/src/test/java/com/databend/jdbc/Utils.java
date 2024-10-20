@@ -7,7 +7,7 @@ import java.util.Properties;
 
 public class Utils {
 
-    static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT") : "8000";
+    static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT").trim() : "8000";
 
     static String username = "databend";
     static String password = "databend";

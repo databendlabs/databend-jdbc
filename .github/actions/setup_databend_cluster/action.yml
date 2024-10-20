@@ -30,6 +30,13 @@ runs:
 
         aws --endpoint-url http://127.0.0.1:9900/ s3 mb s3://testbucket
 
+    - name: Start Nginx
+      shell: bash
+      run: |
+        docker run -d --network host --name nginx-lb \
+        -v ${{ github.workspace }}/scripts/ci/nginx.conf:/etc/nginx/nginx.conf:ro \
+        nginx
+
     - name: Download binary and extract into target directory
       shell: bash
       run: |
