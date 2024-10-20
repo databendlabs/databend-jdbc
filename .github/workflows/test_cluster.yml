@@ -40,7 +40,7 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
       - name: Test with conn to nginx
-        run: mvn test -DexcludedGroups=FLAKY,SKIP_NGINX
+        run: mvn test -DexcludedGroups=FLAKY
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           DATABEND_TEST_CONN_PORT: 8010
