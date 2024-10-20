@@ -5,24 +5,17 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 
 public class TestTransaction {
 
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=true";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
     @BeforeTest
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.createStatement().execute("drop database if exists test_txn");
         c.createStatement().execute("create database test_txn");
         c.createStatement().execute("create table test_txn.table1(i int)");
@@ -31,7 +24,7 @@ public class TestTransaction {
     @Test
     public void testRollback()
             throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.createStatement().execute("delete from test_txn.table1");
         try (Statement statemte = c.createStatement()) {
             statemte.execute("begin");
@@ -66,8 +59,8 @@ public class TestTransaction {
 
     @Test
     public void testCommit() throws SQLException {
-        Connection c1 = createConnection();
-        Connection c2 = createConnection();
+        Connection c1 = Utils.createConnection();
+        Connection c2 = Utils.createConnection();
         c1.createStatement().execute("delete from test_txn.table1");
         try (Statement statement = c1.createStatement()) {
             statement.execute("create  or replace table test_txn.table1(i int)");
@@ -90,7 +83,7 @@ public class TestTransaction {
             }
         }
         c1.commit();
-        Connection c3 = createConnection();
+        Connection c3 = Utils.createConnection();
         try (Statement statement = c3.createStatement()) {
             statement.execute("select * from test_txn.table1");
             ResultSet rs = statement.getResultSet();

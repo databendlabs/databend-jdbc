@@ -12,7 +12,6 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -25,27 +24,11 @@ import static org.testng.AssertJUnit.assertEquals;
 
 @Test(timeOut = 10000)
 public class TestBasicDriver {
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
-    private Connection createConnection(String database) throws SQLException {
-        String url = "jdbc:databend://localhost:8000/" + database;
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
-    private Connection createConnection(String database, Properties p) throws SQLException {
-        String url = "jdbc:databend://localhost:8000/" + database;
-        return DriverManager.getConnection(url, p);
-    }
-
     @BeforeTest
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.createStatement().execute("drop database if exists test_basic_driver");
         c.createStatement().execute("drop database if exists test_basic_driver_2");
         c.createStatement().execute("create database test_basic_driver");
@@ -61,7 +44,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testBasic()
             throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
             Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
             Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
@@ -83,7 +66,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testExecuteInvalidSql() {
         assertThrows(SQLException.class, () -> {
-            try (Connection connection = createConnection();
+            try (Connection connection = Utils.createConnection();
                  Statement statement = connection.createStatement()) {
                 statement.execute("create tabl xxx (a int, b varchar)");
             }
@@ -91,7 +74,7 @@ public class TestBasicDriver {
     }
 
     public void testSchema() {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
             Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
             Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
@@ -122,13 +105,13 @@ public class TestBasicDriver {
                 "    return i+k;\n" +
                 "}\n" +
                 "$$;";
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute(s);
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("select add_plus(1,2)");
             ResultSet r = statement.getResultSet();
@@ -141,7 +124,7 @@ public class TestBasicDriver {
 
     @Test
     public void TestMergeinto() throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.target_table (\n" +
                     "    ID INT,\n" +
@@ -184,7 +167,7 @@ public class TestBasicDriver {
 
     @Test
     public void testWriteDouble() throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.table_double (\n" +
                     "    ID INT,\n" +
@@ -216,7 +199,7 @@ public class TestBasicDriver {
 
     @Test
     public void testDefaultSelectNullValue() throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.executeQuery("SELECT a,b from test_basic_driver.table_with_null");
             ResultSet r = statement.getResultSet();
@@ -231,7 +214,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testQueryUpdateCount()
             throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("SELECT version()");
             ResultSet r = statement.getResultSet();
@@ -247,11 +230,11 @@ public class TestBasicDriver {
         p.setProperty("wait_time_secs", "10");
         p.setProperty("max_rows_in_buffer", "100");
         p.setProperty("max_rows_per_page", "100");
-        p.setProperty("user", "databend");
-        p.setProperty("password", "databend");
+        p.setProperty("user", Utils.getUsername());
+        p.setProperty("password", Utils.getPassword());
 
         //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
-        try (Connection connection = createConnection("test_basic_driver", p)) {
+        try (Connection connection = Utils.createConnection("test_basic_driver", p)) {
             PaginationOptions options = connection.unwrap(DatabendConnection.class).getPaginationOptions();
             Assert.assertEquals(options.getWaitTimeSecs(), 10);
             Assert.assertEquals(options.getMaxRowsInBuffer(), 100);
@@ -267,7 +250,7 @@ public class TestBasicDriver {
     @Test
     public void testPrepareStatementQuery() throws SQLException {
         String sql = "SELECT number from numbers(100) where number = ? or number = ?";
-        Connection conn = createConnection("test_basic_driver");
+        Connection conn = Utils.createConnection("test_basic_driver");
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
             statement.setInt(2, 2);
@@ -281,7 +264,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testBasicWithDatabase()
             throws SQLException {
-        try (Connection connection = createConnection("test_basic_driver")) {
+        try (Connection connection = Utils.createConnection("test_basic_driver")) {
             Statement statement = connection.createStatement();
             statement.execute("SELECT i from table1");
             ResultSet r = statement.getResultSet();
@@ -305,7 +288,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testUpdateSession()
             throws SQLException {
-        try (Connection connection = createConnection("test_basic_driver")) {
+        try (Connection connection = Utils.createConnection("test_basic_driver")) {
             connection.createStatement().execute("set max_threads=1");
             connection.createStatement().execute("use test_basic_driver_2");
             DatabendSession session = connection.unwrap(DatabendConnection.class).getSession();
@@ -316,7 +299,7 @@ public class TestBasicDriver {
 
     @Test(groups = {"IT"})
     public void testResultException() {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             Statement statement = connection.createStatement();
             ResultSet r = statement.executeQuery("SELECT 1e189he 198h");
 
@@ -329,7 +312,7 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testSelectWithPreparement()
             throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp, d date, ts timestamp)");
             connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00', '2021-01-01', '2021-01-01 00:00:00')");
             PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ? and d < ? and ts < ?");
@@ -346,7 +329,7 @@ public class TestBasicDriver {
     public void testSelectGeometry() throws SQLException, ParseException {
         // skip due to failed cluster tests
 
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("set enable_geo_create_table=1");
             connection.createStatement().execute("CREATE or replace table cities ( id INT, name VARCHAR NOT NULL, location GEOMETRY);");
             connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
