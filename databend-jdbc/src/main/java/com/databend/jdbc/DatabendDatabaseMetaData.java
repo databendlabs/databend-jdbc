@@ -12,10 +12,7 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -884,6 +881,20 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         optionalStringInFilter(filters, "table_type", types);
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_type, table_catalog, table_schema, table_name");
+
+        if (types == null || types.length == 0 || Arrays.stream(types).allMatch(t -> t.equalsIgnoreCase("VIEW"))) {
+            // add view
+            sql.append("\n union all ");
+            sql.append("\nselect database TABLE_CAT, database TABLE_SCHEM, name TABLE_NAME, 'VIEW' TABLE_TYPE, null REMARKS, ");
+            sql.append("'' as TYPE_CAT, engine as TYPE_SCHEM, engine as TYPE_NAME, '' as SELF_REFERENCING_COL_NAME, '' as REF_GENERATION ");
+            sql.append("from system.views ");
+            filters = new ArrayList<>();
+            emptyStringEqualsFilter(filters, "database", catalog);
+            emptyStringLikeFilter(filters, "database", schemaPattern);
+            optionalStringLikeFilter(filters, "name", tableNamePattern);
+            buildFilters(sql, filters);
+            sql.append("\nORDER BY TABLE_CAT, TABLE_NAME, TABLE_TYPE");
+        }
 
         return select(sql.toString());
     }
