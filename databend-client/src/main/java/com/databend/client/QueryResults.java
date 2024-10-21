@@ -25,6 +25,7 @@ import static com.google.common.base.MoreObjects.toStringHelper;
 
 public class QueryResults {
     private final String queryId;
+    private final String nodeId;
     private final String sessionId;
     private final DatabendSession session;
     private final List<QueryRowField> schema;
@@ -42,6 +43,7 @@ public class QueryResults {
     @JsonCreator
     public QueryResults(
             @JsonProperty("id") String queryId,
+            @JsonProperty("node_id") String nodeId,
             @JsonProperty("session_id") String sessionId,
             @JsonProperty("session") DatabendSession session,
             @JsonProperty("schema") List<QueryRowField> schema,
@@ -55,6 +57,7 @@ public class QueryResults {
             @JsonProperty("next_uri") URI nextUri,
             @JsonProperty("kill_uri") URI killUri) {
         this.queryId = queryId;
+        this.nodeId = nodeId;
         this.sessionId = sessionId;
         this.session = session;
         this.schema = schema;
@@ -74,6 +77,11 @@ public class QueryResults {
     @JsonProperty
     public String getQueryId() {
         return queryId;
+    }
+
+    @JsonProperty
+    public String getNodeId() {
+        return nodeId;
     }
 
     @JsonProperty
