@@ -13,7 +13,6 @@ import java.io.*;
 import java.nio.file.Files;
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -41,21 +40,10 @@ public class TestFileTransfer {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
 
         c.createStatement().execute("drop table if exists copy_into");
         c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
-    }
-
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000/default";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
-    private Connection createConnection(boolean presignDisabled) throws SQLException {
-        String url = "jdbc:databend://localhost:8000/default?presigned_url_disabled=" + presignDisabled;
-        return DriverManager.getConnection(url, "databend", "databend");
     }
 
     // generate a csv file in a temp directory with given lines, return absolute path of the generated csv
@@ -126,7 +114,7 @@ public class TestFileTransfer {
         File f = new File(filePath);
         InputStream downloaded = null;
         try (FileInputStream fileInputStream = new FileInputStream(f)) {
-            Connection connection = createConnection();
+            Connection connection = Utils.createConnection();
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
@@ -149,7 +137,8 @@ public class TestFileTransfer {
         File f = new File(filePath);
         try (InputStream fileInputStream = Files.newInputStream(f.toPath())) {
             Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
-            Connection connection = createConnection(true);
+
+            Connection connection = Utils.createConnectionWithPresignedUrlDisable();
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
@@ -169,7 +158,7 @@ public class TestFileTransfer {
         String filePath = generateRandomCSVComplex(10);
         File f = new File(filePath);
         try (FileInputStream fileInputStream = new FileInputStream(f)) {
-            Connection connection = createConnection();
+            Connection connection = Utils.createConnection();
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);

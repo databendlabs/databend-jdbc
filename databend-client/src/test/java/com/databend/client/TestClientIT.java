@@ -28,8 +28,10 @@ import static com.databend.client.ClientSettings.*;
 
 @Test(timeOut = 10000)
 public class TestClientIT {
+    static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT").trim() : "8000";
+
     // please setup a local databend cluster before running this test, and create databend
-    private static final String DATABEND_HOST = "http://databend:databend@127.0.0.1:8000";
+    private static final String DATABEND_HOST = "http://databend:databend@127.0.0.1:" + port;
     private static final String DATABASE = "default";
 
     @Test(groups = {"it"})

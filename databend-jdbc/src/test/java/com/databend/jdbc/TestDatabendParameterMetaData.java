@@ -7,7 +7,6 @@ import org.testng.annotations.Test;
 
 
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.ParameterMetaData;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
@@ -16,22 +15,11 @@ import java.sql.Types;
 
 public class TestDatabendParameterMetaData {
 
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
-    private Connection createConnection(boolean presignDisabled) throws SQLException {
-        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
     @BeforeTest
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         System.out.println("-----------------");
         System.out.println("drop all existing test table");
     }
@@ -39,7 +27,7 @@ public class TestDatabendParameterMetaData {
 
     @Test(groups = "integration")
     public void testGetParameterMetaData() throws SQLException {
-        try (Connection conn = createConnection();
+        try (Connection conn = Utils.createConnection();
              PreparedStatement emptyPs = conn.prepareStatement("select 1");
              // If you want to use ps.getParameterMetaData().* methods, you need to use a valid sql such as
              // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
@@ -62,7 +50,7 @@ public class TestDatabendParameterMetaData {
             }
         }
 
-        try (Connection conn = createConnection();
+        try (Connection conn = Utils.createConnection();
              PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b int) values (?,?)");) {
             Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 2);
             Assert.assertEquals(ps.getParameterMetaData().getParameterMode(2), ParameterMetaData.parameterModeIn);
@@ -73,7 +61,7 @@ public class TestDatabendParameterMetaData {
             Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.INT_32.getDisplayName().toLowerCase());
         }
 
-        try (Connection conn = createConnection();
+        try (Connection conn = Utils.createConnection();
              PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b VARIANT) values (?,?)");) {
             Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 2);
             Assert.assertEquals(ps.getParameterMetaData().getParameterMode(2), ParameterMetaData.parameterModeIn);

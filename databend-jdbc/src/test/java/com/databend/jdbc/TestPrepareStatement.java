@@ -8,7 +8,6 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.Date;
-import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -17,24 +16,14 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Properties;
 
 public class TestPrepareStatement {
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000?debug=true";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
-    private Connection createConnection(boolean presignDisabled) throws SQLException {
-        String url = "jdbc:databend://localhost:8000?presigned_url_disabled=" + presignDisabled;
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
     @BeforeTest
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         System.out.println("-----------------");
         System.out.println("drop all existing test table");
         c.createStatement().execute("drop table if exists test_prepare_statement");
@@ -53,7 +42,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
@@ -82,7 +71,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsertWithNULL() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement_null values");
@@ -139,7 +128,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchDelete() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
@@ -184,7 +173,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsertWithTime() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_time values");
         ps.setDate(1, Date.valueOf("2020-01-10"));
@@ -210,7 +199,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsertWithComplexDataType() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
         ps.setInt(1, 1);
@@ -237,7 +226,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsertWithComplexDataTypeWithPresignAPI() throws SQLException {
-        Connection c = createConnection(true);
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
         ps.setInt(1, 1);
@@ -264,7 +253,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchInsertWithComplexDataTypeWithPresignAPIPlaceHolder() throws SQLException {
-        Connection c = createConnection(true);
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
         PreparedStatement ps = c.prepareStatement("insert into objects_test1 values(?,?,?,?,?)");
         for (int i = 0; i < 500000; i++) {
@@ -291,7 +280,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchReplaceInto() throws SQLException {
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.setAutoCommit(false);
         PreparedStatement ps1 = c.prepareStatement("insert into test_prepare_statement values");
         ps1.setInt(1, 1);
@@ -325,7 +314,7 @@ public class TestPrepareStatement {
 
     @Test
     public void testPrepareStatementExecute() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         conn.createStatement().execute("delete from test_prepare_statement");
         String insertSql = "insert into test_prepare_statement values (?,?)";
         try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
@@ -368,7 +357,7 @@ public class TestPrepareStatement {
 
     @Test
     public void testUpdateSetNull() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         String sql = "insert into test_prepare_statement values (?,?)";
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
@@ -404,7 +393,7 @@ public class TestPrepareStatement {
 
     @Test
     public void testUpdateStatement() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         String sql = "insert into test_prepare_statement values (?,?)";
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
@@ -435,7 +424,7 @@ public class TestPrepareStatement {
     @Test
     public void testAllPreparedStatement() throws SQLException {
         String sql = "insert into test_prepare_statement values (?,?)";
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         try (PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
             statement.setString(2, "b");
@@ -500,7 +489,7 @@ public class TestPrepareStatement {
 //    @Test
 //    public void testSetBlobNotNull() throws SQLException {
 //        String sql = "insert into binary1 values (?)";
-//        Connection conn = createConnection();
+//        Connection conn = Utils.createConnection();
 //        // Create a Blob
 //        String blobData = "blob data";
 //        InputStream blobInputStream = new ByteArrayInputStream(blobData.getBytes());
@@ -515,7 +504,7 @@ public class TestPrepareStatement {
 
     @Test
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         Assertions.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
         StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn, "stagePath");
 
@@ -527,7 +516,7 @@ public class TestPrepareStatement {
 
     @Test
     public void testSelectWithClusterKey() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         conn.createStatement().execute("drop table if exists default.test_clusterkey");
         conn.createStatement().execute("create table default.test_clusterkey (a int, b string)");
         String insertSql = "insert into default.test_clusterkey values (?,?)";
@@ -554,11 +543,14 @@ public class TestPrepareStatement {
 
     @Test
     public void testEncodePass() throws SQLException {
-        Connection conn = createConnection();
+        Connection conn = Utils.createConnection();
         conn.createStatement().execute("create user if not exists 'u01' identified by 'mS%aFRZW*GW';");
         conn.createStatement().execute("GRANT ALL PRIVILEGES ON default.* TO 'u01'@'%'");
+        Properties p = new Properties();
+        p.setProperty("user", "u01");
+        p.setProperty("password", "mS%aFRZW*GW");
 
-        Connection conn2 = DriverManager.getConnection("jdbc:databend://localhost:8000", "u01", "mS%aFRZW*GW");
+        Connection conn2 = Utils.createConnection();
         conn2.createStatement().execute("select 1");
         conn.createStatement().execute("drop user if exists 'u01'");
     }

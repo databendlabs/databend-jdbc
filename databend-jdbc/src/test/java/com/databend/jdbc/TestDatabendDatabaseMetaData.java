@@ -55,7 +55,7 @@ public class TestDatabendDatabaseMetaData {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = createConnection();
+        Connection c = Utils.createConnection();
         c.createStatement().execute("drop table if exists test_column_meta");
         c.createStatement().execute("drop table if exists decimal_test");
         c.createStatement().execute("drop table if exists test_comment");
@@ -65,25 +65,19 @@ public class TestDatabendDatabaseMetaData {
         // json data
     }
 
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
-
     @Test(groups = {"IT"})
     public void testGetUrl() throws SQLException {
-        try (Connection c = createConnection()) {
+        try (Connection c = Utils.createConnection()) {
             DatabaseMetaData metaData = c.getMetaData();
             String url = metaData.getURL();
-            Assert.assertEquals(url, "jdbc:databend://http://localhost:8000");
+            Assert.assertEquals(url,  "jdbc:databend://http://localhost:" + Utils.port);;
         }
     }
 
     @Test(groups = {"IT"})
     public void testGetDatabaseProductName()
             throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             assertEquals(metaData.getDatabaseProductName(), "Databend");
         }
@@ -92,7 +86,7 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetDatabaseProductVersion()
             throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             float majorVersion = (float) metaData.getDatabaseMajorVersion() / 10;
             int minorVersion = metaData.getDatabaseMinorVersion();
@@ -104,7 +98,7 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetUserName()
             throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             Assert.assertTrue(metaData.getUserName().contains("databend"));
         }
@@ -112,7 +106,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetTables() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
                 assertTableMetadata(rs);
@@ -122,7 +116,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetSchemas() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getSchemas()) {
                 ResultSetMetaData metaData1 = rs.getMetaData();
@@ -137,7 +131,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetColumns() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 24);
@@ -147,7 +141,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testComment() throws SQLException {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getColumns("default", "default", "test_comment", null)) {
                 while (rs.next()) {
@@ -164,7 +158,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testColumnsMeta() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             try (ResultSet rs = connection.getMetaData().getColumns("default", "default", "trino_sjh", null)) {
                 while (rs.next()) {
                     String tableCat = rs.getString("table_cat");
@@ -192,7 +186,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetColumnTypesBySelectEmpty() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             ResultSet rs = connection.createStatement().executeQuery("select * from test_column_meta where 1=2");
             ResultSetMetaData metaData = rs.getMetaData();
             assertEquals(metaData.getColumnCount(), 17);
@@ -204,7 +198,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetColumnTypeWithDecimal() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
             ResultSetMetaData metaData = rs.getMetaData();
 
@@ -221,7 +215,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetObjectWithDecimal() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("insert into decimal_test values(1.2)");
             ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
             while (rs.next()) {
@@ -232,7 +226,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetPrimaryKeys() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 6);
@@ -242,7 +236,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testTableTypes() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = metaData.getTableTypes()) {
                 assertEquals(rs.getMetaData().getColumnCount(), 1);
@@ -260,7 +254,7 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetFunctions() throws Exception {
-        try (Connection connection = createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             try (ResultSet rs = connection.getMetaData().getFunctions(null, null, "abs")) {
                 ResultSetMetaData metadata = rs.getMetaData();
                 assertEquals(metadata.getColumnCount(), 6);

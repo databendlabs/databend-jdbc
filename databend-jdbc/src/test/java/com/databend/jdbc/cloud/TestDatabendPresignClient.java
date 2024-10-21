@@ -1,6 +1,7 @@
 package com.databend.jdbc.cloud;
 
 import com.databend.jdbc.DatabendConnection;
+import com.databend.jdbc.Utils;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
@@ -8,16 +9,9 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileWriter;
 import java.io.InputStream;
-import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class TestDatabendPresignClient {
-    private Connection createConnection()
-            throws SQLException {
-        String url = "jdbc:databend://localhost:8000";
-        return DriverManager.getConnection(url, "databend", "databend");
-    }
 
     private String generateRandomCSV(int lines) {
         if (lines <= 0) {
@@ -41,7 +35,7 @@ public class TestDatabendPresignClient {
     @Test(groups = {"Local"})
     public void uploadFileAPI() {
         String filePath = null;
-        try (DatabendConnection connection = createConnection().unwrap(DatabendConnection.class)) {
+        try (DatabendConnection connection = Utils.createConnection().unwrap(DatabendConnection.class)) {
             OkHttpClient client = connection.getHttpClient();
             DatabendPresignClient presignClient = new DatabendPresignClientV1(client, connection.getURI().toString());
             filePath = generateRandomCSV(10);
