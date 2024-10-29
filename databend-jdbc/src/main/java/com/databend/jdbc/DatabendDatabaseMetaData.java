@@ -12,10 +12,7 @@ import java.sql.RowIdLifetime;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -885,7 +882,39 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_type, table_catalog, table_schema, table_name");
 
+        if (checkVersionAddView() && types != null && Arrays.stream(types).allMatch(t -> t.equalsIgnoreCase("VIEW"))) {
+            // add view
+            sql.append("\n union all ");
+            sql.append("\nselect database TABLE_CAT, database TABLE_SCHEM, name TABLE_NAME, 'VIEW' TABLE_TYPE, null REMARKS, ");
+            sql.append("'' as TYPE_CAT, engine as TYPE_SCHEM, engine as TYPE_NAME, '' as SELF_REFERENCING_COL_NAME, '' as REF_GENERATION ");
+            sql.append("from system.views ");
+            filters = new ArrayList<>();
+            emptyStringEqualsFilter(filters, "database", catalog);
+            emptyStringLikeFilter(filters, "database", schemaPattern);
+            optionalStringLikeFilter(filters, "name", tableNamePattern);
+            buildFilters(sql, filters);
+            sql.append("\nORDER BY TABLE_CAT, TABLE_NAME, TABLE_TYPE");
+        }
+
         return select(sql.toString());
+    }
+
+    // This handles bug that existed a while, views were not included in information_schema.tables
+    // https://github.com/datafuselabs/databend/issues/16039
+    private boolean checkVersionAddView() throws SQLException {
+        // the same fix for python-sdk
+        // https://github.com/databendlabs/databend-sqlalchemy/blob/3226f10e0f8b6aa85185208583977037b33ec99f/databend_sqlalchemy/databend_dialect.py#L819
+        String version = getDatabaseProductVersion();
+        Pattern pattern = Pattern.compile("v(\\d+)\\.(\\d+)\\.(\\d+)");
+        Matcher matcher = pattern.matcher(version);
+        if (matcher.find()) {
+            // > 1.2.410 and <= 1.2.566
+            if (Integer.parseInt(matcher.group(1)) != 1) return false;
+            if (Integer.parseInt(matcher.group(2)) != 2) return false;
+            int minorVersion = Integer.parseInt(matcher.group(3));
+            return minorVersion > 410 && minorVersion <= 566;
+        }
+        return false;
     }
 
     @Override
