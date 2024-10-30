@@ -62,7 +62,7 @@ public class TestDatabendDatabaseMetaData {
         c.createStatement().execute("drop view if exists v_test_comment");
         c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
         c.createStatement().execute("create table decimal_test (a decimal(4,2))");
-        c.createStatement().execute("create table test_comment (a int comment 'test comment')");
+        c.createStatement().execute("create table test_comment (a int comment 'test comment') COMMENT ='table comment'");
         c.createStatement().execute("create view v_test_comment as select * from test_comment");
         // json data
     }
@@ -160,8 +160,14 @@ public class TestDatabendDatabaseMetaData {
                     String tableName = rs.getString("table_name");
                     String columnName = rs.getString("COLUMN_NAME");
                     String remarks = rs.getString("remarks");
-//                    Assert.assertEquals(remarks, "'test comment'");
+                    Assert.assertEquals(remarks, "test comment");
                     System.out.println(tableSchem + " " + tableName + " " + columnName + " " + remarks);
+                }
+            }
+            try (ResultSet rs = connection.getMetaData().getTables("default", "default", "test_comment", null)) {
+                while (rs.next()) {
+                    String remarks = rs.getString("remarks");
+                    Assert.assertEquals(remarks, "table comment");
                 }
             }
         }
