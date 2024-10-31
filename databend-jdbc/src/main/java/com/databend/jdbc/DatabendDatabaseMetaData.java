@@ -856,7 +856,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 ", table_schema as TABLE_SCHEM" +
                 ", table_name as TABLE_NAME" +
                 ", table_type as TABLE_TYPE" +
-                ", REGEXP_REPLACE(table_comment, '^\\'(.+)\\'$', '$1') as REMARKS" +
+                ", regexp_replace(table_comment, '^\\'(.+)\\'$', '$1') as REMARKS" +
                 ", '' as TYPE_CAT" +
                 ", engine as TYPE_SCHEM" +
                 ", engine as TYPE_NAME" +
@@ -985,7 +985,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 ", column_name as COLUMN_NAME" + // 4
                 ", data_type as TYPE_NAME" + // 5
                 ", nullable as NULLABLE" + // 6
-                ", REGEXP_REPLACE(column_comment, '^\\'(.+)\\'$', '$1') as REMARKS" + // 7
+                ", regexp_replace(column_comment, '^\\'(.+)\\'$', '$1') as REMARKS" + // 7
                 ", `default` as COLUMN_DEF" + // 8
                 ", ordinal_position as ORDINAL_POSITION" + // 9
                 ", is_nullable as IS_NULLABLE" + // 10
