@@ -1,8 +1,10 @@
 package com.databend.jdbc;
 
+import com.databend.client.GlobalCookieJar;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
+import okhttp3.Cookie;
 import okhttp3.OkHttpClient;
 
 import java.net.URI;
@@ -414,6 +416,10 @@ public final class DatabendDriverUri {
 
     public void setupClient(OkHttpClient.Builder builder) throws SQLException {
         try {
+            GlobalCookieJar cookieJar = new GlobalCookieJar();
+            cookieJar.add(new Cookie.Builder().name("cookie_enabled").value("true").domain("not_used").build());
+            builder.cookieJar(cookieJar);
+
             String password = PASSWORD.getValue(properties).orElse("");
             if (!password.isEmpty()) {
                 builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
