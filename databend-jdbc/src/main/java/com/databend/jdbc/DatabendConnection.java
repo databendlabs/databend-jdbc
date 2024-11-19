@@ -12,8 +12,7 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
-import okhttp3.Headers;
-import okhttp3.OkHttpClient;
+import okhttp3.*;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -39,13 +38,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
-import java.util.Base64;
-import java.util.HashMap;
-import java.util.Map;
-import java.util.Properties;
-import java.util.Random;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -58,13 +51,18 @@ import java.util.logging.SimpleFormatter;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
+import static com.databend.client.DatabendClientV1.MEDIA_TYPE_JSON;
+import static com.databend.client.DatabendClientV1.USER_AGENT_VALUE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.net.URI.create;
 import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
+import static java.util.concurrent.TimeUnit.MILLISECONDS;
+
 
 public class DatabendConnection implements Connection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
+    public static final String LOGOUT_PATH = "/v1/session/logout";
     private static FileHandler FILE_HANDLER;
 
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -309,6 +307,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         for (Statement stmt : statements) {
             stmt.close();
         }
+        logout();
     }
 
     @Override
@@ -908,5 +907,68 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         ResultSet rs = statement.getResultSet();
         while (rs.next()) {
         }
+    }
+
+    void logout() throws SQLException {
+        DatabendSession session = this.session.get();
+        if (session == null || !session.getNeedKeepAlive()) {
+            return;
+        }
+
+        int times = getMaxFailoverRetries() + 1;
+        List hosts = new LinkedList<String>();
+        String failReason = null;
+        String lastHost = null;
+
+        for (int i = 1; i <= times; i++) {
+            String candidateHost = this.driverUri.getUri("").toString();
+            // candidateHost = "http://localhost:8888";
+            hosts.add(candidateHost);
+            if (lastHost == candidateHost) {
+                break;
+            }
+            lastHost = candidateHost;
+            logger.log(Level.FINE, "retry " + i + " times to logout on " + candidateHost);
+
+            ClientSettings settings = this.makeClientSettings("", candidateHost).build();
+            HttpUrl url = HttpUrl.get(candidateHost).newBuilder().encodedPath(LOGOUT_PATH).build();
+            Request.Builder builder = new Request.Builder()
+                    .url(url)
+                    .header("User-Agent", USER_AGENT_VALUE);
+            if (settings.getAdditionalHeaders() != null) {
+                settings.getAdditionalHeaders().forEach(builder::addHeader);
+            }
+            if (session.getNeedSticky()) {
+                builder.addHeader(ClientSettings.X_DATABEND_ROUTE_HINT, uriRouteHint(candidateHost));
+                String lastNodeID = this.lastNodeID.get();
+                if (lastNodeID != null)
+                    builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
+            }
+            for (int j = 1; j <= 3; j++) {
+                Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, "{}")).build();
+                try (Response response = httpClient.newCall(request).execute()) {
+                    if (response.code() != 200) {
+                        throw new SQLException("Error logout: code =" + response.code() + ", body = " + response.body());
+                    }
+                    return;
+                } catch (IOException e) {
+                    System.out.println("e = " + e.getMessage());
+                    if (e.getCause() instanceof ConnectException) {
+                        if (failReason == null) {
+                            failReason = e.getMessage();
+                        }
+                        try {
+                            MILLISECONDS.sleep(j * 100);
+                        } catch (InterruptedException e2) {
+                            Thread.currentThread().interrupt();
+                            return;
+                        }
+                    } else {
+                       break;
+                    }
+                }
+            }
+        }
+        throw new SQLException("Failover Retry Error executing query after retries on hosts " + hosts + ": " + failReason);
     }
 }

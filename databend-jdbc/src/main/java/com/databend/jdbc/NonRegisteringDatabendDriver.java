@@ -1,5 +1,7 @@
 package com.databend.jdbc;
 
+import com.databend.client.GlobalCookieJar;
+import okhttp3.Cookie;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -54,6 +56,9 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable {
         }
 
         DatabendDriverUri uri = DatabendDriverUri.create(url, info);
+
+        GlobalCookieJar cookieJar = new GlobalCookieJar();
+        cookieJar.add(new Cookie.Builder().name("cookie_enabled").value("true").domain("not_used").build());
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);

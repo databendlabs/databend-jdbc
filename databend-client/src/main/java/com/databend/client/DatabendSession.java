@@ -42,6 +42,7 @@ public class DatabendSession {
     // txn
     private String txnState;
     private Boolean needSticky;
+    private Boolean needKeepAlive;
 
     private Map<String, Object> additionalProperties = new HashMap<>();
 
@@ -50,16 +51,18 @@ public class DatabendSession {
             @JsonProperty("database") String database,
             @JsonProperty("settings") Map<String, String> settings,
             @JsonProperty("txn_state") String txnState,
-            @JsonProperty("need_sticky") Boolean needSticky) {
-        this.database = database;
+            @JsonProperty("need_sticky") Boolean needSticky,
+            @JsonProperty("need_keep_alive") Boolean needKeepAlive) {
+            this.database = database;
         this.settings = settings;
         this.txnState = txnState;
         this.needSticky = needSticky != null ? needSticky : false;
+        this.needKeepAlive = needKeepAlive != null ? needKeepAlive: false;
     }
 
     // default
     public static DatabendSession createDefault() {
-        return new DatabendSession(DEFAULT_DATABASE, null, null, false);
+        return new DatabendSession(DEFAULT_DATABASE, null, null, false, false);
     }
 
     public static Builder builder() {
@@ -85,6 +88,11 @@ public class DatabendSession {
     @JsonProperty("need_sticky")
     public Boolean getNeedSticky() {
         return needSticky;
+    }
+
+    @JsonProperty("need_keep_alive")
+    public Boolean getNeedKeepAlive() {
+        return needKeepAlive;
     }
 
     @JsonAnyGetter
@@ -153,7 +161,7 @@ public class DatabendSession {
         }
 
         public DatabendSession build() {
-            return new DatabendSession(database, settings, txnState, false);
+            return new DatabendSession(database, settings, txnState, false, false);
         }
     }
 }
