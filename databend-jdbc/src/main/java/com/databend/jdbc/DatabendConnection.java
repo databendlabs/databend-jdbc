@@ -1,8 +1,8 @@
 package com.databend.jdbc;
 
 import com.databend.client.ClientSettings;
-import com.databend.client.DatabendClient;
-import com.databend.client.DatabendClientV1;
+import com.databend.client.DatabendQueryResult;
+import com.databend.client.DatabendQueryResultV1;
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
 import com.databend.client.QueryRequest;
@@ -51,8 +51,8 @@ import java.util.logging.SimpleFormatter;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.client.ClientSettings.*;
-import static com.databend.client.DatabendClientV1.MEDIA_TYPE_JSON;
-import static com.databend.client.DatabendClientV1.USER_AGENT_VALUE;
+import static com.databend.client.DatabendQueryResultV1.MEDIA_TYPE_JSON;
+import static com.databend.client.DatabendQueryResultV1.USER_AGENT_VALUE;
 import static com.google.common.base.Preconditions.checkState;
 import static java.net.URI.create;
 import static java.util.Collections.newSetFromMap;
@@ -687,7 +687,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
      * @throws SQLException If the query fails after retrying the specified number of times.
      * @see DatabendClientLoadBalancingPolicy
      */
-    DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
+    DatabendQueryResult startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
         Exception e = null;
         int times = getMaxFailoverRetries() + 1;
 
@@ -726,7 +726,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 if (this.autoDiscovery) {
                     tryAutoDiscovery(httpClient, s);
                 }
-                return new DatabendClientV1(httpClient, sql, s, this, lastNodeID);
+                return new DatabendQueryResultV1(httpClient, sql, s, this, lastNodeID);
             } catch (RuntimeException e1) {
                 e = e1;
             } catch (Exception e1) {
@@ -762,11 +762,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     }
 
-    DatabendClient startQuery(String sql) throws SQLException {
+    DatabendQueryResult startQuery(String sql) throws SQLException {
         return startQueryWithFailover(sql, null);
     }
 
-    DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
+    DatabendQueryResult startQuery(String sql, StageAttachment attach) throws SQLException {
         return startQueryWithFailover(sql, attach);
     }
 
