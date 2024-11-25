@@ -1,8 +1,8 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
+import com.databend.client.DatabendQueryResult;
 import com.databend.client.DatabendSession;
-import com.databend.client.QueryResults;
+import com.databend.client.QueryResponse;
 import com.databend.client.StageAttachment;
 import com.databend.jdbc.annotation.NotImplemented;
 
@@ -28,7 +28,7 @@ public class DatabendStatement implements Statement {
     private final Consumer<DatabendStatement> onClose;
     private int currentUpdateCount = -1;
     private final AtomicReference<DatabendResultSet> currentResult = new AtomicReference<>();
-    private final AtomicReference<DatabendClient> executingClient = new AtomicReference<>();
+    private final AtomicReference<DatabendQueryResult> executingClient = new AtomicReference<>();
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
 
@@ -58,7 +58,7 @@ public class DatabendStatement implements Statement {
             return;
         }
         onClose.accept(this);
-        DatabendClient client = executingClient.get();
+        DatabendQueryResult client = executingClient.get();
         if (client != null) {
             client.close();
         }
@@ -118,7 +118,7 @@ public class DatabendStatement implements Statement {
     public void cancel()
             throws SQLException {
         checkOpen();
-        DatabendClient client = executingClient.get();
+        DatabendQueryResult client = executingClient.get();
         if (client != null) {
             client.close();
         }
@@ -165,7 +165,7 @@ public class DatabendStatement implements Statement {
         currentResult.set(null);
     }
 
-    private void updateClientSession(QueryResults q) {
+    private void updateClientSession(QueryResponse q) {
         if (q == null) {
             return;
         }
@@ -181,7 +181,7 @@ public class DatabendStatement implements Statement {
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
         clearCurrentResults();
         checkOpen();
-        DatabendClient client = null;
+        DatabendQueryResult client = null;
         DatabendResultSet resultSet = null;
 
         try {
@@ -202,7 +202,7 @@ public class DatabendStatement implements Statement {
             }
             executingClient.set(client);
             while (client.hasNext()) {
-                QueryResults results = client.getResults();
+                QueryResponse results = client.getResults();
                 List<List<Object>> data = results.getData();
 //                List<QueryRowField> schema = results.getSchema();
                 if (data == null || data.isEmpty()) {
