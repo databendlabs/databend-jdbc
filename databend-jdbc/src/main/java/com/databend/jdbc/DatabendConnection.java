@@ -102,7 +102,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
-        // only used for presign url on non-object storage, which mainly served for demo pupose.
+        // only used for presign url on non-object storage, which mainly served for demo purpose.
         // TODO: may also add query id and load balancing on the part.
         this.httpUri = uri.getUri();
         this.httpClient = httpClient;
