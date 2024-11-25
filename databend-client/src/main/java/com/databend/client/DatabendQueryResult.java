@@ -19,7 +19,7 @@ import okhttp3.Request;
 import java.io.Closeable;
 import java.util.Map;
 
-public interface DatabendClient extends Closeable {
+public interface DatabendQueryResult extends Closeable {
     String getQuery();
 
     @Override
@@ -27,11 +27,9 @@ public interface DatabendClient extends Closeable {
 
     DatabendSession getSession();
 
-    String getHost();
-
     Map<String, String> getAdditionalHeaders();
 
-    QueryResults getResults();
+    QueryResponse getResults();
 
     // execute Restful query request for the first time.
     // @param request the request to be executed

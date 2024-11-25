@@ -41,14 +41,14 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
-public class DatabendClientV1
-        implements DatabendClient {
+public class DatabendQueryResultV1
+        implements DatabendQueryResult {
     private final AtomicReference<Boolean> finished = new AtomicReference<>(false);
-    public static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
+    public static final String USER_AGENT_VALUE = DatabendQueryResultV1.class.getSimpleName() +
             "/" +
-            firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
+            firstNonNull(DatabendQueryResultV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
-    public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
+    public static final JsonCodec<QueryResponse> QUERY_RESULTS_CODEC = jsonCodec(QueryResponse.class);
     public static final JsonCodec<DiscoveryResponseCodec.DiscoveryResponse> DISCOVERY_RESULT_CODEC = jsonCodec(DiscoveryResponseCodec.DiscoveryResponse.class);
     public static final String succeededState = "succeeded";
     public static final String failedState = "failed";
@@ -70,12 +70,12 @@ public class DatabendClientV1
     // client session
     private final AtomicReference<DatabendSession> databendSession;
     private String nodeID;
-    private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
-    private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
+    private final AtomicReference<QueryResponse> currentResults = new AtomicReference<>(null);
+    private static final Logger logger = Logger.getLogger(DatabendQueryResultV1.class.getPackage().getName());
 
     private Consumer<DatabendSession> on_session_state_update;
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id) {
+    public DatabendQueryResultV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -254,7 +254,7 @@ public class DatabendClientV1
                 }
             }
             attempts++;
-            JsonResponse<QueryResults> response;
+            JsonResponse<QueryResponse> response;
             try {
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
@@ -308,7 +308,7 @@ public class DatabendClientV1
         return executeInternal(request, OptionalLong.empty());
     }
 
-    private void processResponse(Headers headers, QueryResults results) {
+    private void processResponse(Headers headers, QueryResponse results) {
         nodeID = results.getNodeId();
         DatabendSession session = results.getSession();
         if (session != null) {
@@ -359,18 +359,13 @@ public class DatabendClientV1
     }
 
     @Override
-    public QueryResults getResults() {
+    public QueryResponse getResults() {
         return currentResults.get();
     }
 
     @Override
     public DatabendSession getSession() {
         return databendSession.get();
-    }
-
-    @Override
-    public String getHost() {
-        return this.host;
     }
 
     @Override
@@ -382,7 +377,7 @@ public class DatabendClientV1
         if (!finished.compareAndSet(false, true)) {
             return;
         }
-        QueryResults q = this.currentResults.get();
+        QueryResponse q = this.currentResults.get();
         if (q == null) {
             return;
         }
