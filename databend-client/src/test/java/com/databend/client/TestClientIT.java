@@ -14,6 +14,7 @@
 
 package com.databend.client;
 
+import com.databend.client.utils.OkHttpUtils;
 import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.Test;
