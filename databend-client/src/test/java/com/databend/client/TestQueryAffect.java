@@ -14,11 +14,12 @@
 
 package com.databend.client;
 
+import com.databend.client.utils.JsonCodec;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static com.databend.client.JsonCodec.jsonCodec;
+import static com.databend.client.utils.JsonCodec.jsonCodec;
 
 
 @Test(timeOut = 10000)

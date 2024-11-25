@@ -15,6 +15,8 @@
 package com.databend.client;
 
 import com.databend.client.errors.CloudErrors;
+import com.databend.client.utils.JsonCodec;
+import com.databend.client.utils.JsonResponse;
 import okhttp3.*;
 import okio.Buffer;
 
@@ -30,7 +32,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 
-import static com.databend.client.JsonCodec.jsonCodec;
+import static com.databend.client.utils.JsonCodec.jsonCodec;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
