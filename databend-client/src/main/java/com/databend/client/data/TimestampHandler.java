@@ -1,5 +1,3 @@
-package com.databend.client.data;
-
 /*
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -14,22 +12,32 @@ package com.databend.client.data;
  * limitations under the License.
  */
 
+package com.databend.client.data;
 
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeFormatterBuilder;
 import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoField;
 import java.util.Arrays;
 import java.util.List;
 
 class TimestampHandler implements ColumnTypeHandler {
+    private static final DateTimeFormatter TIMESTAMP_FORMATTER = new DateTimeFormatterBuilder()
+            .appendPattern("yyyy-MM-dd HH:mm:ss")
+            .optionalStart()
+            .appendFraction(ChronoField.MICRO_OF_SECOND, 0, 6, true)
+            .optionalEnd()
+            .toFormatter();
+
     private static final List<DateTimeFormatter> FORMATTERS = Arrays.asList(
-            DateTimeFormatter.ISO_INSTANT,                    // 2024-01-01T10:00:00Z
-            DateTimeFormatter.ISO_LOCAL_DATE_TIME,           // 2024-01-01T10:00:00
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss"),
-            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            TIMESTAMP_FORMATTER,
+            DateTimeFormatter.ISO_INSTANT,
+            DateTimeFormatter.ISO_LOCAL_DATE_TIME,
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss")
     );
 
     private final ZoneId zoneId;
@@ -61,7 +69,6 @@ class TimestampHandler implements ColumnTypeHandler {
             return value;
         }
 
-        // if LocalDateTime，convert to Instant
         if (value instanceof LocalDateTime) {
             return ((LocalDateTime) value).atZone(zoneId).toInstant();
         }
@@ -73,7 +80,6 @@ class TimestampHandler implements ColumnTypeHandler {
         if (value instanceof String) {
             String timestampStr = ((String) value).trim();
 
-            // try as epoch seconds parse
             try {
                 long epochSeconds = Long.parseLong(timestampStr);
                 return Instant.ofEpochSecond(epochSeconds);
@@ -81,17 +87,23 @@ class TimestampHandler implements ColumnTypeHandler {
             catch (NumberFormatException ignored) {
             }
 
-            for (DateTimeFormatter formatter : FORMATTERS) {
-                try {
-                    if (timestampStr.contains("T") && timestampStr.contains("Z")) {
-                        return Instant.parse(timestampStr);
+            try {
+                LocalDateTime localDateTime = LocalDateTime.parse(timestampStr, TIMESTAMP_FORMATTER);
+                return localDateTime.atZone(zoneId).toInstant();
+            }
+            catch (DateTimeParseException e) {
+                for (DateTimeFormatter formatter : FORMATTERS) {
+                    try {
+                        if (timestampStr.contains("T") && timestampStr.contains("Z")) {
+                            return Instant.parse(timestampStr);
+                        }
+                        else {
+                            LocalDateTime localDateTime = LocalDateTime.parse(timestampStr, formatter);
+                            return localDateTime.atZone(zoneId).toInstant();
+                        }
                     }
-                    else {
-                        LocalDateTime localDateTime = LocalDateTime.parse(timestampStr, formatter);
-                        return localDateTime.atZone(zoneId).toInstant();
+                    catch (DateTimeParseException ignored) {
                     }
-                }
-                catch (DateTimeParseException ignored) {
                 }
             }
 
