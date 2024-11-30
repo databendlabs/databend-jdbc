@@ -48,11 +48,13 @@ public class ColumnTypeHandlerFactory {
                 return new DecimalHandler(type.isNullable());
             case DatabendTypes.GEOMETRY:
                 return new GeometryHandler(type.isNullable());
-            case DatabendTypes.ARRAY:
             case DatabendTypes.DATE:
+                return new DateHandler(type.isNullable());
             case DatabendTypes.DATETIME:
             case DatabendTypes.DATETIME64:
             case DatabendTypes.TIMESTAMP:
+                return new TimestampHandler(type.isNullable());
+            case DatabendTypes.ARRAY:
             case DatabendTypes.STRING:
             case DatabendTypes.NULL:
             case DatabendTypes.STRUCT:
