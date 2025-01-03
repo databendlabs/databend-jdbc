@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.client.errors.QueryErrors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Headers;
@@ -43,9 +44,9 @@ public final class PresignContext {
             throws SQLException {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");
-        Statement statement = connection.createStatement();
-        try {
-            DatabendResultSet resultSet = (DatabendResultSet) statement.executeQuery(buildRequestSQL(method, stageName, fileName));
+        try (Statement statement = connection.createStatement()) {
+            String sql = buildRequestSQL(method, stageName, fileName);
+            DatabendResultSet resultSet = (DatabendResultSet) statement.executeQuery(sql);
             if (resultSet.next()) {
                 Headers headers = getHeaders(resultSet.getString("headers"));
                 String url = resultSet.getString("url");
@@ -57,12 +58,12 @@ public final class PresignContext {
                         .url(url)
                         .build();
             } else {
-                throw new SQLException("Failed to get presign url");
+                throw new SQLException("Failed to get presign url. No result returned for SQL: " + sql);
             }
+        } catch (SQLException sqlException) {
+            throw new SQLException("Failed to do presign. SQL Exception: " + sqlException.getMessage() + " SQL State: " + sqlException.getSQLState() + " Error Code: " + sqlException.getErrorCode() + " method: " + method + ", stageName: " + stageName + ", fileName: " + fileName, sqlException);
         } catch (Throwable e) {
-            throw new SQLException("Failed to do presign. Exception: " + e.toString(), e);
-        } finally {
-            statement.close();
+            throw new SQLException("Failed to do presign. Exception: " + e + " method: " + method + ", stageName: " + stageName + ", fileName: " + fileName, e);
         }
     }
 
