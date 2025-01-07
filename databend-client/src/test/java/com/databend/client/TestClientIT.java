@@ -14,7 +14,6 @@
 
 package com.databend.client;
 
-import com.databend.client.utils.OkHttpUtils;
 import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.Test;
@@ -42,7 +41,7 @@ public class TestClientIT {
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
         AtomicReference<String> lastNodeID = new AtomicReference<>();
-        DatabendQueryResult cli = new DatabendQueryResultV1(client, "select 1", settings, null, lastNodeID);
+        DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
         System.out.println(cli.getResults().getData());
         Assert.assertEquals(cli.getQuery(), "select 1");
         Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
@@ -63,7 +62,7 @@ public class TestClientIT {
         AtomicReference<String> lastNodeID = new AtomicReference<>();
 
         try {
-            DatabendQueryResult cli = new DatabendQueryResultV1(client, "select 1", settings, null, lastNodeID);
+            DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
             cli.getResults(); // This should trigger the connection attempt
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
@@ -83,7 +82,7 @@ public class TestClientIT {
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        DatabendQueryResult cli = new DatabendQueryResultV1(client, "select 1", settings, null, lastNodeID);
+        DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
         Assert.assertEquals(cli.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID);
 
         String expectedUUID1 = UUID.randomUUID().toString();
@@ -92,7 +91,7 @@ public class TestClientIT {
         ClientSettings settings1 = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders1, null, DEFAULT_RETRY_ATTEMPTS);
         Assert.assertEquals(cli.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID);
         // check X_Databend_Query_ID won't change after calling next()
-        DatabendQueryResult cli1 = new DatabendQueryResultV1(client, "SELECT number from numbers(200000) order by number", settings1, null, lastNodeID);
+        DatabendClient cli1 = new DatabendClientV1(client, "SELECT number from numbers(200000) order by number", settings1, null, lastNodeID);
         for (int i = 1; i < 1000; i++) {
             cli.advance();
             Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
@@ -110,7 +109,7 @@ public class TestClientIT {
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        List<DiscoveryNode> nodes = DatabendQueryResultV1.discoverNodes(client, settings);
+        List<DiscoveryNode> nodes = DatabendClientV1.discoverNodes(client, settings);
         Assert.assertFalse(nodes.isEmpty());
         for (DiscoveryNode node : nodes) {
             System.out.println(node.getAddress());
@@ -127,7 +126,7 @@ public class TestClientIT {
         additionalHeaders.put("~mock.unsupported.discovery", "true");
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
         try {
-            DatabendQueryResultV1.discoverNodes(client, settings);
+            DatabendClientV1.discoverNodes(client, settings);
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
             System.out.println(e.getMessage());

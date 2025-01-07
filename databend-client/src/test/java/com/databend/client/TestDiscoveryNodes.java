@@ -1,14 +1,14 @@
 package com.databend.client;
 
 import com.databend.client.errors.QueryErrors;
-import com.databend.client.utils.JsonCodec;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import io.airlift.json.JsonCodecFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.util.List;
 
-import static com.databend.client.utils.JsonCodec.jsonCodec;
+import static com.databend.client.JsonCodec.jsonCodec;
 
 public class TestDiscoveryNodes {
     private static final JsonCodec<DiscoveryResponseCodec.DiscoveryResponse> QUERY_RESULTS_CODEC = jsonCodec(DiscoveryResponseCodec.DiscoveryResponse.class);

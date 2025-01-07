@@ -12,9 +12,8 @@
  * limitations under the License.
  */
 
-package com.databend.client.utils;
+package com.databend.client;
 
-import com.databend.client.DiscoveryResponseCodec;
 import com.fasterxml.jackson.core.JsonParser;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.DeserializationFeature;
