@@ -24,7 +24,7 @@ class StringHandler extends ColumnTypeHandlerBase {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return value;
     }
 }

@@ -21,7 +21,8 @@ public interface ColumnTypeHandler {
      * @param value raw input row value
      * @return parsed java type value
      */
-    Object parseValue(String value) throws IllegalArgumentException;
+    Object parseValue(Object value) throws IllegalArgumentException;
+    Object parseString(String value) throws IllegalArgumentException;
 
     void setNullable(boolean isNullable);
 }

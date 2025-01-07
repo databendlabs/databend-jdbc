@@ -20,7 +20,7 @@ public class GeometryHandler extends ColumnTypeHandlerBase {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         // binary wkb is converted to string during rest data transfer
         if (value.startsWith("00") || value.startsWith("01")) {
             return hexStringToByteArray(value);

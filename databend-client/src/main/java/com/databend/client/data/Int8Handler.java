@@ -24,7 +24,7 @@ class Int8Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return Byte.parseByte(value);
     }
 }
@@ -35,7 +35,7 @@ class Int16Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return Short.parseShort(value);
     }
 }
@@ -47,7 +47,7 @@ class Int32Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return Integer.parseInt(value);
     }
 }
@@ -59,7 +59,7 @@ class Int64Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         return Long.parseLong(value);
     }
 }
@@ -71,7 +71,7 @@ class UInt8Handler extends ColumnTypeHandlerBase {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         return Short.parseShort(value);
     }
 }
@@ -84,7 +84,7 @@ class UInt16Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         return Integer.parseInt(value);
     }
 }
@@ -96,7 +96,7 @@ class UInt32Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         return Long.parseLong(value);
     }
 }
@@ -108,7 +108,7 @@ class UInt64Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         return new BigInteger(value);
     }
 }
@@ -121,7 +121,7 @@ class Float32Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         if (value.equals("NaN") || value.equals("nan")) {
             return Double.NaN;
         }
@@ -139,7 +139,7 @@ class Float64Handler extends ColumnTypeHandlerBase  {
     }
 
     @Override
-    public Object parseString(String  value) {
+    public Object parseStringNotNull(String  value) {
         if (value.equals("NaN") || value.equals("nan")) {
             return Double.NaN;
         }
@@ -164,7 +164,7 @@ class BooleanHandler extends ColumnTypeHandlerBase {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return TRUE_NUM.equals(value) || TRUE_STRING.equals(value);
     }
 }
@@ -176,7 +176,7 @@ class DecimalHandler extends ColumnTypeHandlerBase {
     }
 
     @Override
-    public Object parseString(String value) {
+    public Object parseStringNotNull(String value) {
         return new BigDecimal(value);
     }
 }

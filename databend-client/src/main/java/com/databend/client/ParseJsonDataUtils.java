@@ -51,7 +51,7 @@ final class ParseJsonDataUtils {
                 Object parsed = null;
                 if (value != null) {
                     try {
-                        parsed = typeHandlers[column].parseValue(value);
+                        parsed = typeHandlers[column].parseString(value);
                     } catch (IllegalArgumentException e) {
                         throw new IllegalArgumentException("fail to parse column " + column + "(" + schema.get(column).getName() + "):" + e.getMessage());
                     }

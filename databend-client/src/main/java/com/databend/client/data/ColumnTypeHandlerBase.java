@@ -22,11 +22,15 @@ public abstract class ColumnTypeHandlerBase implements ColumnTypeHandler {
     }
 
     @Override
-    public Object parseValue(String value) {
+    public Object parseString(String value) {
         if (checkNull(value)) {
             return null;
         }
-        return parseString(value);
+        return parseStringNotNull(value);
+    }
+    @Override
+    public Object parseValue(Object value) {
+        return parseString((String) value);
     }
 
     @Override
@@ -34,5 +38,5 @@ public abstract class ColumnTypeHandlerBase implements ColumnTypeHandler {
         this.isNullable = isNullable;
     }
 
-    abstract Object parseString(String value);
+    abstract Object parseStringNotNull(String value);
 }
