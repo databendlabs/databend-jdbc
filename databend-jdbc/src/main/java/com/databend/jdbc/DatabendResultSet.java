@@ -1,7 +1,7 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendQueryResult;
-import com.databend.client.QueryResponse;
+import com.databend.client.DatabendClient;
+import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
@@ -30,13 +30,13 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private final String queryId;
     private final Statement statement;
-    private final DatabendQueryResult client;
+    private final DatabendClient client;
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
-    private DatabendResultSet(Statement statement, DatabendQueryResult client, List<QueryRowField> schema, long maxRows) throws SQLException {
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows) throws SQLException {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client), maxRows), client), client.getResults().getQueryId());
         this.statement = statement;
@@ -44,7 +44,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         this.queryId = client.getResults().getQueryId();
     }
 
-    static DatabendResultSet create(Statement statement, DatabendQueryResult client, long maxRows)
+    static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows)
             throws SQLException {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
@@ -107,19 +107,19 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(
                 new ThreadFactoryBuilder().setNameFormat("Databend JDBC worker-%s").setDaemon(true).build());
-        private final DatabendQueryResult client;
+        private final DatabendClient client;
         private final BlockingQueue<T> rowQueue;
         private final Semaphore semaphore = new Semaphore(0);
         private final Future<?> future;
         private volatile boolean cancelled;
         private volatile boolean finished;
 
-        public AsyncIterator(Iterator<T> dataIterator, DatabendQueryResult client) {
+        public AsyncIterator(Iterator<T> dataIterator, DatabendClient client) {
             this(dataIterator, client, Optional.empty());
         }
 
         @VisibleForTesting
-        AsyncIterator(Iterator<T> dataIterator, DatabendQueryResult client, Optional<BlockingQueue<T>> queue) {
+        AsyncIterator(Iterator<T> dataIterator, DatabendClient client, Optional<BlockingQueue<T>> queue) {
             requireNonNull(dataIterator, "dataIterator is null");
             this.client = client;
             this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
@@ -191,9 +191,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
     }
 
     private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>> {
-        private final DatabendQueryResult client;
+        private final DatabendClient client;
 
-        private ResultsPageIterator(DatabendQueryResult client) {
+        private ResultsPageIterator(DatabendClient client) {
             this.client = client;
         }
 
@@ -201,7 +201,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         @Override
         protected Iterable<List<Object>> computeNext() {
             while (client.hasNext()) {
-                QueryResponse results = client.getResults();
+                QueryResults results = client.getResults();
                 List<List<Object>> rows = results.getData();
                 try {
                     client.advance();
@@ -213,7 +213,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                 }
             }
             // next uri is null, no more data
-            QueryResponse results = client.getResults();
+            QueryResults results = client.getResults();
             if (results.getError() != null) {
                 throw new RuntimeException(resultsException(results, client.getQuery()));
             }

@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.databend.client.utils;
+package com.databend.client;
 
 import com.google.common.base.CharMatcher;
 import okhttp3.Credentials;

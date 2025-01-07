@@ -31,7 +31,7 @@ jobs:
       - uses: ./.github/actions/setup_databend_cluster
         timeout-minutes: 15
         with:
-          version: '1.2.663-nightly'
+          version: '1.2.661-nightly'
           target: 'x86_64-unknown-linux-gnu'
 
       - name: Test with conn to node 1

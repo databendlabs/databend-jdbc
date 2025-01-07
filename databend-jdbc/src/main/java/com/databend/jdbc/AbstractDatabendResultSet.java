@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.QueryResponse;
+import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.ColumnTypeHandler;
 import com.databend.client.data.ColumnTypeHandlerFactory;
@@ -155,7 +155,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
                 .orElseThrow(() -> new SQLException("Value is not a number: " + value));
     }
 
-    static SQLException resultsException(QueryResponse results, String originalSQL) {
+    static SQLException resultsException(QueryResults results, String originalSQL) {
         QueryErrors error = requireNonNull(results.getError());
         String message = format("SQL: (%s) Query failed (#%s): %s", originalSQL, results.getQueryId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));

@@ -1,7 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.ClientSettings;
-import com.databend.client.DatabendQueryResultV1;
+import com.databend.client.DatabendClientV1;
 import com.databend.client.DiscoveryNode;
 import lombok.Setter;
 import okhttp3.OkHttpClient;
@@ -85,7 +85,7 @@ public class DatabendNodes implements DatabendNodeRouter {
             return;
         }
         try {
-            List<DiscoveryNode> new_nodes = DatabendQueryResultV1.discoverNodes(client, settings);
+            List<DiscoveryNode> new_nodes = DatabendClientV1.discoverNodes(client, settings);
             if (!new_nodes.isEmpty()) {
                 // convert new nodes using lambda
                 List<URI> new_uris = this.parseURI(new_nodes);

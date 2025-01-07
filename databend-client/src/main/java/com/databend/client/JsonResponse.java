@@ -12,7 +12,7 @@
  * limitations under the License.
  */
 
-package com.databend.client.utils;
+package com.databend.client;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.*;

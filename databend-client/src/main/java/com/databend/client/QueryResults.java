@@ -23,7 +23,7 @@ import java.util.List;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
-public class QueryResponse {
+public class QueryResults {
     private final String queryId;
     private final String nodeId;
     private final String sessionId;
@@ -41,7 +41,7 @@ public class QueryResponse {
     private final URI killUri;
 
     @JsonCreator
-    public QueryResponse(
+    public QueryResults(
             @JsonProperty("id") String queryId,
             @JsonProperty("node_id") String nodeId,
             @JsonProperty("session_id") String sessionId,

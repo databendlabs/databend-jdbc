@@ -13,7 +13,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import static com.databend.client.utils.OkHttpUtils.userAgentInterceptor;
+import static com.databend.client.OkHttpUtils.userAgentInterceptor;
 import static com.databend.jdbc.DriverInfo.*;
 
 public class NonRegisteringDatabendDriver implements Driver, Closeable {
