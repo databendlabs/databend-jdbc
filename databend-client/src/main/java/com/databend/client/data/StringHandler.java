@@ -14,34 +14,17 @@
 
 package com.databend.client.data;
 
-class StringHandler implements ColumnTypeHandler {
-    private final boolean isNullable;
-
-    public StringHandler() {
-        this.isNullable = false;
-    }
-
+class StringHandler extends ColumnTypeHandlerBase {
     public StringHandler(boolean isNullable) {
-        this.isNullable = isNullable;
+        super(isNullable);
+    }
+    @Override
+    protected boolean isNull(String value) {
+        return value == null;
     }
 
     @Override
-    public Object parseValue(Object value) {
-        if (value == null) {
-            if (isNullable) {
-                return null;
-            } else {
-                throw new IllegalArgumentException("String type is not nullable");
-            }
-        }
-        if (value instanceof String) {
-            return value;
-        }
-        return value.toString();
-    }
-
-    @Override
-    public void setNullable(boolean isNullable) {
-        // do nothing
+    public Object parseString(String value) {
+        return value;
     }
 }
