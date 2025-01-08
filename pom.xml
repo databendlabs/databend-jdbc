@@ -52,10 +52,12 @@
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
+
     <modules>
         <module>databend-client</module>
         <module>databend-jdbc</module>
     </modules>
+
     <dependencyManagement>
         <dependencies>
             <dependency>
@@ -91,7 +93,6 @@
                 <version>${dep.okio.version}</version>
             </dependency>
 
-
             <dependency>
                 <groupId>com.squareup.okhttp3</groupId>
                 <artifactId>okhttp-tls</artifactId>
@@ -112,13 +113,7 @@
         </dependencies>
 
     </dependencyManagement>
-    <dependencies>
-        <dependency>
-            <groupId>com.solidfire.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.6.2</version>
-        </dependency>
-    </dependencies>
+
     <build>
         <plugins>
             <plugin>
