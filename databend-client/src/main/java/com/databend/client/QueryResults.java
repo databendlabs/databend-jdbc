@@ -29,7 +29,7 @@ public class QueryResults {
     private final String sessionId;
     private final DatabendSession session;
     private final List<QueryRowField> schema;
-    private final List<List<Object>> data;
+    private final List<List<String>> data;
     private final String state;
     private final QueryErrors error;
     private final QueryStats stats;
@@ -47,7 +47,7 @@ public class QueryResults {
             @JsonProperty("session_id") String sessionId,
             @JsonProperty("session") DatabendSession session,
             @JsonProperty("schema") List<QueryRowField> schema,
-            @JsonProperty("data") List<List<Object>> data,
+            @JsonProperty("data") List<List<String>> data,
             @JsonProperty("state") String state,
             @JsonProperty("error") QueryErrors error,
             @JsonProperty("stats") QueryStats stats,
@@ -61,7 +61,7 @@ public class QueryResults {
         this.sessionId = sessionId;
         this.session = session;
         this.schema = schema;
-        this.data = ParseJsonDataUtils.parseRawData(schema, data);
+        this.data = data;
         this.state = state;
         this.error = error;
         this.stats = stats;
@@ -101,6 +101,11 @@ public class QueryResults {
 
     @JsonProperty
     public List<List<Object>> getData() {
+        return  ParseJsonDataUtils.parseRawData(schema, data);
+    }
+
+    @JsonProperty
+    public List<List<String>> getDataRaw() {
         return data;
     }
 

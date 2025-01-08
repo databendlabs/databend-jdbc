@@ -34,24 +34,29 @@ final class ParseJsonDataUtils {
      * input List<List<Object>> : a list of rows parsed from QueryResponse
      * output Iterable<List<Object>> : convert the input rows into DatabendType and return an immutable list
      */
-    public static List<List<Object>> parseRawData(List<QueryRowField> schema, List<List<Object>> data) {
+    public static List<List<Object>> parseRawData(List<QueryRowField> schema, List<List<String>> data) {
         if (data == null || schema == null) {
             return null;
         }
         ColumnTypeHandler[] typeHandlers = createTypeHandlers(schema);
         // ensure parsed data is thread safe
         ImmutableList.Builder<List<Object>> rows = ImmutableList.builderWithExpectedSize(data.size());
-        for (List<Object> row : data) {
+        for (List<String> row : data) {
             if (row.size() != typeHandlers.length) {
                 throw new IllegalArgumentException("row / column does not match schema");
             }
             ArrayList<Object> newRow = new ArrayList<>(typeHandlers.length);
             int column = 0;
-            for (Object value : row) {
+            for (String value : row) {
+                Object parsed = null;
                 if (value != null) {
-                    value = typeHandlers[column].parseValue(value);
+                    try {
+                        parsed = typeHandlers[column].parseString(value);
+                    } catch (IllegalArgumentException e) {
+                        throw new IllegalArgumentException("fail to parse column " + column + "(" + schema.get(column).getName() + "):" + e.getMessage());
+                    }
                 }
-                newRow.add(value);
+                newRow.add(parsed);
                 column++;
             }
             rows.add(unmodifiableList(newRow)); // allow nulls in list

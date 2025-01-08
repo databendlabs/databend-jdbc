@@ -1708,7 +1708,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (object == null) {
             return null;
         }
-        return (T) columnTypeHandler.parseValue(object);
+        return (T) object;
     }
 
     @Override

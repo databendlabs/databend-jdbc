@@ -14,38 +14,20 @@
 
 package com.databend.client.data;
 
-public class GeometryHandler implements ColumnTypeHandler {
-
-    private boolean isNullable;
-
+public class GeometryHandler extends ColumnTypeHandlerBase {
     public GeometryHandler(boolean isNullable) {
-        this.isNullable = isNullable;
+        super(isNullable);
     }
 
     @Override
-    public Object parseValue(Object value) {
-        if (value == null) {
-            if (isNullable) {
-                return null;
-            } else {
-                throw new IllegalArgumentException("Geometry type is not nullable");
-            }
+    public Object parseStringNotNull(String value) {
+        // binary wkb is converted to string during rest data transfer
+        if (value.startsWith("00") || value.startsWith("01")) {
+            return hexStringToByteArray(value);
         }
-        if (value instanceof String) {
-            String wkbOrWkt = (String) value;
-            // binary wkb is converted to string during rest data transfer
-            if (wkbOrWkt.startsWith("00") || wkbOrWkt.startsWith("01")) {
-                return hexStringToByteArray(wkbOrWkt);
-            }
-            // todo We are not distinguishing between geo_json and wkt for the time being, they are now both in text format
-            //      If we have a separate object to describe the variant type, we can consider handling geo_json
-        }
+        // todo We are not distinguishing between geo_json and wkt for the time being, they are now both in text format
+        //      If we have a separate object to describe the variant type, we can consider handling geo_json
         return value;
-    }
-
-    @Override
-    public void setNullable(boolean isNullable) {
-        this.isNullable = isNullable;
     }
 
     /**
