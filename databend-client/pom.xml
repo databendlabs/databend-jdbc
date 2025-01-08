@@ -14,17 +14,10 @@
     <version>0.3.4</version>
 
     <properties>
-        <!--suppress UnresolvedMavenProperty -->
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
-        <dep.okhttp.version>5.0.0-alpha.11</dep.okhttp.version>
-        <dep.okio.version>3.1.0</dep.okio.version>
     </properties>
     <dependencies>
-        <!--        <dependency>-->
-        <!--            <groupId>io.airlift</groupId>-->
-        <!--            <artifactId>units</artifactId>-->
-        <!--        </dependency>-->
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
@@ -59,37 +52,22 @@
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp</artifactId>
-            <version>${dep.okhttp.version}</version>
         </dependency>
         <!-- https://mvnrepository.com/artifact/com.squareup.okio/okio -->
         <dependency>
             <groupId>com.squareup.okio</groupId>
             <artifactId>okio</artifactId>
-            <version>${dep.okio.version}</version>
         </dependency>
-
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-tls</artifactId>
-            <version>${dep.okhttp.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.squareup.okhttp3</groupId>
             <artifactId>okhttp-urlconnection</artifactId>
-            <version>${dep.okhttp.version}</version>
         </dependency>
-
-        <!--        <dependency>-->
-        <!--            <groupId>com.squareup.okhttp3</groupId>-->
-        <!--            <artifactId>okhttp-urlconnection</artifactId>-->
-        <!--        </dependency>-->
-
-        <!--        <dependency>-->
-        <!--            <groupId>net.jodah</groupId>-->
-        <!--            <artifactId>failsafe</artifactId>-->
-        <!--        </dependency>-->
 
         <!-- for testing -->
 
@@ -102,11 +80,6 @@
             <groupId>org.testng</groupId>
             <artifactId>testng</artifactId>
             <scope>test</scope>
-        </dependency>
-        <dependency>
-            <groupId>com.solidfire.code.gson</groupId>
-            <artifactId>gson</artifactId>
-            <version>2.6.2</version>
         </dependency>
     </dependencies>
 </project>
