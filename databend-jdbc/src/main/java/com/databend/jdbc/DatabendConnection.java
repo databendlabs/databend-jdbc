@@ -790,7 +790,10 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         DatabendSession session = this.getSession();
         String warehouse = null;
         if (session != null ) {
-            warehouse = session.getSettings().get("warehouse");
+            Map<String, String> settings = session.getSettings();
+            if (settings != null) {
+                warehouse = settings.get("warehouse");
+            }
         }
         if (warehouse == null && !this.driverUri.getWarehouse().isEmpty()) {
             warehouse = this.driverUri.getWarehouse();
