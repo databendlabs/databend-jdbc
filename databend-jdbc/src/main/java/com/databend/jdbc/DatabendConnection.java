@@ -786,9 +786,19 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
     private Map<String, String> setAdditionalHeaders() {
         Map<String, String> additionalHeaders = new HashMap<>();
-        if (!this.driverUri.getWarehouse().isEmpty()) {
-            additionalHeaders.put(DatabendWarehouseHeader, this.driverUri.getWarehouse());
+
+        DatabendSession session = this.getSession();
+        String warehouse = null;
+        if (session != null ) {
+            warehouse = session.getSettings().get("warehouse");
         }
+        if (warehouse == null && !this.driverUri.getWarehouse().isEmpty()) {
+            warehouse = this.driverUri.getWarehouse();
+        }
+        if (warehouse!=null) {
+            additionalHeaders.put(DatabendWarehouseHeader, warehouse);
+        }
+
         if (!this.driverUri.getTenant().isEmpty()) {
             additionalHeaders.put(DatabendTenantHeader, this.driverUri.getTenant());
         }
