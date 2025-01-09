@@ -165,19 +165,6 @@ public class DatabendStatement implements Statement {
         currentResult.set(null);
     }
 
-    private void updateClientSession(QueryResults q) {
-        if (q == null) {
-            return;
-        }
-        DatabendSession session = q.getSession();
-        if (session == null) {
-            return;
-        }
-        // current query has result on update client session
-        DatabendConnection connection = this.connection.get();
-        connection.setSession(session);
-    }
-
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
         clearCurrentResults();
         checkOpen();
