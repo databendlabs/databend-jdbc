@@ -50,9 +50,9 @@ public class DatabendPresignClientV1
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
         this.client = builder.
-                connectTimeout(120, TimeUnit.SECONDS).writeTimeout(120, TimeUnit.SECONDS)
-                .writeTimeout(120, TimeUnit.SECONDS)
-                .readTimeout(120, TimeUnit.SECONDS)
+                connectTimeout(600, TimeUnit.SECONDS)
+                .writeTimeout(900, TimeUnit.SECONDS)
+                .readTimeout(600, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(Arrays.asList(Protocol.HTTP_1_1))
                 .addInterceptor(chain -> {
