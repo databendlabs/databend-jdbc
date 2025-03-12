@@ -42,50 +42,6 @@ public class TestPrepareStatement {
         c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
     }
 
-    @Test
-    public void TestBatchInsert1() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
-
-        PreparedStatement ps = c.prepareStatement(
-                "INSERT INTO default.test_large_tableau (id, name, age, email, phone, address, create_time, update_time, status, score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-
-        int batchSize = 1000;
-        int totalRecords = 3000000;
-
-        long startTime = System.currentTimeMillis();
-
-        for (int i = 1; i <= totalRecords; i++) {
-            ps.setInt(1, i); // id
-            ps.setString(2, "Name-" + i); // name
-            ps.setInt(3, 20 + (i % 50)); // age between 20-69
-            ps.setString(4, "user" + i + "@example.com"); // email
-            ps.setString(5, "1" + String.format("%010d", i % 9999999999L)); // phone
-            ps.setString(6, "Address " + i); // address
-            ps.setTimestamp(7, new Timestamp(System.currentTimeMillis())); // create_time
-            ps.setTimestamp(8, new Timestamp(System.currentTimeMillis())); // update_time
-            ps.setInt(9, i % 3); // status (0, 1, 2)
-            ps.setBigDecimal(10, new BigDecimal(Math.random() * 1000).setScale(2, RoundingMode.HALF_UP)); // score
-
-            ps.addBatch();
-
-            if (i % batchSize == 0) {
-                ps.executeBatch();
-                c.commit();
-                ps.clearBatch();
-                System.out.println("已插入 " + i + " 条数据，完成 " + (i * 100 / totalRecords) + "%");
-            }
-        }
-
-        ps.executeBatch();
-        c.commit();
-
-        long endTime = System.currentTimeMillis();
-        System.out.println("插入300万条数据完成，耗时: " + (endTime - startTime) / 1000 + " 秒");
-
-        ps.close();
-        c.close();
-    }
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
