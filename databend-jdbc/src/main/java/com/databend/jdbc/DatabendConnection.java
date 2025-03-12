@@ -86,7 +86,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 return;
             }
             try {
-                System.setProperty("java.util.logging.FileHandler.limit", "5242880000"); // 5000MB
+                // 将值限制在int范围内
+                System.setProperty("java.util.logging.FileHandler.limit", "2147483647"); // 约2GB，Integer.MAX_VALUE
                 System.setProperty("java.util.logging.FileHandler.count", "200");
                 System.setProperty("java.util.logging.FileHandler.append", "true"); // Enable log file reuse
                 FILE_HANDLER = new FileHandler(file.getAbsolutePath(), Integer.parseInt(System.getProperty("java.util.logging.FileHandler.limit")),
