@@ -50,8 +50,8 @@ public class TestPrepareStatement {
         PreparedStatement ps = c.prepareStatement(
                 "INSERT INTO default.test_large_tableau (id, name, age, email, phone, address, create_time, update_time, status, score) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
-        int batchSize = 1000; // 每批次处理1000条数据
-        int totalRecords = 3000000; // 300万条数据
+        int batchSize = 1000;
+        int totalRecords = 3000000;
 
         long startTime = System.currentTimeMillis();
 
@@ -77,7 +77,6 @@ public class TestPrepareStatement {
             }
         }
 
-        // 处理剩余的批次
         ps.executeBatch();
         c.commit();
 
