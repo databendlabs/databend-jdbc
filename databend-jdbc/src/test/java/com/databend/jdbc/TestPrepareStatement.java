@@ -6,6 +6,8 @@ import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -39,6 +41,7 @@ public class TestPrepareStatement {
         // Binary data
         c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
     }
+
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
