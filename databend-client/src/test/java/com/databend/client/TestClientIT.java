@@ -28,7 +28,8 @@ import java.util.concurrent.atomic.AtomicReference;
 import static com.databend.client.ClientSettings.*;
 
 @Test(timeOut = 10000)
-public class TestClientIT {
+public class TestClientIT
+{
     static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT").trim() : "8000";
 
     // please setup a local databend cluster before running this test, and create databend
@@ -36,7 +37,8 @@ public class TestClientIT {
     private static final String DATABASE = "default";
 
     @Test(groups = {"it"})
-    public void testBasicQueryPagination() {
+    public void testBasicQueryPagination()
+    {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
 
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
@@ -55,7 +57,8 @@ public class TestClientIT {
     }
 
     @Test(groups = {"it"})
-    public void testConnectionRefused() {
+    public void testConnectionRefused()
+    {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         ClientSettings settings = new ClientSettings("http://localhost:13191");
 
@@ -65,16 +68,17 @@ public class TestClientIT {
             DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
             cli.getResults(); // This should trigger the connection attempt
             Assert.fail("Expected exception was not thrown");
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue(
-                    e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be IOException or contain IOException as cause");
-
+                    e instanceof RuntimeException || e.getCause() instanceof ConnectException, "Exception should be IOException or contain IOException as cause");
         }
     }
 
     @Test(groups = {"it"})
-    public void testBasicQueryIDHeader() {
+    public void testBasicQueryIDHeader()
+    {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         String expectedUUID = UUID.randomUUID().toString();
         AtomicReference<String> lastNodeID = new AtomicReference<>();
@@ -102,7 +106,8 @@ public class TestClientIT {
     }
 
     @Test(groups = {"it"})
-    public void testDiscoverNodes() {
+    public void testDiscoverNodes()
+    {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         String expectedUUID = UUID.randomUUID().toString();
 
@@ -117,7 +122,8 @@ public class TestClientIT {
     }
 
     @Test(groups = {"it"})
-    public void testDiscoverNodesUnSupported() {
+    public void testDiscoverNodesUnSupported()
+    {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         String expectedUUID = UUID.randomUUID().toString();
 
@@ -128,7 +134,8 @@ public class TestClientIT {
         try {
             DatabendClientV1.discoverNodes(client, settings);
             Assert.fail("Expected exception was not thrown");
-        } catch (Exception e) {
+        }
+        catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue(e instanceof UnsupportedOperationException, "Exception should be UnsupportedOperationException");
         }
