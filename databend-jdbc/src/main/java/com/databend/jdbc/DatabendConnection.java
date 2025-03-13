@@ -688,26 +688,24 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
      * @see DatabendClientLoadBalancingPolicy
      */
     DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
-        Exception e = null;
-        int times = getMaxFailoverRetries() + 1;
+        Exception lastException = null;
+        int maxRetries = getMaxFailoverRetries();
 
-        for (int i = 1; i <= times; i++) {
-            if (e != null && !(e.getCause() instanceof ConnectException)) {
-                throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
+            // Only retry on connection exceptions
+            if (lastException != null && !(lastException.getCause() instanceof ConnectException)) {
+                throw new SQLException("Error start query: SQL: " + sql + " " + lastException.getMessage() +
+                        " cause: " + lastException.getCause(), lastException);
             }
+
             try {
-                // route hint is used when transaction occurred or when multi-cluster warehouse adopted(CLOUD ONLY)
-                // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
-                // transaction procedure:
-                // 1. server return session body where txn state is active
-                // 2. when there is an active transaction, it will route all query to target route hint uri if exists
-                // 3. if there is not an active transaction, it will use load balancing policy to choose a host to execute query
                 String query_id = UUID.randomUUID().toString();
                 String candidateHost = this.driverUri.getUri(query_id).toString();
+
                 if (!inActiveTransaction()) {
                     this.routeHint = uriRouteHint(candidateHost);
                 }
-                // checkout the host to use from route hint
+
                 if (this.routeHint != null && !this.routeHint.isEmpty()) {
                     URI uri = parseRouteHint(this.routeHint);
                     if (uri != null) {
@@ -715,25 +713,41 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     }
                 }
 
-                // configure query and choose host based on load balancing policy.
                 ClientSettings.Builder sb = this.makeClientSettings(query_id, candidateHost);
                 if (attach != null) {
                     sb.setStageAttachment(attach);
                 }
+
                 ClientSettings s = sb.build();
-                logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
-                // discover new hosts in need.
+                logger.log(Level.FINE, "Retry " + attempt + " of " + maxRetries + " to execute query: " +
+                        sql + " on " + s.getHost());
+
                 if (this.autoDiscovery) {
                     tryAutoDiscovery(httpClient, s);
                 }
+
                 return new DatabendClientV1(httpClient, sql, s, this, lastNodeID);
-            } catch (RuntimeException e1) {
-                e = e1;
-            } catch (Exception e1) {
-                throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
+            } catch (RuntimeException e) {
+                lastException = e;
+                // Only log the exception during retries
+                if (attempt < maxRetries) {
+                    logger.log(Level.WARNING, "Query attempt " + (attempt+1) + " failed: " + e.getMessage());
+                    try {
+                        long sleepTime = Math.min(100 * (1 << Math.min(attempt, 10)), 2000); // Max 2 seconds
+                        Thread.sleep(sleepTime);
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                }
+            } catch (Exception e) {
+                throw new SQLException("Error executing query: SQL: " + sql + " " + e.getMessage() +
+                        " cause: " + e.getCause(), e);
             }
         }
-        throw new SQLException("Failover Retry Error executing query after " + getMaxFailoverRetries() + " failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+
+        throw new SQLException("Failover Retry Error executing query after " + maxRetries +
+                " failover retries: SQL: " + sql + " " + lastException.getMessage() +
+                " cause: " + lastException.getCause(), lastException);
     }
 
     /**

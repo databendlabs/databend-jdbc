@@ -28,6 +28,7 @@ import java.util.Map;
 import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
+import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.databend.client.JsonCodec.jsonCodec;
@@ -73,7 +74,9 @@ public class DatabendClientV1
 
     private Consumer<DatabendSession> on_session_state_update;
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id) {
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings,
+            Consumer<DatabendSession> on_session_state_update,
+            AtomicReference<String> last_node_id) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -86,14 +89,16 @@ public class DatabendClientV1
         this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
         this.additonalHeaders = settings.getAdditionalHeaders();
         this.maxRetryAttempts = settings.getRetryAttempts();
-        // need atomic reference since it may get updated when query returned.
         this.databendSession = new AtomicReference<>(settings.getSession());
         this.nodeID = last_node_id.get();
+
         Request request = buildQueryRequest(query, settings);
         boolean completed = this.execute(request);
+
         if (!completed) {
             throw new RuntimeException("Query failed to complete");
         }
+
         last_node_id.set(this.nodeID);
     }
 
@@ -230,18 +235,23 @@ public class DatabendClientV1
 
     private boolean executeInternal(Request request, OptionalLong materializedJsonSizeLimit) {
         requireNonNull(request, "request is null");
+
         long start = System.nanoTime();
-        long attempts = 0;
-        Exception cause = null;
-        while (true) {
+        int attempts = 0;
+        Exception lastException = null;
+
+        while (attempts <= maxRetryAttempts) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
-                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart.getSeconds()), cause);
+                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)",
+                            attempts, sinceStart.getSeconds()), lastException);
                 }
 
                 try {
-                    MILLISECONDS.sleep(attempts * 100);
+                    // Apply exponential backoff with a cap
+                    long sleepTime = Math.min(100 * (1 << Math.min(attempts - 1, 10)), 5000); // Max 5 seconds
+                    MILLISECONDS.sleep(sleepTime);
                 } catch (InterruptedException e) {
                     try {
                         close();
@@ -251,41 +261,72 @@ public class DatabendClientV1
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
+
             attempts++;
             JsonResponse<QueryResults> response;
+
             try {
+                logger.log(Level.FINE, "Executing query attempt #" + attempts);
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
-            } catch (RuntimeException e) {
-                if (e.getCause() instanceof ConnectException) {
-                    // specially handle connection refused exception for retry purpose.
-                    throw e;
+
+                // Success case
+                if ((response.getStatusCode() == HTTP_OK) &&
+                        response.hasValue() &&
+                        (response.getValue().getError() == null)) {
+                    processResponse(response.getHeaders(), response.getValue());
+                    return true;
                 }
-                throw new RuntimeException("Query failed: " + e.getMessage(), e);
-            }
 
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
-                // q
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
-            }
-
-            if (response.getResponseBody().isPresent()) {
-                // try parse responseBody into ClientErrors
-                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
-                if (errors != null) {
-                    if (errors.tryGetErrorKind().canRetry()) {
-                        continue;
-                    } else {
-                        throw new RuntimeException(String.valueOf(response.getValue().getError()));
+                // Try to parse error response
+                if (response.getResponseBody().isPresent()) {
+                    CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
+                    if (errors != null) {
+                        if (errors.tryGetErrorKind().canRetry()) {
+                            lastException = new RuntimeException("Retryable error: " + errors.getMessage());
+                            logger.log(Level.WARNING, "Retryable error on attempt " + attempts + ": " + errors.getMessage());
+                            continue;
+                        } else {
+                            throw new RuntimeException("Non-retryable error: " + errors.getMessage());
+                        }
                     }
                 }
-            }
 
-            if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Query failed: " + response.getValue().getError());
+                // Handle status code 520
+                if (response.getStatusCode() == 520) {
+                    return false;
+                }
+
+                // Other errors
+                String errorMessage = "Query failed: " +
+                        (response.getValue() != null && response.getValue().getError() != null ?
+                                response.getValue().getError() : "Status code: " + response.getStatusCode());
+
+                if (attempts < maxRetryAttempts) {
+                    logger.log(Level.WARNING, "Query attempt " + attempts + " failed: " + errorMessage);
+                    lastException = new RuntimeException(errorMessage);
+                    continue;
+                } else {
+                    throw new RuntimeException(errorMessage);
+                }
+
+            } catch (RuntimeException e) {
+                if (e.getCause() instanceof ConnectException) {
+                    lastException = e;
+                    logger.log(Level.WARNING, "Connection exception on attempt " + attempts + ": " + e.getMessage());
+                    continue; // Retry on connection exceptions
+                }
+
+                if (attempts < maxRetryAttempts) {
+                    logger.log(Level.WARNING, "Exception on attempt " + attempts + ": " + e.getMessage());
+                    lastException = e;
+                    continue;
+                } else {
+                    throw new RuntimeException("Query failed: " + e.getMessage(), e);
+                }
             }
-            return false;
         }
+
+        throw new RuntimeException("Query failed after " + maxRetryAttempts + " attempts", lastException);
     }
 
     private String requestBodyToString(Request request) {
