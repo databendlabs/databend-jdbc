@@ -781,9 +781,7 @@ public class DatabendConnection
      * @throws SQLException If the query fails after retrying the specified number of times.
      * @see DatabendClientLoadBalancingPolicy
      */
-    DatabendClient startQueryWithFailover(String sql, StageAttachment attach)
-            throws SQLException
-    {
+    DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
         Exception lastException = null;
         int maxRetries = getMaxFailoverRetries() + 1;
 
@@ -816,21 +814,26 @@ public class DatabendConnection
                 }
 
                 return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
-            }
-            catch (Exception e) {
+
+            } catch (Exception e) {
                 lastException = e;
+
+                if (!(e.getCause() instanceof ConnectException) && i < maxRetries) {
+                    throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+                }
+
                 logger.log(Level.WARNING, "Retry " + i + " failed: " + e.getMessage());
 
                 try {
-                    Thread.sleep(Math.min(1000 * i, 5000));
-                }
-                catch (InterruptedException ie) {
+                    Thread.sleep(Math.min(1000 * i, 5000)); // 递增延迟,最大5秒
+                } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     throw new SQLException("Query interrupted during retry", ie);
                 }
             }
         }
 
+        // 所有重试都失败后抛出最终异常
         throw new SQLException("Failover Retry Error executing query after " + getMaxFailoverRetries() +
                 " failover retry: " + "SQL: " + sql + " " + lastException.getMessage() +
                 " cause: " + lastException.getCause(), lastException);
