@@ -19,6 +19,7 @@ import okhttp3.*;
 import okio.Buffer;
 
 import javax.annotation.concurrent.ThreadSafe;
+
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.URI;
@@ -40,7 +41,8 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class DatabendClientV1
-        implements DatabendClient {
+        implements DatabendClient
+{
     private final AtomicReference<Boolean> finished = new AtomicReference<>(false);
     public static final String USER_AGENT_VALUE = DatabendClientV1.class.getSimpleName() +
             "/" +
@@ -51,7 +53,6 @@ public class DatabendClientV1
     public static final String succeededState = "succeeded";
     public static final String failedState = "failed";
     public static final String runningState = "running";
-
 
     public static final String QUERY_PATH = "/v1/query";
     public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
@@ -73,7 +74,8 @@ public class DatabendClientV1
 
     private Consumer<DatabendSession> on_session_state_update;
 
-    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id) {
+    public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings, Consumer<DatabendSession> on_session_state_update, AtomicReference<String> last_node_id)
+    {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -97,7 +99,8 @@ public class DatabendClientV1
         last_node_id.set(this.nodeID);
     }
 
-    public static List<DiscoveryNode> discoverNodes(OkHttpClient httpClient, ClientSettings settings) {
+    public static List<DiscoveryNode> discoverNodes(OkHttpClient httpClient, ClientSettings settings)
+    {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");
@@ -106,7 +109,8 @@ public class DatabendClientV1
         return response.getNodes();
     }
 
-    public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders) {
+    public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders)
+    {
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("User-Agent", USER_AGENT_VALUE)
@@ -118,7 +122,8 @@ public class DatabendClientV1
         return builder;
     }
 
-    private Request buildQueryRequest(String query, ClientSettings settings) {
+    private Request buildQueryRequest(String query, ClientSettings settings)
+    {
         HttpUrl url = HttpUrl.get(settings.getHost());
         if (url == null) {
             // TODO(zhihanz) use custom exception
@@ -140,7 +145,8 @@ public class DatabendClientV1
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
     }
 
-    private static Request buildDiscoveryRequest(ClientSettings settings) {
+    private static Request buildDiscoveryRequest(ClientSettings settings)
+    {
         HttpUrl url = HttpUrl.get(settings.getHost());
         if (url == null) {
             // TODO(zhihanz) use custom exception
@@ -158,11 +164,13 @@ public class DatabendClientV1
     }
 
     @Override
-    public String getQuery() {
+    public String getQuery()
+    {
         return query;
     }
 
-    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, OptionalLong materializedJsonSizeLimit, int requestTimeoutSecs) {
+    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, OptionalLong materializedJsonSizeLimit, int requestTimeoutSecs)
+    {
         requireNonNull(request, "request is null");
 
         long start = System.nanoTime();
@@ -178,7 +186,8 @@ public class DatabendClientV1
 
                 try {
                     MILLISECONDS.sleep(attempts * 100); // Exponential backoff
-                } catch (InterruptedException e) {
+                }
+                catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Interrupted while fetching discovery nodes", e);
                 }
@@ -192,7 +201,8 @@ public class DatabendClientV1
                         httpClient,
                         request,
                         materializedJsonSizeLimit);
-            } catch (RuntimeException e) {
+            }
+            catch (RuntimeException e) {
                 lastException = e;
                 if (e.getCause() instanceof ConnectException) {
                     // Retry on connection refused errors
@@ -210,7 +220,8 @@ public class DatabendClientV1
                     throw new UnsupportedOperationException("Discovery request feature not supported: " + discoveryResponse.getError());
                 }
                 throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
-            } else if (response.getStatusCode() == HTTP_NOT_FOUND) {
+            }
+            else if (response.getStatusCode() == HTTP_NOT_FOUND) {
                 throw new UnsupportedOperationException("Discovery request feature not supported");
             }
 
@@ -228,67 +239,97 @@ public class DatabendClientV1
         }
     }
 
-    private boolean executeInternal(Request request, OptionalLong materializedJsonSizeLimit) {
+    private boolean executeInternal(Request request, OptionalLong materializedJsonSizeLimit)
+    {
         requireNonNull(request, "request is null");
         long start = System.nanoTime();
-        long attempts = 0;
-        Exception cause = null;
-        while (true) {
-            if (attempts > 0) {
+        int maxRetries = 5;
+        int currentAttempt = 0;
+        Exception lastException = null;
+
+        while (currentAttempt <= maxRetries) {
+            currentAttempt++;
+
+            if (currentAttempt > 1) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
-                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)", attempts, sinceStart.getSeconds()), cause);
+                    throw new RuntimeException(
+                            format("Error fetching next (attempts: %s, duration: %s)",
+                                    currentAttempt - 1, sinceStart.getSeconds()), lastException);
                 }
 
+                // back off retry
+                long sleepTime = Math.min(100 * (1L << (currentAttempt - 2)), 5000);  // 最大等待5秒
                 try {
-                    MILLISECONDS.sleep(attempts * 100);
-                } catch (InterruptedException e) {
+                    MILLISECONDS.sleep(sleepTime);
+                }
+                catch (InterruptedException e) {
                     try {
                         close();
-                    } finally {
+                    }
+                    finally {
                         Thread.currentThread().interrupt();
                     }
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
-            attempts++;
+
             JsonResponse<QueryResults> response;
             try {
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
-            } catch (RuntimeException e) {
-                if (e.getCause() instanceof ConnectException) {
-                    // specially handle connection refused exception for retry purpose.
-                    throw e;
+
+                if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
+                    processResponse(response.getHeaders(), response.getValue());
+                    return true;
                 }
-                throw new RuntimeException("Query failed: " + e.getMessage(), e);
-            }
 
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue() && (response.getValue().getError() == null)) {
-                // q
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
-            }
-
-            if (response.getResponseBody().isPresent()) {
-                // try parse responseBody into ClientErrors
-                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
-                if (errors != null) {
-                    if (errors.tryGetErrorKind().canRetry()) {
-                        continue;
-                    } else {
-                        throw new RuntimeException(String.valueOf(response.getValue().getError()));
+                if (response.getResponseBody().isPresent()) {
+                    CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
+                    if (errors != null) {
+                        if (errors.tryGetErrorKind().canRetry()) {
+                            lastException = new RuntimeException(String.valueOf(errors));
+                            continue;
+                        }
+                        else {
+                            throw new RuntimeException(String.valueOf(response.getValue().getError()));
+                        }
                     }
                 }
+
+                if (response.getStatusCode() == 520) {
+                    return false;
+                }
+
+                lastException = new RuntimeException("Query failed: " +
+                        (response.hasValue() && response.getValue().getError() != null ?
+                                response.getValue().getError() : "Unknown error"));
+            }
+            catch (RuntimeException e) {
+                if (e.getCause() instanceof ConnectException) {
+                    lastException = e;
+                    continue;
+                }
+                lastException = new RuntimeException("Query failed: " + e.getMessage(), e);
             }
 
-            if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Query failed: " + response.getValue().getError());
+            if (currentAttempt <= maxRetries) {
+                continue;
             }
-            return false;
+
+            if (lastException != null) {
+                throw new RuntimeException(
+                        format("Query failed after %d attempts", currentAttempt), lastException);
+            }
+            else {
+                throw new RuntimeException(format("Query failed after %d attempts", currentAttempt));
+            }
         }
+
+        return false;
     }
 
-    private String requestBodyToString(Request request) {
+    private String requestBodyToString(Request request)
+    {
         try {
             final Request copy = request.newBuilder().build();
             final Buffer buffer = new Buffer();
@@ -296,17 +337,20 @@ public class DatabendClientV1
                 copy.body().writeTo(buffer);
             }
             return buffer.readUtf8();
-        } catch (final IOException e) {
+        }
+        catch (final IOException e) {
             return "did not work";
         }
     }
 
     @Override
-    public boolean execute(Request request) {
+    public boolean execute(Request request)
+    {
         return executeInternal(request, OptionalLong.empty());
     }
 
-    private void processResponse(Headers headers, QueryResults results) {
+    private void processResponse(Headers headers, QueryResults results)
+    {
         nodeID = results.getNodeId();
         DatabendSession session = results.getSession();
         if (session != null) {
@@ -325,7 +369,8 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean advance() {
+    public boolean advance()
+    {
         requireNonNull(this.host, "host is null");
         requireNonNull(this.currentResults.get(), "currentResults is null");
         if (finished.get()) {
@@ -347,36 +392,43 @@ public class DatabendClientV1
     }
 
     @Override
-    public boolean hasNext() {
+    public boolean hasNext()
+    {
         return !finished.get();
     }
 
     @Override
-    public Map<String, String> getAdditionalHeaders() {
+    public Map<String, String> getAdditionalHeaders()
+    {
         return additonalHeaders;
     }
 
     @Override
-    public QueryResults getResults() {
+    public QueryResults getResults()
+    {
         return currentResults.get();
     }
 
     @Override
-    public DatabendSession getSession() {
+    public DatabendSession getSession()
+    {
         return databendSession.get();
     }
 
     @Override
-    public String getHost() {
+    public String getHost()
+    {
         return this.host;
     }
 
     @Override
-    public void close() {
+    public void close()
+    {
         closeQuery();
     }
 
-    private void closeQuery() {
+    private void closeQuery()
+    {
         if (!finished.compareAndSet(false, true)) {
             return;
         }
@@ -394,7 +446,8 @@ public class DatabendClientV1
         Request r = prepareRequest(url, this.additonalHeaders).get().build();
         try {
             httpClient.newCall(r).execute().close();
-        } catch (IOException ignored) {
+        }
+        catch (IOException ignored) {
         }
     }
 }

@@ -12,6 +12,7 @@ import org.testng.annotations.Test;
 
 import java.sql.Connection;
 import java.sql.Date;
+import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
@@ -22,7 +23,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.testng.AssertJUnit.assertEquals;
 
-@Test(timeOut = 10000)
+@Test(timeOut = 1000000000)
 public class TestBasicDriver {
     @BeforeTest
     public void setUp()

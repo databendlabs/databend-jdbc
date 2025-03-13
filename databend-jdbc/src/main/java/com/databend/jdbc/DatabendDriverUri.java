@@ -82,7 +82,7 @@ public final class DatabendDriverUri {
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
-        this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(0);
+        this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(5);
         this.autoDiscovery = AUTO_DISCOVERY.getValue(properties).orElse(false);
         this.nodeDiscoveryInterval = NODE_DISCOVERY_INTERVAL.getValue(properties).orElse(5 * 60 * 1000);
         List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
