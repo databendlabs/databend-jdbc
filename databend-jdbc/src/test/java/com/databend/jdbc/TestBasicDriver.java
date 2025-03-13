@@ -22,7 +22,7 @@ import java.util.Properties;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.testng.AssertJUnit.assertEquals;
 
-@Test(timeOut = 1000000000)
+@Test(timeOut = 10000)
 public class TestBasicDriver {
     @BeforeTest
     public void setUp()
