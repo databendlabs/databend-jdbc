@@ -238,14 +238,14 @@ public class DatabendClientV1
 
         long start = System.nanoTime();
         int attempts = 0;
-        Exception lastException = null;
+        Exception cause = null;
 
-        while (attempts <= maxRetryAttempts) {
+        while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)",
-                            attempts, sinceStart.getSeconds()), lastException);
+                            attempts, sinceStart.getSeconds()), cause);
                 }
 
                 try {
@@ -268,65 +268,43 @@ public class DatabendClientV1
             try {
                 logger.log(Level.FINE, "Executing query attempt #" + attempts);
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
-
-                // Success case
-                if ((response.getStatusCode() == HTTP_OK) &&
-                        response.hasValue() &&
-                        (response.getValue().getError() == null)) {
-                    processResponse(response.getHeaders(), response.getValue());
-                    return true;
-                }
-
-                // Try to parse error response
-                if (response.getResponseBody().isPresent()) {
-                    CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
-                    if (errors != null) {
-                        if (errors.tryGetErrorKind().canRetry()) {
-                            lastException = new RuntimeException("Retryable error: " + errors.getMessage());
-                            logger.log(Level.WARNING, "Retryable error on attempt " + attempts + ": " + errors.getMessage());
-                            continue;
-                        } else {
-                            throw new RuntimeException("Non-retryable error: " + errors.getMessage());
-                        }
-                    }
-                }
-
-                // Handle status code 520
-                if (response.getStatusCode() == 520) {
-                    return false;
-                }
-
-                // Other errors
-                String errorMessage = "Query failed: " +
-                        (response.getValue() != null && response.getValue().getError() != null ?
-                                response.getValue().getError() : "Status code: " + response.getStatusCode());
-
-                if (attempts < maxRetryAttempts) {
-                    logger.log(Level.WARNING, "Query attempt " + attempts + " failed: " + errorMessage);
-                    lastException = new RuntimeException(errorMessage);
-                    continue;
-                } else {
-                    throw new RuntimeException(errorMessage);
-                }
-
             } catch (RuntimeException e) {
                 if (e.getCause() instanceof ConnectException) {
-                    lastException = e;
+                    // Log the connection exception but rethrow it to match original behavior
                     logger.log(Level.WARNING, "Connection exception on attempt " + attempts + ": " + e.getMessage());
-                    continue; // Retry on connection exceptions
+                    throw e; // This will be caught by the caller's retry mechanism
                 }
+                throw new RuntimeException("Query failed: " + e.getMessage(), e);
+            }
 
-                if (attempts < maxRetryAttempts) {
-                    logger.log(Level.WARNING, "Exception on attempt " + attempts + ": " + e.getMessage());
-                    lastException = e;
-                    continue;
-                } else {
-                    throw new RuntimeException("Query failed: " + e.getMessage(), e);
+            // Success case
+            if ((response.getStatusCode() == HTTP_OK) &&
+                    response.hasValue() &&
+                    (response.getValue().getError() == null)) {
+                processResponse(response.getHeaders(), response.getValue());
+                return true;
+            }
+
+            // Try to parse error response
+            if (response.getResponseBody().isPresent()) {
+                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
+                if (errors != null) {
+                    if (errors.tryGetErrorKind().canRetry()) {
+                        logger.log(Level.WARNING, "Retryable error on attempt " + attempts + ": " + errors.getMessage());
+                        continue;
+                    } else {
+                        throw new RuntimeException(String.valueOf(response.getValue().getError()));
+                    }
                 }
             }
-        }
 
-        throw new RuntimeException("Query failed after " + maxRetryAttempts + " attempts", lastException);
+            // Handle status code 520
+            if (response.getStatusCode() == 520) {
+                return false;
+            }
+
+            throw new RuntimeException("Query failed: " + response.getValue().getError());
+        }
     }
 
     private String requestBodyToString(Request request) {

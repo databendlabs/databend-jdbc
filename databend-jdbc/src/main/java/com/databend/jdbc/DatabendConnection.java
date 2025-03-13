@@ -699,6 +699,12 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             }
 
             try {
+                // route hint is used when transaction occurred or when multi-cluster warehouse adopted(CLOUD ONLY)
+                // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
+                // transaction procedure:
+                // 1. server return session body where txn state is active
+                // 2. when there is an active transaction, it will route all query to target route hint uri if exists
+                // 3. if there is not an active transaction, it will use load balancing policy to choose a host to execute query
                 String query_id = UUID.randomUUID().toString();
                 String candidateHost = this.driverUri.getUri(query_id).toString();
 
