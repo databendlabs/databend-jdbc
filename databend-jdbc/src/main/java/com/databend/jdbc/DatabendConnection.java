@@ -819,19 +819,10 @@ public class DatabendConnection
             }
             catch (Exception e) {
                 lastException = e;
-
-                if (!(e.getCause() instanceof ConnectException) && i < maxRetries) {
-                    throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
-                }
-
                 logger.log(Level.WARNING, "Retry " + i + " failed: " + e.getMessage());
 
-                if (i == maxRetries) {
-                    continue;
-                }
-
                 try {
-                    Thread.sleep(Math.min(1000 * i, 5000)); // 递增延迟,最大5秒
+                    Thread.sleep(Math.min(1000 * i, 5000));
                 }
                 catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
