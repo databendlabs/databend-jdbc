@@ -249,6 +249,7 @@ public class DatabendClientV1
                 }
 
                 try {
+                    logger.log(Level.FINE, "Executing query attempt #" + attempts);
                     // Apply exponential backoff with a cap
                     long sleepTime = Math.min(100 * (1 << Math.min(attempts - 1, 10)), 5000); // Max 5 seconds
                     MILLISECONDS.sleep(sleepTime);
@@ -266,7 +267,6 @@ public class DatabendClientV1
             JsonResponse<QueryResults> response;
 
             try {
-                logger.log(Level.FINE, "Executing query attempt #" + attempts);
                 response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
             } catch (RuntimeException e) {
                 if (e.getCause() instanceof ConnectException) {
