@@ -693,7 +693,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             // Only retry on connection exceptions
-            if (lastException != null && !(lastException.getCause() instanceof ConnectException)) {
+            if (lastException != null && !(lastException.getCause() instanceof RuntimeException)) {
                 throw new SQLException("Error start query: SQL: " + sql + " " + lastException.getMessage() +
                         " cause: " + lastException.getCause(), lastException);
             }
@@ -737,7 +737,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 lastException = e;
                 // Only log the exception during retries
                 if (attempt < maxRetries) {
-                    logger.log(Level.WARNING, "Query attempt " + (attempt+1) + " failed: " + e.getMessage());
                     try {
                         long sleepTime = Math.min(100 * (1 << Math.min(attempt, 10)), 2000); // Max 2 seconds
                         Thread.sleep(sleepTime);
