@@ -693,7 +693,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             // Only retry on connection exceptions
-            if (lastException != null && !(lastException.getCause() instanceof RuntimeException)) {
+            if (lastException != null && !(lastException.getCause() instanceof ConnectException)) {
                 throw new SQLException("Error start query: SQL: " + sql + " " + lastException.getMessage() +
                         " cause: " + lastException.getCause(), lastException);
             }
