@@ -692,12 +692,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         int maxRetries = getMaxFailoverRetries();
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
-            // Only retry on connection exceptions
-            if (lastException != null && !(lastException.getCause() instanceof ConnectException)) {
-                throw new SQLException("Error start query: SQL: " + sql + " " + lastException.getMessage() +
-                        " cause: " + lastException.getCause(), lastException);
-            }
-
             try {
                 // route hint is used when transaction occurred or when multi-cluster warehouse adopted(CLOUD ONLY)
                 // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
