@@ -125,7 +125,7 @@ public final class JsonResponse<T> {
 
     public T getValue() {
         if (!hasValue) {
-            throw new IllegalStateException("Response does not contain a JSON value", exception);
+            throw new IllegalStateException("Response does not contain a JSON value, please retry", exception);
         }
         return value;
     }
