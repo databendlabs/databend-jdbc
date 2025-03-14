@@ -68,7 +68,7 @@ public class TestClientIT {
         } catch (Exception e) {
             System.out.println(e.getMessage());
             Assert.assertTrue(
-                    e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be IOException or contain IOException as cause");
+                    e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be ConnectionException or contain ConnectionException as cause");
 
         }
     }

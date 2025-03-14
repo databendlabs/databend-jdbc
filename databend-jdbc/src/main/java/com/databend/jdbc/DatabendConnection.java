@@ -688,54 +688,100 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
      * @see DatabendClientLoadBalancingPolicy
      */
     DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
-        Exception e = null;
-        int times = getMaxFailoverRetries() + 1;
+        int maxRetries = getMaxFailoverRetries();
+        SQLException lastException = null;
 
-        for (int i = 1; i <= times; i++) {
-            if (e != null && !(e.getCause() instanceof ConnectException)) {
-                throw new SQLException("Error start query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
-            }
+        for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                // route hint is used when transaction occurred or when multi-cluster warehouse adopted(CLOUD ONLY)
-                // on cloud case, we have gateway to handle with route hint, and will not parse URI from route hint.
-                // transaction procedure:
-                // 1. server return session body where txn state is active
-                // 2. when there is an active transaction, it will route all query to target route hint uri if exists
-                // 3. if there is not an active transaction, it will use load balancing policy to choose a host to execute query
-                String query_id = UUID.randomUUID().toString();
-                String candidateHost = this.driverUri.getUri(query_id).toString();
-                if (!inActiveTransaction()) {
-                    this.routeHint = uriRouteHint(candidateHost);
-                }
-                // checkout the host to use from route hint
-                if (this.routeHint != null && !this.routeHint.isEmpty()) {
-                    URI uri = parseRouteHint(this.routeHint);
-                    if (uri != null) {
-                        candidateHost = uri.toString();
-                    }
-                }
+                String queryId = UUID.randomUUID().toString();
+                String candidateHost = selectHostForQuery(queryId);
 
-                // configure query and choose host based on load balancing policy.
-                ClientSettings.Builder sb = this.makeClientSettings(query_id, candidateHost);
+                // configure the client settings
+                ClientSettings.Builder sb = this.makeClientSettings(queryId, candidateHost);
                 if (attach != null) {
                     sb.setStageAttachment(attach);
                 }
-                ClientSettings s = sb.build();
-                logger.log(Level.FINE, "retry " + i + " times to execute query: " + sql + " on " + s.getHost());
-                // discover new hosts in need.
+                ClientSettings settings = sb.build();
+
+                logger.log(Level.FINE, "execute query #{0}: SQL: {1} host: {2}",
+                        new Object[]{attempt + 1, sql, settings.getHost()});
+
+                // need to retry the auto discovery in case of connection error
                 if (this.autoDiscovery) {
-                    tryAutoDiscovery(httpClient, s);
+                    tryAutoDiscovery(httpClient, settings);
                 }
-                return new DatabendClientV1(httpClient, sql, s, this, lastNodeID);
-            } catch (RuntimeException e1) {
-                e = e1;
-            } catch (Exception e1) {
-                throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e1.getMessage() + " cause: " + e1.getCause(), e1);
+
+                return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
+            } catch (Exception e) {
+                // handle the exception and retry the query
+                if (shouldRetryException(e) && attempt < maxRetries) {
+                    lastException = wrapException("query failed", sql, e);
+                    try {
+                        Thread.sleep(Math.min(100 * (1 << attempt), 5000)); // back off retry
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                        throw wrapException("query interrupt", sql, ie);
+                    }
+                } else {
+                    // throw the exception
+                    if (e instanceof SQLException) {
+                        throw (SQLException) e;
+                    } else {
+                        throw wrapException("Query failed，no need to retry", sql, e);
+                    }
+                }
             }
         }
-        throw new SQLException("Failover Retry Error executing query after " + getMaxFailoverRetries() + " failover retry: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+
+        throw new SQLException("after" + maxRetries + "times retry and failed: SQL: " + sql, lastException);
     }
 
+    private boolean shouldRetryException(Exception e) {
+        Throwable cause = e.getCause();
+        // connection error
+        if (cause instanceof ConnectException) {
+            return true;
+        }
+
+        if (e instanceof RuntimeException) {
+            String message = e.getMessage();
+            return message != null && (
+                    message.contains("520") ||
+                            message.contains("timeout") ||
+                            message.contains("retry")
+            );
+        }
+
+        return false;
+    }
+
+    private String selectHostForQuery(String queryId) {
+        String candidateHost = this.driverUri.getUri(queryId).toString();
+
+        if (!inActiveTransaction()) {
+            this.routeHint = uriRouteHint(candidateHost);
+        }
+
+        if (this.routeHint != null && !this.routeHint.isEmpty()) {
+            URI uri = parseRouteHint(this.routeHint);
+            if (uri != null) {
+                candidateHost = uri.toString();
+            }
+        }
+
+        return candidateHost;
+    }
+
+    private SQLException wrapException(String prefix, String sql, Exception e) {
+        String message = prefix + ": SQL: " + sql;
+        if (e.getMessage() != null) {
+            message += " - " + e.getMessage();
+        }
+        if (e.getCause() != null) {
+            message += " (Reason: " + e.getCause().getMessage() + ")";
+        }
+        return new SQLException(message, e);
+    }
     /**
      * Try to auto discovery the databend nodes it will log exceptions when auto discovery failed and not affect real query execution
      *
