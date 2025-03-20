@@ -23,6 +23,7 @@ public class ClientSettings {
     public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     public static final String X_Databend_Query_ID = "X-DATABEND-QUERY-ID";
+    public static final String X_DATABEND_VERSION= "X-DATABEND-VERSION";
     public static final String X_DATABEND_ROUTE_HINT = "X-DATABEND-ROUTE-HINT";
     public static final String X_DATABEND_STAGE_NAME = "X-DATABEND-STAGE-NAME";
     public static final String X_DATABEND_RELATIVE_PATH = "X-DATABEND-RELATIVE-PATH";
