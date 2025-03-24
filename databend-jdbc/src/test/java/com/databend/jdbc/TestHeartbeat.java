@@ -46,7 +46,7 @@ public class TestHeartbeat {
                 rs.close();
             }
             statement.close();
-            Thread.sleep(2);
+            Thread.sleep(5000);
 
             Assert.assertTrue(c1.unwrap(DatabendConnection.class).isHeartbeatStopped());
 

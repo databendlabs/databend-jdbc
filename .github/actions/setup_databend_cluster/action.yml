@@ -4,7 +4,7 @@ inputs:
   version:
     description: "query and meta service version"
     required: true
-    default: "1.2.709-nightly"
+    default: "1.2.710-nightly"
   target:
     description: ""
     required: true
