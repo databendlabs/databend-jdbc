@@ -102,6 +102,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             if (closed) {
                 return;
             }
+            liveness.stopped = true;
             closed = true;
             closeStatement = closeStatementOnClose;
         }
