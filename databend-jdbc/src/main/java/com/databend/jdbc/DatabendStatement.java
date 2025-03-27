@@ -161,8 +161,11 @@ public class DatabendStatement implements Statement {
         return result;
     }
 
-    private void clearCurrentResults() {
-        currentResult.set(null);
+    private void clearCurrentResults() throws SQLException {
+        ResultSet old = currentResult.getAndSet(null);
+        if (old != null) {
+            old.close();
+        }
     }
 
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
@@ -430,6 +433,15 @@ public class DatabendStatement implements Statement {
             throw new SQLException("Connection is closed");
         }
         return connection;
+    }
+
+    public QueryLiveness queryLiveness() {
+        DatabendResultSet r =  currentResult.get();
+
+        if (r != null) {
+            return r.getLiveness();
+        }
+        return null;
     }
 
     protected final Optional<DatabendConnection> optionalConnection() {

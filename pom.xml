@@ -50,6 +50,7 @@
         <dep.okhttp.version>5.0.0-alpha.11</dep.okhttp.version>
         <dep.okio.version>3.0.0</dep.okio.version>
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
+        <dep.semver.version>0.9.0</dep.semver.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
     </properties>
 
@@ -110,6 +111,13 @@
                 <artifactId>error_prone_annotations</artifactId>
                 <version>${dep.errorprone.version}</version>
             </dependency>
+
+            <dependency>
+                <groupId>com.github.zafarkhaja</groupId>
+                <artifactId>java-semver</artifactId>
+                <version>${dep.semver.version}</version>
+            </dependency>
+
         </dependencies>
 
     </dependencyManagement>
