@@ -1102,11 +1102,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
         @Override
         public void run() {
-            heartbeatFuture = null;
             ArrayList<QueryLiveness> arr = queryLiveness();
             doHeartbeat(arr);
 
             synchronized (DatabendConnection.this) {
+                heartbeatFuture = null;
                 if (arr.size() > 0) {
                     if (heartbeatFuture == null)
                         scheduleHeartbeat();
