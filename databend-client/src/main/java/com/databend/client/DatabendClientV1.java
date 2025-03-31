@@ -66,6 +66,7 @@ public class DatabendClientV1
     // request with retry timeout
     private final Integer requestTimeoutSecs;
     private final Map<String, String> additonalHeaders;
+    private String serverVersion;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
     private String nodeID;
@@ -337,8 +338,18 @@ public class DatabendClientV1
         if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
             this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
-        if (headers != null && headers.get(ClientSettings.X_DATABEND_ROUTE_HINT) != null) {
-            this.additonalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, headers.get(ClientSettings.X_DATABEND_ROUTE_HINT));
+        if (headers != null) {
+            String serverVersionString = headers.get(ClientSettings.X_DATABEND_VERSION);
+            if (serverVersionString != null) {
+                try {
+                    serverVersion = serverVersionString;
+                } catch (Exception e) {
+                }
+            }
+            String route_hint = headers.get(ClientSettings.X_DATABEND_ROUTE_HINT);
+            if (route_hint != null) {
+                this.additonalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, route_hint);
+            }
         }
         currentResults.set(results);
     }
@@ -386,9 +397,15 @@ public class DatabendClientV1
     }
 
     @Override
-    public String getHost() {
-        return this.host;
+    public String getNodeID() {
+        return this.nodeID;
     }
+
+    @Override
+    public String getServerVersion() {
+        return this.serverVersion;
+    }
+
 
     @Override
     public void close() {

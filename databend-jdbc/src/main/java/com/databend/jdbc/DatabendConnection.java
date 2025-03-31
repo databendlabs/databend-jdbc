@@ -4,6 +4,7 @@ import com.databend.client.ClientSettings;
 import com.databend.client.DatabendClient;
 import com.databend.client.DatabendClientV1;
 import com.databend.client.DatabendSession;
+import com.databend.client.ServerVersions;
 import com.databend.client.PaginationOptions;
 import com.databend.client.QueryRequest;
 import com.databend.client.StageAttachment;
@@ -12,6 +13,9 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.*;
 
 import java.io.ByteArrayInputStream;
@@ -41,6 +45,10 @@ import java.sql.Struct;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
+import java.util.concurrent.Executors;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
@@ -53,9 +61,9 @@ import java.util.zip.GZIPOutputStream;
 import static com.databend.client.ClientSettings.*;
 import static com.databend.client.DatabendClientV1.MEDIA_TYPE_JSON;
 import static com.databend.client.DatabendClientV1.USER_AGENT_VALUE;
+import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
 import static java.net.URI.create;
-import static java.util.Collections.newSetFromMap;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -63,6 +71,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class DatabendConnection implements Connection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
     public static final String LOGOUT_PATH = "/v1/session/logout";
+    public static final String HEARTBEAT_PATH = "/v1/session/heartbeat";
     private static FileHandler FILE_HANDLER;
 
     private final AtomicBoolean closed = new AtomicBoolean();
@@ -70,13 +79,16 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     private final URI httpUri;
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final OkHttpClient httpClient;
-    private final Set<DatabendStatement> statements = newSetFromMap(new ConcurrentHashMap<>());
+    private final ConcurrentHashMap<DatabendStatement, Boolean> statements = new ConcurrentHashMap();
     private final DatabendDriverUri driverUri;
     private boolean autoDiscovery;
     private AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     private String routeHint = "";
     private AtomicReference<String> lastNodeID = new AtomicReference<>();
+
+    static ExecutorService heartbeatScheduler = null;
+    private HeartbeatManager heartbeatManager = new HeartbeatManager();
 
     private void initializeFileHandler() {
         if (this.debug()) {
@@ -100,6 +112,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         }
     }
 
+
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
         // only used for presign url on non-object storage, which mainly served for demo pupose.
@@ -107,7 +120,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.httpUri = uri.getUri();
         this.httpClient = httpClient;
         this.driverUri = uri;
-        this.setSchema(uri.getDatabase());
+        this.schema.set(uri.getDatabase());
         this.routeHint = randRouteHint();
         // it maybe closed due to unsupported server versioning.
         this.autoDiscovery = uri.autoDiscovery();
@@ -228,12 +241,12 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         return statement;
     }
 
-    private void registerStatement(DatabendStatement statement) {
-        checkState(statements.add(statement), "Statement is already registered");
+    synchronized private void registerStatement(DatabendStatement statement) {
+        checkState(statements.put(statement, true) == null, "Statement is already registered");
     }
 
-    private void unregisterStatement(DatabendStatement statement) {
-        checkState(statements.remove(statement), "Statement is not registered");
+    synchronized private void unregisterStatement(DatabendStatement statement) {
+        checkNotNull(statements.remove(statement), "Statement is not registered");
     }
 
     @Override
@@ -304,7 +317,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     @Override
     public void close()
             throws SQLException {
-        for (Statement stmt : statements) {
+        for (Statement stmt : statements.keySet()) {
             stmt.close();
         }
         logout();
@@ -809,11 +822,16 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     }
 
     DatabendClient startQuery(String sql) throws SQLException {
-        return startQueryWithFailover(sql, null);
+        return startQuery(sql, null);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        return startQueryWithFailover(sql, attach);
+        DatabendClient client = startQueryWithFailover(sql, attach);
+        Long timeout = client.getResults().getResultTimeoutSecs();
+        if (timeout != null && timeout != 0) {
+            heartbeatManager.onStartQuery(timeout);
+        }
+        return client;
     }
 
     private ClientSettings.Builder makeClientSettings(String queryID, String host) {
@@ -967,13 +985,16 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         while (rs.next()) {
         }
     }
-
     void logout() throws SQLException {
         DatabendSession session = this.session.get();
         if (session == null || !session.getNeedKeepAlive()) {
             return;
         }
+        generalRequest(LOGOUT_PATH, "{}");
+    }
 
+    String generalRequest(String path, String body)  throws SQLException {
+        DatabendSession session = this.session.get();
         int times = getMaxFailoverRetries() + 1;
         List hosts = new LinkedList<String>();
         String failReason = null;
@@ -990,7 +1011,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             logger.log(Level.FINE, "retry " + i + " times to logout on " + candidateHost);
 
             ClientSettings settings = this.makeClientSettings("", candidateHost).build();
-            HttpUrl url = HttpUrl.get(candidateHost).newBuilder().encodedPath(LOGOUT_PATH).build();
+            HttpUrl url = HttpUrl.get(candidateHost).newBuilder().encodedPath(path).build();
             Request.Builder builder = new Request.Builder()
                     .url(url)
                     .header("User-Agent", USER_AGENT_VALUE);
@@ -1004,12 +1025,12 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
             }
             for (int j = 1; j <= 3; j++) {
-                Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, "{}")).build();
+                Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, body)).build();
                 try (Response response = httpClient.newCall(request).execute()) {
                     if (response.code() != 200) {
                         throw new SQLException("Error logout: code =" + response.code() + ", body = " + response.body());
                     }
-                    return;
+                    return response.body().string();
                 } catch (IOException e) {
                     System.out.println("e = " + e.getMessage());
                     if (e.getCause() instanceof ConnectException) {
@@ -1020,7 +1041,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                             MILLISECONDS.sleep(j * 100);
                         } catch (InterruptedException e2) {
                             Thread.currentThread().interrupt();
-                            return;
+                            return null;
                         }
                     } else {
                        break;
@@ -1030,4 +1051,120 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         }
         throw new SQLException("Failover Retry Error executing query after retries on hosts " + hosts + ": " + failReason);
     }
+
+    class HeartbeatManager implements Runnable {
+        private ScheduledFuture<?> heartbeatFuture;
+        private long heartbeatIntervalMillis = 30000;
+        private long lastHeartbeatStartTimeMillis = 0;
+        private ScheduledExecutorService getScheduler() {
+            if (heartbeatScheduler == null) {
+                synchronized (HeartbeatManager.class) {
+                    if (heartbeatScheduler == null) {
+                        // create daemon thread so that it will not block JVM from exiting.
+                        heartbeatScheduler =
+                                Executors.newScheduledThreadPool(
+                                        1,
+                                        runnable -> {
+                                            Thread thread = Executors.defaultThreadFactory().newThread(runnable);
+                                            thread.setName("heartbeat (" + thread.getId() + ")");
+                                            thread.setDaemon(true);
+                                            return thread;
+                                        });
+                    }
+                }
+            }
+            return (ScheduledExecutorService) heartbeatScheduler;
+        }
+
+        private void scheduleHeartbeat() {
+            long delay =  Math.max(heartbeatIntervalMillis - (System.currentTimeMillis() - lastHeartbeatStartTimeMillis), 0);
+            heartbeatFuture = getScheduler().schedule(this, delay, MILLISECONDS);
+        }
+
+        private ArrayList<QueryLiveness> queryLiveness() {
+            ArrayList<QueryLiveness> arr = new ArrayList<>();
+            for (DatabendStatement stmt : statements.keySet()) {
+                QueryLiveness ql = stmt.queryLiveness();
+                if (ql != null && !ql.stopped && ServerVersions.supportHeartbeat(ql.serverVersion)) {
+                    arr.add(ql);
+                }
+            }
+            return arr;
+        }
+
+        private void doHeartbeat(ArrayList<QueryLiveness> queryLivenesses ) {
+            long now = System.currentTimeMillis();
+            lastHeartbeatStartTimeMillis = now;
+            Map<String, ArrayList<String>> nodeToQueryID = new HashMap();
+            Map<String, QueryLiveness> queries = new HashMap();
+
+            for (QueryLiveness ql: queryLivenesses) {
+                if (now - ql.lastRequestTime.get() >= ql.resultTimeoutSecs * 1000 / 2) {
+                    nodeToQueryID.computeIfAbsent(ql.nodeID, k -> new ArrayList()).add(ql.queryID);
+                    queries.put(ql.queryID, ql);
+                }
+            }
+            if (nodeToQueryID.isEmpty())
+                return;
+
+            ObjectMapper mapper = new ObjectMapper();
+            Map<String, Object> map = new HashMap<>();
+            map.put("node_to_queries", nodeToQueryID);
+
+            try {
+                String body = mapper.writeValueAsString(map);
+
+                body = generalRequest(HEARTBEAT_PATH, body);
+                JsonNode toRemove = mapper.readTree(body).get("queries_to_remove");
+                if (toRemove.isArray()) {
+                    for (JsonNode element : toRemove) {
+                        String queryId = element.asText();
+                        queries.get(queryId).stopped = true;
+                    }
+                }
+            } catch (JsonProcessingException e) {
+                logger.warning("fail to encode heartbeat body: " + e);
+            } catch (SQLException e) {
+                logger.warning("fail to send heartbeat: " + e);
+            } catch (IOException e) {
+                logger.warning("fail to send heartbeat: " + e);
+                throw new RuntimeException(e);
+            }
+        }
+
+        public void onStartQuery(Long timeoutSecs) {
+            synchronized (DatabendConnection.this) {
+                if (timeoutSecs * 1000 / 4 < heartbeatIntervalMillis) {
+                    heartbeatIntervalMillis = timeoutSecs * 1000 / 4;
+                    if (heartbeatFuture != null) {
+                        heartbeatFuture.cancel(false);
+                        heartbeatFuture = null;
+                    }
+                }
+                if (heartbeatFuture == null)
+                    scheduleHeartbeat();
+            }
+        }
+
+        @Override
+        public void run() {
+            ArrayList<QueryLiveness> arr = queryLiveness();
+            doHeartbeat(arr);
+
+            synchronized (DatabendConnection.this) {
+                heartbeatFuture = null;
+                if (arr.size() > 0) {
+                    if (heartbeatFuture == null)
+                        scheduleHeartbeat();
+                } else {
+                    heartbeatFuture = null;
+                }
+            }
+        }
+    }
+
+    boolean isHeartbeatStopped() {
+        return heartbeatManager.heartbeatFuture == null;
+    }
 }
+

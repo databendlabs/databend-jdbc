@@ -3,6 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.DatabendClient;
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
+import com.github.zafarkhaja.semver.Version;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
@@ -20,6 +21,7 @@ import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Stream;
 
 import static com.google.common.base.Throwables.throwIfUnchecked;
@@ -27,8 +29,6 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DatabendResultSet extends AbstractDatabendResultSet {
-
-    private final String queryId;
     private final Statement statement;
     private final DatabendClient client;
     @GuardedBy("this")
@@ -36,19 +36,32 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
-    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows) throws SQLException {
+    private final QueryLiveness liveness;
+
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows, QueryLiveness liveness) throws SQLException {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(client), maxRows), client), client.getResults().getQueryId());
+                new AsyncIterator<>(flatten(new ResultsPageIterator(client, liveness), maxRows), client), client.getResults().getQueryId());
         this.statement = statement;
         this.client = client;
-        this.queryId = client.getResults().getQueryId();
+        this.liveness = liveness;
     }
 
     static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows)
             throws SQLException {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
-        return new DatabendResultSet(statement, client, s, maxRows);
+        AtomicLong lastRequestTime = new AtomicLong(System.currentTimeMillis());
+        QueryResults r = client.getResults();
+        Version serverVersion = null;
+        if (client.getServerVersion() != null) {
+            try {
+                serverVersion =  Version.valueOf(client.getServerVersion());
+            } catch (Exception _e) {
+
+            }
+        }
+        QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), serverVersion);
+        return new DatabendResultSet(statement, client, s, maxRows, liveness);
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows) {
@@ -60,8 +73,11 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         return stream.iterator();
     }
 
-    public String getQueryId() {
-        return queryId;
+
+    public QueryLiveness getLiveness() {
+        if (closed)
+            return null;
+        return liveness;
     }
 
     void setCloseStatementOnClose()
@@ -86,6 +102,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             if (closed) {
                 return;
             }
+            liveness.stopped = true;
             closed = true;
             closeStatement = closeStatementOnClose;
         }
@@ -192,9 +209,11 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>> {
         private final DatabendClient client;
+        private  QueryLiveness liveness;
 
-        private ResultsPageIterator(DatabendClient client) {
+        private ResultsPageIterator(DatabendClient client, QueryLiveness liveness) {
             this.client = client;
+            this.liveness = liveness;
         }
 
         // AsyncIterator will call this and put rows to queue with MAX_QUEUED_ROWS=5000
@@ -205,6 +224,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                 List<List<Object>> rows = results.getData();
                 try {
                     client.advance();
+                    liveness.lastRequestTime.set(System.currentTimeMillis());
                 } catch (RuntimeException e) {
                     throw new RuntimeException(e);
                 }
@@ -212,6 +232,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                     return rows;
                 }
             }
+            liveness.stopped = true;
             // next uri is null, no more data
             QueryResults results = client.getResults();
             if (results.getError() != null) {

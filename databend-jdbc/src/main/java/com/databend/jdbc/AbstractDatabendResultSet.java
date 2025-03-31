@@ -65,6 +65,8 @@ import static java.util.Objects.requireNonNull;
 import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractDatabendResultSet implements ResultSet {
+    protected  AtomicLong lastRequestTime = new AtomicLong();
+
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     private static final int MAX_DATETIME_PRECISION = 12;
     private static final long[] POWERS_OF_TEN = {

@@ -34,6 +34,7 @@ public class QueryResults {
     private final QueryErrors error;
     private final QueryStats stats;
     private final QueryAffect affect;
+    private final long resultTimeoutSecs;
     private final URI statsUri;
 
     private final URI finalUri;
@@ -52,6 +53,7 @@ public class QueryResults {
             @JsonProperty("error") QueryErrors error,
             @JsonProperty("stats") QueryStats stats,
             @JsonProperty("affect") QueryAffect affect,
+            @JsonProperty("result_timeout_secs") long resultTimeoutSecs,
             @JsonProperty("stats_uri") URI statsUri,
             @JsonProperty("final_uri") URI finalUri,
             @JsonProperty("next_uri") URI nextUri,
@@ -66,6 +68,7 @@ public class QueryResults {
         this.error = error;
         this.stats = stats;
         this.affect = affect;
+        this.resultTimeoutSecs = resultTimeoutSecs;
         this.statsUri = statsUri;
         this.finalUri = finalUri;
         this.nextUri = nextUri;
@@ -147,6 +150,11 @@ public class QueryResults {
     @JsonProperty
     public URI getKillUri() {
         return killUri;
+    }
+
+    @JsonProperty
+    public Long getResultTimeoutSecs() {
+        return resultTimeoutSecs;
     }
 
     public boolean hasMoreData() {

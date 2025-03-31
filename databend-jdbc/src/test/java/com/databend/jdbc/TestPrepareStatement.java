@@ -538,9 +538,12 @@ public class TestPrepareStatement {
         String selectSQL = "select * from clustering_information('default','test_clusterkey')";
         try (PreparedStatement statement = conn.prepareStatement(selectSQL)) {
             ResultSet rs = statement.executeQuery();
+            int rows =  0;
             while (rs.next()) {
-                Assertions.assertEquals(Float.valueOf("0.0"), Float.valueOf(rs.getString(5)));
+                Assertions.assertEquals("linear", rs.getString(2));
+                rows +=1;
             }
+            Assertions.assertEquals(1, rows);
         }
     }
 
