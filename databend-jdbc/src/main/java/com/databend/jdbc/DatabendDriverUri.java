@@ -417,9 +417,7 @@ public final class DatabendDriverUri {
             builder.cookieJar(cookieJar);
 
             String password = PASSWORD.getValue(properties).orElse("");
-            if (!password.isEmpty()) {
-                builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
-            }
+            builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
             if (useSecureConnection || sslmode.equals("enable")) {
                 setupInsecureSsl(builder);
             }
