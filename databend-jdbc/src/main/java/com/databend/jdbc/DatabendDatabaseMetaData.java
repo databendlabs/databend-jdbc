@@ -3,6 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import org.apache.commons.lang3.StringUtils;
 
@@ -92,12 +93,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         return filter.toString();
     }
 
-    private static String stringColumnLike(String columnName, String pattern) {
+    @VisibleForTesting
+    protected static String stringColumnLike(String columnName, String pattern) {
         if (pattern == null || pattern.isEmpty()) {
             return null;
-        } else if (Pattern.matches("^%+$", pattern)) { // Checks if string contains only % (at least one)
-            return null;
-        } else if (Pattern.matches("^[^%]*$", pattern)) { // Checks if the string does not contain the %
+        } if (Pattern.matches("^[^%]*$", pattern)) { // Checks if the string does not contain the %
             return stringColumnEquals(columnName, pattern);
         }
         StringBuilder filter = new StringBuilder();

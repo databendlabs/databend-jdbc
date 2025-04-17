@@ -12,6 +12,7 @@ import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertNull;
 
 @Test(timeOut = 10000)
 public class TestDatabendDatabaseMetaData {
@@ -289,5 +290,14 @@ public class TestDatabendDatabaseMetaData {
                 assertEquals(metadata.getColumnType(6), Types.VARCHAR);
             }
         }
+    }
+
+    @Test
+    public void testLikeString() {
+        assertNull(DatabendDatabaseMetaData.stringColumnLike("col_name", null));
+        assertNull(DatabendDatabaseMetaData.stringColumnLike("col_name", ""));
+        assertEquals(DatabendDatabaseMetaData.stringColumnLike("col_name", "%"), "col_name LIKE '%'");
+        assertEquals(DatabendDatabaseMetaData.stringColumnLike("col_name", "test%"), "col_name LIKE 'test%'");
+        assertEquals(DatabendDatabaseMetaData.stringColumnLike("col_name", "test"), "col_name = 'test'");
     }
 }
