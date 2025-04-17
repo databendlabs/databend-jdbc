@@ -4,7 +4,9 @@ import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Properties;
 
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
@@ -245,5 +247,33 @@ public class TestDatabendDriverUri {
         connection.setSchema("test2");
         Assert.assertEquals(connection.getSchema(), "test2");
         connection.createStatement().execute("insert into test2 values (1)");
+    }
+
+    @Test
+    public void TestSetSessionSettings() throws SQLException{
+        Properties props = new Properties();
+        // set session settings
+        props.setProperty("session_settings", "key1=value1,key2=value2");
+        props.setProperty("user","databend");
+        props.setProperty("password","databend");
+        DatabendConnection connection = (DatabendConnection) Utils.createConnection("default",props);
+        try {
+            Statement statement = connection.createStatement();
+            statement.execute("show settings");
+            ResultSet r = statement.getResultSet();
+            while (r.next()) {
+                String name = r.getString("name");
+                String value = r.getString("value");
+                if (name.equals("key1")) {
+                    Assert.assertEquals(value, "value1");
+                } else if (name.equals("key2")) {
+                    Assert.assertEquals(value, "value2");
+                }
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
+        } finally {
+            connection.close();
+        }
     }
 }
