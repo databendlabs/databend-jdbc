@@ -4,6 +4,7 @@ import com.databend.client.QueryRowField;
 import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
 import com.google.common.base.Joiner;
+import org.apache.commons.lang3.StringUtils;
 
 import java.sql.Connection;
 import java.sql.DatabaseMetaData;
@@ -38,7 +39,8 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
 
     private static void optionalStringLikeFilter(List<String> filters, String columnName, String value) {
         if (value != null) {
-            filters.add(stringColumnLike(columnName, value));
+            String filter = stringColumnLike(columnName, value);
+            if (StringUtils.isNotBlank(filter)) filters.add(filter);
         }
     }
 
@@ -77,7 +79,8 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
             if (value.isEmpty()) {
                 filters.add(columnName + " IS NULL");
             } else {
-                filters.add(stringColumnLike(columnName, value));
+                String filter = stringColumnLike(columnName, value);
+                if (StringUtils.isNotBlank(filter)) filters.add(filter);
             }
         }
     }
@@ -90,6 +93,13 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     }
 
     private static String stringColumnLike(String columnName, String pattern) {
+        if (pattern == null || pattern.isEmpty()) {
+            return null;
+        } else if (Pattern.matches("^%+$", pattern)) { // Checks if string contains only % (at least one)
+            return null;
+        } else if (Pattern.matches("^[^%]*$", pattern)) { // Checks if the string does not contain the %
+            return stringColumnEquals(columnName, pattern);
+        }
         StringBuilder filter = new StringBuilder();
         filter.append(columnName).append(" LIKE ");
         quoteStringLiteral(filter, pattern);
