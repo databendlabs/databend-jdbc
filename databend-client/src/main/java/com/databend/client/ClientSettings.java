@@ -44,6 +44,7 @@ public class ClientSettings {
     private final int retryAttempts;
     // TODO(zhihanz) timezone and locale info
 
+    //ClientSettings for test case use
     public ClientSettings(String host) {
         this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), new HashMap<String, String>(), null, DEFAULT_RETRY_ATTEMPTS);
     }

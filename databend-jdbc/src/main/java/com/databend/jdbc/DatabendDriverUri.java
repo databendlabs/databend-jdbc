@@ -67,6 +67,8 @@ public final class DatabendDriverUri {
     private final Integer maxRowsPerPage;
     private final int nodeDiscoveryInterval;
 
+    private final Map<String, String> sessionSettings;
+
 //    private final boolean useSecureConnection;
 
     private DatabendDriverUri(String url, Properties driverProperties)
@@ -104,7 +106,27 @@ public final class DatabendDriverUri {
         this.socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
+        String settingsStr = SESSION_SETTINGS.getValue(properties).orElse("");
+        this.sessionSettings = parseSessionSettings(settingsStr);
     }
+
+    private Map<String, String> parseSessionSettings(String settingsStr) {
+        if (isNullOrEmpty(settingsStr)) {
+            return new HashMap<>();
+        }
+
+        // key1=value1,key2=value2
+        Map<String, String> settings = new HashMap<>();
+        String[] pairs = settingsStr.split(",");
+        for (String pair : pairs) {
+            String[] keyValue = pair.split("=", 2);
+            if (keyValue.length == 2) {
+                settings.put(keyValue[0].trim(), keyValue[1].trim());
+            }
+        }
+        return settings;
+    }
+
 
     public static DatabendDriverUri create(String url, Properties properties)
             throws SQLException {
@@ -404,6 +426,10 @@ public final class DatabendDriverUri {
 
     public Integer getMaxFailoverRetry() {
         return maxFailoverRetry;
+    }
+
+    public Map<String, String> getSessionSettings() {
+        return sessionSettings;
     }
 
     public Properties getProperties() {

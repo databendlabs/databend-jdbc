@@ -43,6 +43,8 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
     public static final ConnectionProperty<Integer> MAX_ROWS_PER_PAGE = new MaxRowsPerPage();
 
+    public static final ConnectionProperty<String> SESSION_SETTINGS = new SessionSettings();
+
     private static final Set<ConnectionProperty<?>> ALL_PROPERTIES = ImmutableSet.<ConnectionProperty<?>>builder()
             .add(USER)
             .add(PASSWORD)
@@ -63,6 +65,7 @@ public final class ConnectionProperties {
             .add(WAIT_TIME_SECS)
             .add(MAX_ROWS_IN_BUFFER)
             .add(MAX_ROWS_PER_PAGE)
+            .add(SESSION_SETTINGS)
             .build();
     private static final Map<String, String> DEFAULTS;
 
@@ -247,6 +250,13 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<Integer> {
         public MaxRowsPerPage() {
             super("max_rows_per_page", Optional.of(String.valueOf(PaginationOptions.getDefaultMaxRowsPerPage())), NOT_REQUIRED, ALLOWED, INTEGER_CONVERTER);
+        }
+    }
+
+    private static class SessionSettings
+            extends AbstractConnectionProperty<String> {
+        public SessionSettings() {
+            super("session_settings", Optional.of(""), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

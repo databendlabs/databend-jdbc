@@ -124,7 +124,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.routeHint = randRouteHint();
         // it maybe closed due to unsupported server versioning.
         this.autoDiscovery = uri.autoDiscovery();
-        DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).build();
+        DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).setSettings(uri.getSessionSettings()).build();
         this.setSession(session);
 
         initializeFileHandler();
