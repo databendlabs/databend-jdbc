@@ -20,7 +20,7 @@ Add following code block as a dependency
 <dependency>
     <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
-    <version>0.3.6</version>
+    <version>0.3.7</version>
 </dependency>
 ```
 
