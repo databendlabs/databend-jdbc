@@ -30,7 +30,7 @@ public class StatementInfoWrapper {
      * @return the statement that will be sent to the server
      */
     public static StatementInfoWrapper of(@NonNull RawStatement rawStatement) {
-        return of(rawStatement, UUID.randomUUID().toString());
+        return of(rawStatement, UUID.randomUUID().toString().replace("-", ""););
     }
 
     /**
