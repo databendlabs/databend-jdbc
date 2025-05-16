@@ -87,7 +87,7 @@ public class BatchInsertUtils {
 
     public File saveBatchToCSV(List<String[]> values) {
         // get a temporary directory
-        String id = UUID.randomUUID().toString();
+        String id = UUID.randomUUID().toString().replace("-","");
         File tempDir = new File(System.getProperty("java.io.tmpdir"));
         File tempFile = new File(tempDir, "databend_batch_insert_" + id + ".csv");
         return saveBatchToCSV(values, tempFile);
