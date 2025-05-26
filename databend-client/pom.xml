@@ -16,21 +16,25 @@
     <properties>
         <air.main.basedir>${project.parent.basedir}</air.main.basedir>
         <project.build.targetJdk>8</project.build.targetJdk>
+        <jackson.version>2.15.2</jackson.version>
     </properties>
     <dependencies>
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-annotations</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-core</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+            <version>${jackson.version}</version>
         </dependency>
 
         <dependency>
@@ -47,6 +51,7 @@
         <dependency>
             <groupId>com.google.guava</groupId>
             <artifactId>guava</artifactId>
+            <version>32.0.1-jre</version>
         </dependency>
 
         <dependency>
