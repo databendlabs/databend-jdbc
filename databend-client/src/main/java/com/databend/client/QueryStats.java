@@ -68,7 +68,7 @@ public class QueryStats {
     public String toString() {
         return toStringHelper(this)
                 .add("runningTimeMS", runningTimeMS)
-                .add("scamProgress", scanProgress)
+                .add("scanProgress", scanProgress)
                 .add("writeProgress", writeProgress)
                 .add("readProgress", resultProgress)
                 .toString();
