@@ -12,7 +12,7 @@ public class Utils {
     static String username = "databend";
     static String password = "databend";
     public static String baseURL() {
-        return "jdbc:databend://localhost:" + port;
+        return "jdbc:databend://localhost:8009?presigned_url_disabled=true";
     }
 
     public static String getUsername() {
