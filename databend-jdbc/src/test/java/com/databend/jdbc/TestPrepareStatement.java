@@ -37,11 +37,11 @@ public class TestPrepareStatement {
         c.createStatement().execute("create table test_prepare_statement_null (a int, b string)");
         c.createStatement().execute("create table test_prepare_time(a DATE, b TIMESTAMP)");
         // json data
-        c.createStatement().execute("CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
+        c.createStatement().execute(
+                "CREATE TABLE IF NOT EXISTS objects_test1(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse");
         // Binary data
         c.createStatement().execute("create table IF NOT EXISTS binary1 (a binary);");
     }
-
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
@@ -108,8 +108,8 @@ public class TestPrepareStatement {
     public void TestConvertSQLWithBatchValues() throws SQLException {
         List<String[]> batchValues = new ArrayList<>();
         // Add string arrays to batchValues
-        String[] values1 = {"1"};
-        String[] values2 = {"2"};
+        String[] values1 = { "1" };
+        String[] values2 = { "2" };
         batchValues.add(values1);
         batchValues.add(values2);
 
@@ -119,14 +119,15 @@ public class TestPrepareStatement {
 
         List<String[]> batchValues1 = new ArrayList<>();
         // Add string arrays to batchValues
-        String[] values3 = {"1", "2"};
-        String[] values4 = {"3", "4"};
+        String[] values3 = { "1", "2" };
+        String[] values4 = { "3", "4" };
         batchValues1.add(values3);
         batchValues1.add(values4);
 
         String originalSql1 = "delete from table where id = ? and uuid = ?";
         String expectedSql1 = "delete from table where id = 1 and uuid = 2;\ndelete from table where id = 3 and uuid = 4;\n";
-        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql1, batchValues1), expectedSql1);
+        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql1, batchValues1),
+                expectedSql1);
     }
 
     @Test(groups = "IT")
@@ -313,6 +314,8 @@ public class TestPrepareStatement {
             System.out.println(r.getInt(1));
             System.out.println(r.getString(2));
         }
+        // truncate table
+        c.createStatement().execute("truncate table test_prepare_statement");
     }
 
     @Test
@@ -356,6 +359,8 @@ public class TestPrepareStatement {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        // truncate table
+        conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
     @Test
@@ -376,9 +381,10 @@ public class TestPrepareStatement {
             statement.setNull(1, Types.NULL);
             int result = statement.executeUpdate();
             System.out.println(result);
-            Assertions.assertEquals(2, result);
+            Assertions.assertEquals(1, result);
         }
-        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
+        try (PreparedStatement statement = conn
+                .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
             statement.setInt(1, 1);
             ResultSet r = statement.executeQuery();
             while (r.next()) {
@@ -392,6 +398,8 @@ public class TestPrepareStatement {
         } catch (Exception e) {
             e.printStackTrace();
         }
+        // truncate table
+        conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
     @Test
@@ -412,15 +420,19 @@ public class TestPrepareStatement {
             statement.setObject(1, "c'c");
             int result = statement.executeUpdate();
             System.out.println(result);
-            Assertions.assertEquals(2, result);
+            Assertions.assertEquals(1, result);
         }
-        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
+        try (PreparedStatement statement = conn
+                .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
             statement.setInt(1, 1);
             ResultSet r = statement.executeQuery();
             while (r.next()) {
                 Assertions.assertEquals(1, r.getInt(1));
                 Assertions.assertEquals("c'c", r.getString(2));
             }
+
+            // truncate table
+            conn.createStatement().execute("truncate table test_prepare_statement");
         }
     }
 
@@ -432,19 +444,31 @@ public class TestPrepareStatement {
             statement.setInt(1, 1);
             statement.setString(2, "b");
             statement.addBatch();
+            statement.setInt(1, 2);
+            statement.setString(2, "z");
+            statement.addBatch();
+            statement.setInt(1, 3);
+            statement.setString(2, "x");
+            statement.addBatch();
+            statement.setInt(1, 4);
+            statement.setString(2, "dd");
+            statement.addBatch();
+            statement.setInt(1, 5);
+            statement.setString(2, "ddd");
+            statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-            Assertions.assertEquals(1, result.length);
+            Assertions.assertEquals(5, result.length);
         }
-        String updateSQL = "update test_prepare_statement set b = ? where a = ?";
+        String updateSQL = "update test_prepare_statement set b = ? where b = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
-            statement.setInt(2, 1);
             statement.setString(1, "c");
+            statement.setString(2, "b");
             int result = statement.executeUpdate();
-            System.out.println(result);
-            Assertions.assertEquals(2, result);
+            Assertions.assertEquals(1, result);
         }
-        try (PreparedStatement statement = conn.prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where b = ?")) {
+        try (PreparedStatement statement = conn
+                .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where b = ?")) {
             statement.setString(1, "c");
             ResultSet r = statement.executeQuery();
             while (r.next()) {
@@ -486,30 +510,16 @@ public class TestPrepareStatement {
             System.out.println(r3.getInt(1));
             System.out.println(r3.getString(2));
         }
+        // truncate table
+        conn.createStatement().execute("truncate table test_prepare_statement");
     }
-
-    //TODO(hantmac): fix this test case
-//    @Test
-//    public void testSetBlobNotNull() throws SQLException {
-//        String sql = "insert into binary1 values (?)";
-//        Connection conn = Utils.createConnection();
-//        // Create a Blob
-//        String blobData = "blob data";
-//        InputStream blobInputStream = new ByteArrayInputStream(blobData.getBytes());
-//        try (PreparedStatement statement = conn.prepareStatement(sql)) {
-//            statement.setBlob(1, blobInputStream);
-//            statement.addBatch();
-//            int[] result = statement.executeBatch();
-//            System.out.println(result);
-//            Assertions.assertEquals(1, result.length);
-//        }
-//    }
 
     @Test
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
         Connection conn = Utils.createConnection();
         Assertions.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
-        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn, "stagePath");
+        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
+                "stagePath");
 
         Assertions.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
         Assertions.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
@@ -538,10 +548,10 @@ public class TestPrepareStatement {
         String selectSQL = "select * from clustering_information('default','test_clusterkey')";
         try (PreparedStatement statement = conn.prepareStatement(selectSQL)) {
             ResultSet rs = statement.executeQuery();
-            int rows =  0;
+            int rows = 0;
             while (rs.next()) {
                 Assertions.assertEquals("linear", rs.getString(2));
-                rows +=1;
+                rows += 1;
             }
             Assertions.assertEquals(1, rows);
         }
@@ -560,4 +570,75 @@ public class TestPrepareStatement {
         conn2.createStatement().execute("select 1");
         conn.createStatement().execute("drop user if exists 'u01'");
     }
+
+    @Test
+    public void testExecuteUpdate() throws SQLException {
+        Connection conn = Utils.createConnection();
+        conn.createStatement().execute("delete from test_prepare_statement");
+
+        String insertSql = "insert into test_prepare_statement values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "a");
+            statement.executeUpdate();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "b");
+            statement.executeUpdate();
+
+            statement.setInt(1, 3);
+            statement.setString(2, "c");
+            statement.executeUpdate();
+        }
+
+        String updateSingleSql = "update test_prepare_statement set b = ? where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(updateSingleSql)) {
+            statement.setString(1, "x");
+            statement.setInt(2, 1);
+            int updatedRows = statement.executeUpdate();
+            Assertions.assertEquals(1, updatedRows, "only update one row");
+        }
+
+        String updateMultiSql = "update test_prepare_statement set b = ? where a in (?, ?)";
+        try (PreparedStatement statement = conn.prepareStatement(updateMultiSql)) {
+            statement.setString(1, "y");
+            statement.setInt(2, 2);
+            statement.setInt(3, 3);
+            int updatedRows = statement.executeUpdate();
+            Assertions.assertEquals(2, updatedRows, "should update two rows");
+        }
+
+        String updateAndSql = "update test_prepare_statement set b = ? where ((a = ?)) and (b = ?)";
+        try (PreparedStatement statement = conn.prepareStatement(updateAndSql)) {
+            statement.setString(1, "z");
+            statement.setInt(2, 2);
+            statement.setString(3, "y");
+            int updatedRows = statement.executeUpdate();
+            Assertions.assertEquals(1, updatedRows, "should update one row with and condition");
+        }
+
+        String deleteSql = "delete from test_prepare_statement where a = ?";
+        try (PreparedStatement statement = conn.prepareStatement(deleteSql)) {
+            statement.setInt(1, 1);
+            int deletedRows = statement.executeUpdate();
+            Assertions.assertEquals(1, deletedRows, "should delete one row");
+        }
+
+        ResultSet rs = conn.createStatement().executeQuery("select * from test_prepare_statement order by a");
+        int count = 0;
+        while (rs.next()) {
+            count++;
+            if (count == 1) {
+                Assertions.assertEquals(2, rs.getInt(1));
+                Assertions.assertEquals("z", rs.getString(2));
+            } else if (count == 2) {
+                Assertions.assertEquals(3, rs.getInt(1));
+                Assertions.assertEquals("y", rs.getString(2));
+            }
+        }
+        Assertions.assertEquals(2, count, "should have two rows left in the table");
+        // Clean up
+        conn.createStatement().execute("delete from test_prepare_statement");
+    }
+
 }

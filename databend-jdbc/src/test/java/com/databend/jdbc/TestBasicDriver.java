@@ -158,7 +158,7 @@ public class TestBasicDriver {
                     "    INSERT *;\n");
             ResultSet r = statement.getResultSet();
             r.next();
-            Assert.assertEquals(6, statement.getUpdateCount());
+            Assert.assertEquals(3, statement.getUpdateCount());
             System.out.println(statement.getUpdateCount());
         } catch (SQLException throwables) {
             throwables.printStackTrace();

@@ -185,16 +185,10 @@ public class DatabendStatement implements Statement {
                     throw resultsException(client.getResults(), sql);
                 }
             }
-            if (isQueryStatement(sql)) {
-                currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
-            } else {
-                currentUpdateCount = client.getResults().getStats().getScanProgress().getRows().intValue();
-            }
             executingClient.set(client);
             while (client.hasNext()) {
                 QueryResults results = client.getResults();
                 List<List<Object>> data = results.getData();
-//                List<QueryRowField> schema = results.getSchema();
                 if (data == null || data.isEmpty()) {
                     client.advance();
                 } else {
@@ -203,9 +197,34 @@ public class DatabendStatement implements Statement {
             }
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
+            if (isQueryStatement(sql)) {
+                currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
+            } else {
+                QueryResults results = client.getResults();
+                if (sql.toLowerCase().startsWith("update") || sql.toLowerCase().startsWith("delete")) {
+                    List<List<Object>> data = results.getData();
+                    if (data != null && !data.isEmpty() && data.get(0) != null && !data.get(0).isEmpty()) {
+                        Object updateCount = data.get(0).get(0);
+                        if (updateCount instanceof Number) {
+                            currentUpdateCount = ((Number) updateCount).intValue();
+                        } else {
+                            // if can't find, use writeProgress.rows
+                            currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
+                        }
+                    } else {
+                        // if data is empty, use writeProgress.rows
+                        currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
+                    }
+                } else {
+                    System.out.println("sql is : " + sql);
+                    System.out.println("[DEBUG] Query Write Progress: " + results.getStats().getWriteProgress());
+                    currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
+                }
+            }
             return true;
         } catch (RuntimeException e) {
-            throw new SQLException("Error executing query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+            throw new SQLException(
+                    "Error executing query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
         } finally {
             executingClient.set(null);
             if (currentResult.get() == null) {
@@ -436,7 +455,7 @@ public class DatabendStatement implements Statement {
     }
 
     public QueryLiveness queryLiveness() {
-        DatabendResultSet r =  currentResult.get();
+        DatabendResultSet r = currentResult.get();
 
         if (r != null) {
             return r.getLiveness();
@@ -448,5 +467,3 @@ public class DatabendStatement implements Statement {
         return Optional.ofNullable(connection.get());
     }
 }
-
-

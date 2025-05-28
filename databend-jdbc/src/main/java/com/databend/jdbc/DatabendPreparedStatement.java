@@ -73,24 +73,23 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
     static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
     private final DatabendParameterMetaData paramMetaData;
-    private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER =
-            new DateTimeFormatterBuilder()
-                    .append(ISO_LOCAL_DATE)
-                    .appendLiteral(' ')
-                    .append(ISO_LOCAL_TIME)
-                    .toFormatter();
-    private static final java.time.format.DateTimeFormatter OFFSET_TIME_FORMATTER =
-            new DateTimeFormatterBuilder()
-                    .append(ISO_LOCAL_TIME)
-                    .appendOffset("+HH:mm", "+00:00")
-                    .toFormatter();
+    private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .append(ISO_LOCAL_DATE)
+            .appendLiteral(' ')
+            .append(ISO_LOCAL_TIME)
+            .toFormatter();
+    private static final java.time.format.DateTimeFormatter OFFSET_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .append(ISO_LOCAL_TIME)
+            .appendOffset("+HH:mm", "+00:00")
+            .toFormatter();
     private final String originalSql;
     private final List<String[]> batchValues;
     private final Optional<BatchInsertUtils> batchInsertUtils;
     private final String statementName;
     private int batchSize = 0;
 
-    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String statementName, String sql) {
+    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String statementName,
+            String sql) {
         super(connection, onClose);
         this.statementName = requireNonNull(statementName, "statementName is null");
         this.originalSql = requireNonNull(sql, "sql is null");
@@ -142,13 +141,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return x.toString();
     }
 
-
     private static String formatBytesLiteral(byte[] x) {
         return new String(x, StandardCharsets.UTF_8);
     }
 
     static IllegalArgumentException invalidConversion(Object x, String toType) {
-        return new IllegalArgumentException(format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
+        return new IllegalArgumentException(
+                format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
     }
 
     @Override
@@ -183,7 +182,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
             List<String> files = new ArrayList<>();
             files.add(fileName);
-            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setFiles(files).setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName()).setDatabendStage(databendStage).build();
+            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setFiles(files)
+                    .setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName())
+                    .setDatabendStage(databendStage).build();
             return databendCopyParams;
         } catch (Exception e) {
             throw new SQLException(e);
@@ -235,11 +236,14 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     /**
-     * This method is used to build a StageAttachment object which represents a stage in Databend.
-     * A stage in Databend is a temporary storage area where data files are stored before being loaded into the Databend database.
+     * This method is used to build a StageAttachment object which represents a
+     * stage in Databend.
+     * A stage in Databend is a temporary storage area where data files are stored
+     * before being loaded into the Databend database.
      *
-     * @param connection The DatabendConnection object which contains the connection details to the Databend database.
-     * @param stagePath The path of the stage in the Databend database.
+     * @param connection The DatabendConnection object which contains the connection
+     *                   details to the Databend database.
+     * @param stagePath  The path of the stage in the Databend database.
      * @return A StageAttachment object which contains the details of the stage.
      */
     public static StageAttachment buildStateAttachment(DatabendConnection connection, String stagePath) {
@@ -291,18 +295,19 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public int[] executeBatchByAttachment() throws SQLException {
         int[] batchUpdateCounts = new int[batchValues.size()];
         if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-//            super.execute(this.originalSql);
+            // super.execute(this.originalSql);
             return batchUpdateCounts;
         }
         StageAttachment attachment = uploadBatches();
         ResultSet r = null;
         if (attachment == null) {
-//            logger.fine("use normal execute instead of batch insert");
-//            super.execute(batchInsertUtils.get().getSql());
+            // logger.fine("use normal execute instead of batch insert");
+            // super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
-            logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment, batchInsertUtils.get().getSql()));
+            logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment,
+                    batchInsertUtils.get().getSql()));
             super.internalExecute(batchInsertUtils.get().getSql(), attachment);
             r = getResultSet();
             while (r.next()) {
@@ -347,7 +352,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     public int[] executeBatchDelete() throws SQLException {
         if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-            return new int[]{};
+            return new int[] {};
         }
         int[] batchUpdateCounts = new int[batchValues.size()];
         try {
@@ -381,7 +386,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
         return convertedSqlBuilder.toString();
     }
-
 
     @Override
     public int[] executeBatch() throws SQLException {
@@ -449,7 +453,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public int executeUpdate() throws SQLException {
         this.execute(prepareSQL(batchInsertUtils.get().getProvideParams()));
-        return batchInsertUtils.get().getProvideParams().size();
+        return getUpdateCount();
     }
 
     @Override
@@ -519,7 +523,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setBigDecimal(int i, BigDecimal bigDecimal)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBigDecimalLiteral(bigDecimal)));
+        batchInsertUtils
+                .ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBigDecimalLiteral(bigDecimal)));
     }
 
     @Override
@@ -535,7 +540,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 s = s.replace("'", "\\\'");
             }
             String finalS = s;
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", finalS, "'")));
+            batchInsertUtils.ifPresent(
+                    insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", finalS, "'")));
         }
     }
 
@@ -554,7 +560,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
             if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", date, "'")));
+                batchInsertUtils.ifPresent(
+                        insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", date, "'")));
             } else {
                 batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
             }
@@ -569,7 +576,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
             if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", time, "'")));
+                batchInsertUtils.ifPresent(
+                        insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", time, "'")));
             } else {
                 batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
             }
@@ -584,9 +592,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
         } else {
             if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", timestamp, "'")));
+                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i,
+                        String.format("%s%s%s", "'", timestamp, "'")));
             } else {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
+                batchInsertUtils
+                        .ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
             }
         }
     }
@@ -759,7 +769,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return builder.toString();
     }
 
-
     @Override
     public void addBatch()
             throws SQLException {
@@ -854,7 +863,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
-    // If you want to use ps.getParameterMetaData().* methods, you need to use a valid sql such as
+    // If you want to use ps.getParameterMetaData().* methods, you need to use a
+    // valid sql such as
     // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
@@ -1005,7 +1015,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setNClob");
     }
-
 
     private String toDateLiteral(Object value) throws IllegalArgumentException {
         requireNonNull(value, "value is null");
