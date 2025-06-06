@@ -1,5 +1,7 @@
 package com.databend.jdbc.cloud;
 
+import org.apache.commons.lang3.StringUtils;
+
 public class DatabendStage {
     private static final String defaultStageName = "~";
     private final String stageName;
@@ -8,7 +10,7 @@ public class DatabendStage {
 
     // TODO(zhihanz) support more external location such as Azure/GCS
     private DatabendStage(String stageName, String path, ExternalLocationS3 externalLocationS3) {
-        if (stageName == null || stageName.isEmpty()) {
+        if (StringUtils.isBlank(stageName)) {
             this.stageName = defaultStageName;
         } else {
             this.stageName = stageName;

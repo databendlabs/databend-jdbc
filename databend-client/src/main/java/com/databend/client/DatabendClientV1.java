@@ -32,6 +32,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import static com.databend.client.JsonCodec.jsonCodec;
+import static com.databend.client.constant.DatabendConstant.BOOLEAN_TRUE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
@@ -154,7 +155,7 @@ public class DatabendClientV1
         }
         String discoveryPath = DISCOVERY_PATH;
         // intentionally use unsupported discovery path for testing
-        if (settings.getAdditionalHeaders().get("~mock.unsupported.discovery") != null && settings.getAdditionalHeaders().get("~mock.unsupported.discovery").equals("true")) {
+        if (settings.getAdditionalHeaders().get("~mock.unsupported.discovery") != null && BOOLEAN_TRUE_STR.equals(settings.getAdditionalHeaders().get("~mock.unsupported.discovery"))) {
             discoveryPath = "/v1/discovery_nodes_unsupported";
         }
 
