@@ -706,7 +706,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                String queryId = UUID.randomUUID().toString();
+                String queryId = UUID.randomUUID().toString().replace("-", "");;
                 String candidateHost = selectHostForQuery(queryId);
 
                 // configure the client settings
