@@ -122,10 +122,10 @@ class Float32Handler extends ColumnTypeHandlerBase  {
 
     @Override
     public Object parseStringNotNull(String  value) {
-        if (value.equals("NaN") || value.equals("nan")) {
+        if ("NaN".equals(value) || "nan".equals(value)) {
             return Double.NaN;
         }
-        if (value.equals("Infinity") || value.equals("inf")) {
+        if ("Infinity".equals(value) || "inf".equals(value)) {
             return Double.POSITIVE_INFINITY;
         }
         return Float.parseFloat(value);
@@ -140,10 +140,10 @@ class Float64Handler extends ColumnTypeHandlerBase  {
 
     @Override
     public Object parseStringNotNull(String  value) {
-        if (value.equals("NaN") || value.equals("nan")) {
+        if ("NaN".equals(value) || "nan".equals(value)) {
             return Double.NaN;
         }
-        if (value.equals("Infinity") || value.equals("inf")) {
+        if ("Infinity".equals(value) || "inf".equals(value)) {
             return Double.POSITIVE_INFINITY;
         }
         return Double.parseDouble(value);

@@ -415,7 +415,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             throws SQLException {
         throw new SQLFeatureNotSupportedException("setTypeMap");
     }
-
+    @Override
     public int getHoldability() throws SQLException {
         return 0;
     }
@@ -685,7 +685,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
         }
     }
-
+    @Override
     public void accept(DatabendSession session) {
         setSession(session);
     }
@@ -1021,8 +1021,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             if (session.getNeedSticky()) {
                 builder.addHeader(ClientSettings.X_DATABEND_ROUTE_HINT, uriRouteHint(candidateHost));
                 String lastNodeID = this.lastNodeID.get();
-                if (lastNodeID != null)
+                if (lastNodeID != null) {
                     builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
+                }
             }
             for (int j = 1; j <= 3; j++) {
                 Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, body)).build();
@@ -1104,8 +1105,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     queries.put(ql.queryID, ql);
                 }
             }
-            if (nodeToQueryID.isEmpty())
+            if (nodeToQueryID.isEmpty()) {
                 return;
+            }
 
             ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> map = new HashMap<>();
@@ -1141,8 +1143,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                         heartbeatFuture = null;
                     }
                 }
-                if (heartbeatFuture == null)
+                if (heartbeatFuture == null) {
                     scheduleHeartbeat();
+                }
             }
         }
 
@@ -1154,8 +1157,9 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             synchronized (DatabendConnection.this) {
                 heartbeatFuture = null;
                 if (arr.size() > 0) {
-                    if (heartbeatFuture == null)
+                    if (heartbeatFuture == null) {
                         scheduleHeartbeat();
+                    }
                 } else {
                     heartbeatFuture = null;
                 }

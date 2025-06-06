@@ -363,7 +363,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
         Object value = null;
         value = row.get().get(index - 1);
-        if (value == null || value.toString().equals("NULL")) {
+        if (value == null || "NULL".equals(value.toString())) {
             wasNull.set(true);
             return null;
         } else {
@@ -574,7 +574,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             throws SQLException {
         Object value = column(columnIndex);
 
-        if (value == null || value.toString().equalsIgnoreCase("null")) {
+        if (value == null || "null".equalsIgnoreCase(value.toString())) {
             return null;
         }
 

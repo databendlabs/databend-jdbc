@@ -75,8 +75,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
 
     public QueryLiveness getLiveness() {
-        if (closed)
-            return null;
+        if (closed) {
+	        return null;
+        }
         return liveness;
     }
 

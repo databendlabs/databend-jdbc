@@ -41,7 +41,9 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     private static void optionalStringLikeFilter(List<String> filters, String columnName, String value) {
         if (value != null) {
             String filter = stringColumnLike(columnName, value);
-            if (StringUtils.isNotBlank(filter)) filters.add(filter);
+            if (StringUtils.isNotBlank(filter)) {
+                filters.add(filter);
+            }
         }
     }
 
@@ -81,7 +83,9 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
                 filters.add(columnName + " IS NULL");
             } else {
                 String filter = stringColumnLike(columnName, value);
-                if (StringUtils.isNotBlank(filter)) filters.add(filter);
+                if (StringUtils.isNotBlank(filter)) {
+                    filters.add(filter);
+                }
             }
         }
     }
@@ -892,7 +896,7 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         buildFilters(sql, filters);
         sql.append("\nORDER BY table_type, table_catalog, table_schema, table_name");
 
-        if (checkVersionAddView() && types != null && Arrays.stream(types).allMatch(t -> t.equalsIgnoreCase("VIEW"))) {
+        if (checkVersionAddView() && types != null && Arrays.stream(types).allMatch(t -> "VIEW".equalsIgnoreCase(t))) {
             // add view
             sql.append("\n union all ");
             sql.append("\nselect database TABLE_CAT, database TABLE_SCHEM, name TABLE_NAME, 'VIEW' TABLE_TYPE, null REMARKS, ");
@@ -919,8 +923,12 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         Matcher matcher = pattern.matcher(version);
         if (matcher.find()) {
             // > 1.2.410 and <= 1.2.566
-            if (Integer.parseInt(matcher.group(1)) != 1) return false;
-            if (Integer.parseInt(matcher.group(2)) != 2) return false;
+            if (Integer.parseInt(matcher.group(1)) != 1) {
+                return false;
+            }
+            if (Integer.parseInt(matcher.group(2)) != 2) {
+                return false;
+            }
             int minorVersion = Integer.parseInt(matcher.group(3));
             return minorVersion > 410 && minorVersion <= 566;
         }

@@ -7,7 +7,7 @@ public abstract class ColumnTypeHandlerBase implements ColumnTypeHandler {
         this.isNullable = isNullable;
     }
     protected boolean isNull(String value) {
-        return (value == null || value.equals("NULL"));
+        return (value == null || "NULL".equals(value));
     }
 
     private boolean checkNull(String value){
