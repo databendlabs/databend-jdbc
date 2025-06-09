@@ -532,8 +532,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setString(int i, String s)
             throws SQLException {
         checkOpen();
-        if (originalSql.toLowerCase().startsWith("insert") ||
-                originalSql.toLowerCase().startsWith("replace")) {
+        if ((originalSql.toLowerCase().startsWith("insert") ||
+                originalSql.toLowerCase().startsWith("replace")) && !originalSql.toLowerCase().contains("select"))  {
             String finalS1 = s;
             batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, finalS1));
         } else {

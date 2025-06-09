@@ -641,4 +641,47 @@ public class TestPrepareStatement {
         conn.createStatement().execute("delete from test_prepare_statement");
     }
 
+    @Test
+
+    public void testInsertWithSelect() throws SQLException {
+        Connection conn = Utils.createConnection();
+        conn.createStatement().execute("delete from test_prepare_statement");
+
+        String insertSql = "insert into test_prepare_statement select a, b from test_prepare_statement where b = ?";
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
+            statement.setString(1, "a");
+            int insertedRows = statement.executeUpdate();
+            Assertions.assertEquals(0, insertedRows, "should not insert any rows as the table is empty");
+        }
+
+        // Insert some data
+        String insertDataSql = "insert into test_prepare_statement values (?,?)";
+        try (PreparedStatement statement = conn.prepareStatement(insertDataSql)) {
+            statement.setInt(1, 1);
+            statement.setString(2, "a");
+            statement.executeUpdate();
+
+            statement.setInt(1, 2);
+            statement.setString(2, "b");
+            statement.executeUpdate();
+        }
+
+        // Now try to insert again with select
+        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
+            statement.setString(1, "a");
+            int insertedRows = statement.executeUpdate();
+            Assertions.assertEquals(1, insertedRows, "should insert two rows from the select");
+        }
+
+        ResultSet rs = conn.createStatement().executeQuery("select * from test_prepare_statement order by a");
+        int count = 0;
+        while (rs.next()) {
+            count++;
+        }
+        Assertions.assertEquals(3, count, "should have four rows in the table after insert with select");
+
+        // Clean up
+        conn.createStatement().execute("delete from test_prepare_statement");
+    }
+
 }
