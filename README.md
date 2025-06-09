@@ -26,6 +26,8 @@ Add following code block as a dependency
 
 ### Build from source
 
+Note: build from source requires Java 11+, Maven 3.6.3+
+
 ```shell
 cd databend-jdbc
 mvn clean install -DskipTests

@@ -26,6 +26,7 @@ public class ServerInfo {
     }
 
     @JsonProperty
+    @Override
     public String toString() {
         return "ServerInfo{" +
                 "id='" + id + '\'' +

@@ -61,6 +61,7 @@ import java.util.stream.Collectors;
 
 import static com.databend.jdbc.ObjectCasts.*;
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
+import static com.databend.jdbc.constant.DatabendConstant.BASE64_STR;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -962,7 +963,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             }
             buffer.flush();
             byte[] bytes = buffer.toByteArray();
-            if (connection().binaryFormat().equalsIgnoreCase("base64")) {
+            if (BASE64_STR.equalsIgnoreCase(connection().binaryFormat())) {
                 String base64String = bytesToBase64(bytes);
                 batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, base64String));
             } else {

@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.client.GlobalCookieJar;
+import com.databend.jdbc.util.URLUtils;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
@@ -26,6 +27,7 @@ import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
+import static com.databend.jdbc.constant.DatabendConstant.ENABLE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -173,7 +175,7 @@ public final class DatabendDriverUri {
         requireNonNull(uri, "uri is null");
         String authority = uri.getAuthority();
         String scheme;
-        if (isSSLSecured || sslmode.equals("enable")) {
+        if (isSSLSecured || "enable".equals(sslmode)) {
             scheme = "https";
         } else {
             scheme = "http";
@@ -444,7 +446,7 @@ public final class DatabendDriverUri {
 
             String password = PASSWORD.getValue(properties).orElse("");
             builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
-            if (useSecureConnection || sslmode.equals("enable")) {
+            if (useSecureConnection || ENABLE_STR.equals(sslmode)) {
                 setupInsecureSsl(builder);
             }
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
