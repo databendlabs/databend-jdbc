@@ -363,7 +363,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
         Object value = null;
         value = row.get().get(index - 1);
-        if (value == null || "NULL".equals(value.toString())) {
+        if (value == null) {
             wasNull.set(true);
             return null;
         } else {
