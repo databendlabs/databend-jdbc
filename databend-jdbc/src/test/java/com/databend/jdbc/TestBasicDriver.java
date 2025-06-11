@@ -35,8 +35,8 @@ public class TestBasicDriver {
         c.createStatement().execute("create table test_basic_driver.table1(i int)");
         c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
         c.createStatement().execute("create database test_basic_driver_2");
-        c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null)");
-        c.createStatement().execute("insert into test_basic_driver.table_with_null(a) values(1)");
+        c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
+        c.createStatement().execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
 
         // json data
     }
@@ -201,11 +201,13 @@ public class TestBasicDriver {
     public void testDefaultSelectNullValue() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.executeQuery("SELECT a,b from test_basic_driver.table_with_null");
+            statement.executeQuery("SELECT a,b,c,d from test_basic_driver.table_with_null");
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 1);
             Assert.assertEquals(r.getObject(2), null);
+            Assert.assertEquals(r.getObject(3), "null");
+            Assert.assertEquals(r.getObject(4), "NULL");
         } catch (SQLException throwables) {
             throwables.printStackTrace();
         }

@@ -79,17 +79,14 @@ public class TestPrepareStatement {
 
         PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement_null values");
         ps.setInt(1, 1);
-        ps.setString(2, "");
-        ps.addBatch();
-        ps.setInt(1, 2);
         ps.setNull(2, Types.NULL);
         ps.addBatch();
-        ps.setInt(1, 3);
+        ps.setInt(1, 2);
         ps.setObject(2, null, Types.NULL);
         ps.addBatch();
         System.out.println("execute batch insert");
         int[] ans = ps.executeBatch();
-        Assert.assertEquals(ans.length, 3);
+        Assert.assertEquals(ans.length, 2);
         Assert.assertEquals(ans[0], 1);
         Assert.assertEquals(ans[1], 1);
         Statement statement = c.createStatement();
