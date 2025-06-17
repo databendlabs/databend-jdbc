@@ -164,7 +164,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
         try (FileInputStream fis = new FileInputStream(saved);) {
             DatabendConnection c = (DatabendConnection) getConnection();
-            String uuid = UUID.randomUUID().toString();
+            String uuid = UUID.randomUUID().toString().replace("-", "");
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
             String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
                     LocalDateTime.now().getYear(),
@@ -207,7 +207,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
         try (FileInputStream fis = new FileInputStream(saved);) {
             DatabendConnection c = (DatabendConnection) getConnection();
-            String uuid = UUID.randomUUID().toString();
+            String uuid = UUID.randomUUID().toString().replace("-", "");
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
             String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
                     LocalDateTime.now().getYear(),

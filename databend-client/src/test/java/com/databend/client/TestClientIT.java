@@ -76,7 +76,7 @@ public class TestClientIT {
     @Test(groups = {"it"})
     public void testBasicQueryIDHeader() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
-        String expectedUUID = UUID.randomUUID().toString();
+        String expectedUUID = UUID.randomUUID().toString().replace("-","");
         AtomicReference<String> lastNodeID = new AtomicReference<>();
 
         Map<String, String> additionalHeaders = new HashMap<>();
@@ -85,7 +85,7 @@ public class TestClientIT {
         DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
         Assert.assertEquals(cli.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID);
 
-        String expectedUUID1 = UUID.randomUUID().toString();
+        String expectedUUID1 = UUID.randomUUID().toString().replace("-", "");
         Map<String, String> additionalHeaders1 = new HashMap<>();
         additionalHeaders1.put(X_Databend_Query_ID, expectedUUID1);
         ClientSettings settings1 = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders1, null, DEFAULT_RETRY_ATTEMPTS);
@@ -104,7 +104,7 @@ public class TestClientIT {
     @Test(groups = {"it"})
     public void testDiscoverNodes() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
-        String expectedUUID = UUID.randomUUID().toString();
+        String expectedUUID = UUID.randomUUID().toString().replace("-", "");
 
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
@@ -119,7 +119,7 @@ public class TestClientIT {
     @Test(groups = {"it"})
     public void testDiscoverNodesUnSupported() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
-        String expectedUUID = UUID.randomUUID().toString();
+        String expectedUUID = UUID.randomUUID().toString().replace("-", "");
 
         Map<String, String> additionalHeaders = new HashMap<>();
         additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
