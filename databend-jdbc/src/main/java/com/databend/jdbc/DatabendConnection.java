@@ -98,9 +98,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 return;
             }
             try {
-                System.setProperty("java.util.logging.FileHandler.limit", "2147483647"); // 2GB，Integer.MAX_VALUE
+                // 2GB，Integer.MAX_VALUE
+                System.setProperty("java.util.logging.FileHandler.limit", "2147483647");
                 System.setProperty("java.util.logging.FileHandler.count", "200");
-                System.setProperty("java.util.logging.FileHandler.append", "true"); // Enable log file reuse
+                // Enable log file reuse
+                System.setProperty("java.util.logging.FileHandler.append", "true");
                 FILE_HANDLER = new FileHandler(file.getAbsolutePath(), Integer.parseInt(System.getProperty("java.util.logging.FileHandler.limit")),
                         Integer.parseInt(System.getProperty("java.util.logging.FileHandler.count")), true);
                 FILE_HANDLER.setLevel(Level.ALL);
@@ -730,7 +732,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 if (shouldRetryException(e) && attempt < maxRetries) {
                     lastException = wrapException("query failed", sql, e);
                     try {
-                        Thread.sleep(Math.min(100 * (1 << attempt), 5000)); // back off retry
+                        // back off retry
+                        Thread.sleep(Math.min(100 * (1 << attempt), 5000));
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                         throw wrapException("query interrupt", sql, ie);
@@ -924,7 +927,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     }
                 }
                 dataStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
-                fileSize = byteArrayOutputStream.size();  // Update the file size to the compressed size
+                // Update the file size to the compressed size
+                fileSize = byteArrayOutputStream.size();
             }
             if (this.driverUri.presignedUrlDisabled()) {
                 DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
@@ -1128,7 +1132,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 logger.warning("fail to encode heartbeat body: " + e);
             } catch (SQLException e) {
                 logger.warning("fail to send heartbeat: " + e);
-            } catch (IOException e) {
+            } catch (Exception e) {
                 logger.warning("fail to send heartbeat: " + e);
                 throw new RuntimeException(e);
             }

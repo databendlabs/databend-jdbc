@@ -5,6 +5,7 @@ import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -59,10 +60,12 @@ public class TestDatabendDatabaseMetaData {
         Connection c = Utils.createConnection();
         c.createStatement().execute("drop table if exists test_column_meta");
         c.createStatement().execute("drop table if exists decimal_test");
+        c.createStatement().execute("drop table if exists decimal_test_1");
         c.createStatement().execute("drop table if exists test_comment");
         c.createStatement().execute("drop view if exists v_test_comment");
         c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
         c.createStatement().execute("create table decimal_test (a decimal(4,2))");
+        c.createStatement().execute("create table decimal_test_1 (a decimal(15,12))");
         c.createStatement().execute("create table test_comment (a int comment 'test comment')");
         c.createStatement().execute("create view v_test_comment as select * from test_comment");
         // json data
@@ -232,6 +235,45 @@ public class TestDatabendDatabaseMetaData {
             ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
             while (rs.next()) {
                 assertTrue(rs.getObject(1) instanceof BigDecimal);
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetBigDecimal() throws Exception {
+        String bigDecimalStr = "123.456789012345";
+        String scaleBigDecimalStr = "123.46";
+        String columnLabel = "a";
+        try (Connection connection = Utils.createConnection()) {
+            connection.createStatement().execute(String.format("insert into decimal_test_1 values(%s)", bigDecimalStr));
+            ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test_1");
+            while (rs.next()) {
+                // get BigDecimal using columnIndex
+                BigDecimal value = rs.getBigDecimal(1);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), bigDecimalStr);
+
+                // get BigDecimal using columnLabel
+                value = rs.getBigDecimal(columnLabel);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), bigDecimalStr);
+
+                // get BigDecimal using column index + scale （No longer recommended）
+                value = rs.getBigDecimal(1, 2);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), scaleBigDecimalStr);
+
+                // get BigDecimal using columnLabel + scale （No longer recommended）
+                value = rs.getBigDecimal(columnLabel, 2);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), scaleBigDecimalStr);
+
+                // get BigDecimal with scale using index （recommended）
+                value = rs.getBigDecimal(1);
+                value = value.setScale(2, RoundingMode.HALF_UP);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), scaleBigDecimalStr);
+
+                // get BigDecimal with scale using columnLabel + scale （recommended）
+                value = rs.getBigDecimal(columnLabel);
+                value = value.setScale(2, RoundingMode.HALF_UP);
+                Assert.assertEquals(value.stripTrailingZeros().toPlainString(), scaleBigDecimalStr);
+
             }
         }
     }

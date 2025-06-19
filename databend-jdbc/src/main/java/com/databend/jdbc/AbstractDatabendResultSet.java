@@ -21,6 +21,7 @@ import java.io.ByteArrayInputStream;
 import java.io.InputStream;
 import java.io.Reader;
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -43,13 +44,7 @@ import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
-import java.util.Calendar;
-import java.util.GregorianCalendar;
-import java.util.Iterator;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.TimeZone;
+import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -490,21 +485,43 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
     }
 
+    /**
+     * Retrieves a BigDecimal value from the specified column with scaling (Deprecated method)
+     *
+     * <p><b>Note: This method is deprecated and will be removed in a future release.
+     * It is recommended to use the scale-free {@link #getBigDecimal(int)} method
+     * to get the raw value and control scaling in the business layer.</b></p>
+     *
+     * <p><b>Migration Example:</b><br>
+     * // Data access layer gets raw value<br>
+     * BigDecimal rawValue = resultSet.getBigDecimal("price");<br>
+     * // Business layer controls scaling<br>
+     * BigDecimal scaledValue = rawValue.setScale(2, RoundingMode.HALF_UP);</p>
+     *
+     * @param columnIndex 1-based column index
+     * @param scale Number of decimal places (must be ≥ 0)
+     * @return BigDecimal value with specified scale
+     * @throws SQLException If column value is not a valid number format or scale is invalid
+     *
+     * @deprecated Since JDK 1.2, scheduled for removal. Use {@link #getBigDecimal(int)}
+     *             with business layer scaling instead.
+     */
     @Override
+    @Deprecated
     public BigDecimal getBigDecimal(int columnIndex, int scale)
             throws SQLException {
         Object value = column(columnIndex);
-        if (value == null) {
+        if (Objects.isNull(value)) {
             return null;
         }
         try {
             BigDecimal bigDecimal = (BigDecimal) value;
-            return bigDecimal.setScale(scale, BigDecimal.ROUND_HALF_UP);
+            return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
         } catch (ClassCastException e) {
             // try to parse bigDecimal
             try {
                 BigDecimal bigDecimal = new BigDecimal(value.toString());
-                return bigDecimal.setScale(scale, BigDecimal.ROUND_HALF_UP);
+                return bigDecimal.setScale(scale, RoundingMode.HALF_UP);
             } catch (NumberFormatException ex) {
                 throw new SQLException("Value at columnIndex " + columnIndex + " is not a valid BigDecimal.");
             }
@@ -601,6 +618,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     @Override
+    @Deprecated
     public InputStream getUnicodeStream(int columnIndex)
             throws SQLException {
         throw new SQLFeatureNotSupportedException("getUnicodeStream");
@@ -678,7 +696,29 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return getDouble(columnIndex(columnLabel));
     }
 
+    /**
+     * Retrieves a BigDecimal value from the specified column by name with scaling (Deprecated method)
+     *
+     * <p><strong>Deprecation Notice:</strong><br>
+     * This method is scheduled for removal in a future release. The scaling operation should be
+     * performed in the business layer rather than during data retrieval.</p>
+     *
+     * <p><b>Migration Example:</b><br>
+     * // Data access layer gets raw value<br>
+     * BigDecimal rawValue = getBigDecimal(columnLabel);<br>
+     * // Business layer controls scaling<br>
+     * BigDecimal scaledValue = rawValue.setScale(desiredScale, RoundingMode.HALF_UP);</p>
+     *
+     * @param columnLabel the column name label (case sensitivity depends on database)
+     * @param scale the number of digits after the decimal point (must be ≥ 0)
+     * @return the column value as BigDecimal with specified scale, or null if the value is SQL NULL
+     * @throws SQLException if columnLabel is invalid or scale is invalid
+     *
+     * @deprecated As of JDK 1.2, replaced by {@link #getBigDecimal(String)} combined with
+     *             explicit scaling in business logic. Scheduled for removal in a future release.
+     */
     @Override
+    @Deprecated
     public BigDecimal getBigDecimal(String columnLabel, int scale)
             throws SQLException {
         return getBigDecimal(columnIndex(columnLabel), scale);
@@ -715,6 +755,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     @Override
+    @Deprecated
     public InputStream getUnicodeStream(String columnLabel)
             throws SQLException {
         throw new SQLFeatureNotSupportedException("getUnicodeStream");
@@ -789,7 +830,6 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
-
         return parseBigDecimal(String.valueOf(value));
     }
 
