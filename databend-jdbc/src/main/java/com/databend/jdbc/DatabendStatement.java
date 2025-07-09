@@ -216,8 +216,8 @@ public class DatabendStatement implements Statement {
                         currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                     }
                 } else {
-                    System.out.println("sql is : " + sql);
-                    System.out.println("[DEBUG] Query Write Progress: " + results.getStats().getWriteProgress());
+                    // System.out.println("sql is : " + sql);
+                    // System.out.println("[DEBUG] Query Write Progress: " + results.getStats().getWriteProgress());
                     currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                 }
             }
