@@ -1,3 +1,6 @@
+# Checkstyle
+target/checkstyle-*
+.checkstyle
 .idea/
 databend-jdbc/databend-jdbc-debug.log
 target/

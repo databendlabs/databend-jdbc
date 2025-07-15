@@ -17,7 +17,6 @@ package com.databend.client;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
-import java.net.URI;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 

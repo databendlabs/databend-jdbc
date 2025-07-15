@@ -1,5 +1,7 @@
 package com.databend.jdbc.examples;
 
+import jdk.internal.org.jline.utils.Log;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
@@ -16,8 +18,8 @@ class Examples {
     public static void main(String[] args) throws SQLException {
         // set up
         Connection c = createConnection();
-        System.out.println("-----------------");
-        System.out.println("drop all existing test table");
+        Log.info("-----------------");
+        Log.info("Databend JDBC Examples");
         // execute demo
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("create table test_prepare_statement (a int, b string)");
@@ -31,23 +33,21 @@ class Examples {
             statement.setString(2, "b");
             statement.addBatch();
             int[] result = statement.executeBatch();
-            System.out.println(result);
+            Log.info("Insert result: " + result[0]);
         }
         // update with PreparedStatement
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
             statement.setInt(2, 1);
-            // Attention: now setString(1, "c") will throw exception, need to setString(1, "'c'")
             statement.setString(1, "c");
             int result = statement.executeUpdate();
-            System.out.println(result);
+            Log.info("Update result: " + result);
         }
 
         // executeQuery and return ResultSet
         ResultSet r = conn.createStatement().executeQuery("select * from test_prepare_statement");
         while (r.next()) {
-            System.out.println(r.getInt(1));
-            System.out.println(r.getString(2));
+            Log.info("Row: " + r.getInt(1) + ", " + r.getString(2));
         }
 
         // replace into with PreparedStatement
@@ -57,25 +57,23 @@ class Examples {
             statement.setString(2, "d");
             statement.addBatch();
             int[] result = statement.executeBatch();
+            Log.info("Replace into result: " + result[0]);
         }
         ResultSet r2 = conn.createStatement().executeQuery("select * from test_prepare_statement");
         while (r2.next()) {
-            System.out.println(r2.getInt(1));
-            System.out.println(r2.getString(2));
+            Log.info("Row: " + r2.getInt(1) + ", " + r2.getString(2));
         }
         // delete with PreparedStatement
         String deleteSQL = "delete from test_prepare_statement where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(deleteSQL)) {
             statement.setInt(1, 1);
             int result = statement.executeUpdate();
-            System.out.println(result);
+            Log.info("Delete result: " + result);
         }
         ResultSet r3 = conn.createStatement().executeQuery("select * from test_prepare_statement");
 //        Assert.assertEquals(0, r3.getRow());
         while (r3.next()) {
-            // noting print
-            System.out.println(r3.getInt(1));
-            System.out.println(r3.getString(2));
+            Log.info("Row: " + r3.getInt(1) + ", " + r3.getString(2));
         }
     }
 }

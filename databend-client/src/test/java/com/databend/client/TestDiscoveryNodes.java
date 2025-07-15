@@ -2,7 +2,6 @@ package com.databend.client;
 
 import com.databend.client.errors.QueryErrors;
 import com.fasterxml.jackson.core.JsonProcessingException;
-import io.airlift.json.JsonCodecFactory;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

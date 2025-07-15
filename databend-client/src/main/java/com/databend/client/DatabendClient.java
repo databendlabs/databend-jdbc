@@ -14,7 +14,6 @@
 
 package com.databend.client;
 
-import com.github.zafarkhaja.semver.Version;
 import okhttp3.Request;
 
 import java.io.Closeable;

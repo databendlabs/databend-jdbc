@@ -681,7 +681,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             statement.execute("select 1");
             ResultSet r = statement.getResultSet();
             while (r.next()) {
-                //System.out.println(r.getInt(1));
             }
         } catch (SQLException e) {
             throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
@@ -952,7 +951,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 }
             }
         } catch (RuntimeException e) {
-            System.out.println(e.getMessage());
+            logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
             throw new SQLException(e);
         } catch (IOException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
@@ -982,7 +981,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         requireNonNull(p.getDatabaseTableName(), "tableName is null");
         requireNonNull(p.getDatabendStage(), "stage is null");
         String sql = getCopyIntoSql(database, p);
-        System.out.println(sql);
         Statement statement = this.createStatement();
         statement.execute(sql);
         ResultSet rs = statement.getResultSet();
@@ -1037,7 +1035,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     }
                     return response.body().string();
                 } catch (IOException e) {
-                    System.out.println("e = " + e.getMessage());
                     if (e.getCause() instanceof ConnectException) {
                         if (failReason == null) {
                             failReason = e.getMessage();
