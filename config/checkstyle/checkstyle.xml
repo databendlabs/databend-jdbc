@@ -8,7 +8,6 @@
     <property name="severity" value="error"/>
 
     <module name="TreeWalker">
-        <!-- 禁止使用 System.out/err -->
         <module name="Regexp">
             <property name="format" value="System\.(out|err)\.print(ln)?"/>
             <property name="message" value="Use logging framework instead of System.out.println"/>
