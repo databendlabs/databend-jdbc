@@ -83,7 +83,6 @@ public class TestMultiHost {
                 }
             }
         }
-        System.out.println("node8000: " + node8000 + ", node8002: " + node8002 + ", node8003: " + node8003 + ", unknown: " + unknown);
         Assert.assertTrue(node8000 > 0 && node8002 > 0 && node8003 > 0);
         Assert.assertEquals(unknown, 0);
         Assert.assertEquals(node8000 + node8002 + node8003, 100);
@@ -117,7 +116,6 @@ public class TestMultiHost {
                 }
             }
         }
-        System.out.println("node8000: " + node8000 + ", node8002: " + node8002 + ", node8003: " + node8003 + ", unknown: " + unknown);
         Assert.assertEquals(node8000, 30);
         Assert.assertEquals(node8002, 30);
         Assert.assertEquals(node8003, 30);
@@ -187,7 +185,6 @@ public class TestMultiHost {
                 }
             }
         }
-        System.out.println("node8000: " + node8000 + ", node8002: " + node8002 + ", node8003: " + node8003 + ", unknown: " + unknown);
 
         Assert.assertEquals(node8000, 90);
         Assert.assertEquals(unknown, 0);
@@ -222,7 +219,6 @@ public class TestMultiHost {
                 }
             }
         }
-        System.out.println("node8000: " + node8000 + ", node8002: " + node8002 + ", node8003: " + node8003 + ", unknown: " + unknown);
 
         Assert.assertEquals(node8000, 31);
         Assert.assertEquals(node8002, 30);
@@ -261,9 +257,6 @@ public class TestMultiHost {
         discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8002"));
         discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8003"));
         List<URI> uris = nodes.parseURI(discoveryNodes);
-        for (URI u : uris) {
-            System.out.println(u);
-        }
         Assert.assertEquals(uris.size(), 3);
         Assert.assertEquals(uris2.size(), 3);
         Assert.assertEquals(uris2, uris);

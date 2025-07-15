@@ -50,6 +50,7 @@
         <dep.errorprone.version>2.15.0</dep.errorprone.version>
         <dep.semver.version>0.9.0</dep.semver.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
+        <checkstyle.config.location>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
     </properties>
 
     <modules>
@@ -222,14 +223,24 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-checkstyle-plugin</artifactId>
+                <version>3.3.0</version>
                 <configuration>
-                    <configLocation>
-                        https://raw.githubusercontent.com/checkstyle/checkstyle/master/src/main/resources/google_checks.xml
-                    </configLocation>
+                    <configLocation>${checkstyle.config.location}</configLocation>
+                    <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>
+                    <includeTestSourceDirectory>false</includeTestSourceDirectory>
                 </configuration>
+                <executions>
+                    <execution>
+                        <id>validate</id>
+                        <phase>validate</phase>
+                        <goals>
+                            <goal>check</goal>
+                        </goals>
+                    </execution>
+                </executions>
             </plugin>
         </plugins>
         <pluginManagement>
@@ -238,6 +249,11 @@
                     <groupId>org.apache.maven.plugins</groupId>
                     <artifactId>maven-shade-plugin</artifactId>
                     <version>3.5.1</version>
+                </plugin>
+                <plugin>
+                    <groupId>org.apache.maven.plugins</groupId>
+                    <artifactId>maven-checkstyle-plugin</artifactId>
+                    <version>3.3.0</version>
                 </plugin>
             </plugins>
         </pluginManagement>

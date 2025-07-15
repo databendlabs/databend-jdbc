@@ -1,6 +1,5 @@
 package com.databend.jdbc;
 
-import com.databend.client.errors.QueryErrors;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Headers;

@@ -1,7 +1,6 @@
 package com.databend.jdbc;
 
 import com.databend.client.DatabendClient;
-import com.databend.client.DatabendSession;
 import com.databend.client.QueryResults;
 import com.databend.client.StageAttachment;
 import com.databend.jdbc.annotation.NotImplemented;
@@ -216,8 +215,6 @@ public class DatabendStatement implements Statement {
                         currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                     }
                 } else {
-                    // System.out.println("sql is : " + sql);
-                    // System.out.println("[DEBUG] Query Write Progress: " + results.getStats().getWriteProgress());
                     currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                 }
             }

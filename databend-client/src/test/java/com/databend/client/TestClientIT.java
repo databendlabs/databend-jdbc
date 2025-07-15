@@ -42,7 +42,6 @@ public class TestClientIT {
         ClientSettings settings = new ClientSettings(DATABEND_HOST);
         AtomicReference<String> lastNodeID = new AtomicReference<>();
         DatabendClient cli = new DatabendClientV1(client, "select 1", settings, null, lastNodeID);
-        System.out.println(cli.getResults().getData());
         Assert.assertEquals(cli.getQuery(), "select 1");
         Assert.assertEquals(cli.getSession().getDatabase(), DATABASE);
         Assert.assertNotNull(cli.getResults());
@@ -66,7 +65,6 @@ public class TestClientIT {
             cli.getResults(); // This should trigger the connection attempt
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             Assert.assertTrue(
                     e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be ConnectionException or contain ConnectionException as cause");
 
@@ -96,8 +94,6 @@ public class TestClientIT {
             cli.advance();
             Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
         }
-        System.out.println(cli1.getResults().getData());
-        System.out.println(cli1.getAdditionalHeaders());
         Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
     }
 
@@ -111,9 +107,6 @@ public class TestClientIT {
         ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
         List<DiscoveryNode> nodes = DatabendClientV1.discoverNodes(client, settings);
         Assert.assertFalse(nodes.isEmpty());
-        for (DiscoveryNode node : nodes) {
-            System.out.println(node.getAddress());
-        }
     }
 
     @Test(groups = {"it"})
@@ -129,7 +122,6 @@ public class TestClientIT {
             DatabendClientV1.discoverNodes(client, settings);
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
-            System.out.println(e.getMessage());
             Assert.assertTrue(e instanceof UnsupportedOperationException, "Exception should be UnsupportedOperationException");
         }
     }
