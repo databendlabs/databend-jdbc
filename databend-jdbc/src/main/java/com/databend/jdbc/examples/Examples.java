@@ -1,6 +1,5 @@
 package com.databend.jdbc.examples;
 
-import com.databend.jdbc.DatabendNodes;
 
 import java.util.logging.Logger;
 import java.sql.Connection;
@@ -16,7 +15,7 @@ class Examples {
         String url = "jdbc:databend://localhost:8000";
         return DriverManager.getConnection(url, "databend", "databend");
     }
-    private static final Logger logger = Logger.getLogger(DatabendNodes.class.getPackage().getName());
+    private static final Logger logger = Logger.getLogger(Examples.class.getPackage().getName());
     public static void main(String[] args) throws SQLException {
         // set up
         Connection c = createConnection();
