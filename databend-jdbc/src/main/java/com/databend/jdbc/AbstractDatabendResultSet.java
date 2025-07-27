@@ -92,7 +92,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     protected final Iterator<List<Object>> results;
     private final Optional<Statement> statement;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
-    private final AtomicLong currentRowNumber = new AtomicLong(); // Index into 'rows' of our current row (1-based)
+    // Index into 'rows' of our current row (1-based)
+    private final AtomicLong currentRowNumber = new AtomicLong();
     private final AtomicBoolean wasNull = new AtomicBoolean();
     private final Map<String, Integer> fieldMap;
     private final List<DatabendColumnInfo> databendColumnInfoList;
@@ -125,11 +126,15 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         ImmutableList.Builder<DatabendColumnInfo> list = ImmutableList.builderWithExpectedSize(columns.size());
         for (QueryRowField column : columns) {
             DatabendColumnInfo.Builder builder = new DatabendColumnInfo.Builder()
-                    .setCatalogName("") // TODO
-                    .setSchemaName("") // TODO
-                    .setTableName("") // TODO
+                    // TODO
+                    .setCatalogName("")
+                    // TODO
+                    .setSchemaName("")
+                    // TODO
+                    .setTableName("")
                     .setColumnLabel(column.getName())
-                    .setColumnName(column.getName()) // TODO
+                    // TODO
+                    .setColumnName(column.getName())
                     .setColumnTypeSignature(column.getDataType())
                     .setCurrency(false);
             setTypeInfo(builder, column.getDataType());
@@ -230,8 +235,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             precision = fraction.length();
             fractionValue = Long.parseLong(fraction);
         }
-
-        long picosOfSecond = rescale(fractionValue, precision, 12); // maximum precision
+        // maximum precision
+        long picosOfSecond = rescale(fractionValue, precision, 12);
         // We eventually truncate to millis, so truncate picos to nanos for consistency TODO (https://github.com/trinodb/trino/issues/6205) reconsider
         int nanosOfSecond = toIntExact(picosOfSecond / PICOSECONDS_PER_NANOSECOND);
         long epochMilli = ZonedDateTime.of(1970, 1, 1, hour, minute, second, nanosOfSecond, localTimeZone)

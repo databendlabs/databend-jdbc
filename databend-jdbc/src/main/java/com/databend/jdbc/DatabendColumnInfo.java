@@ -12,7 +12,8 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendColumnInfo {
     private static final int VARBINARY_MAX = 1024 * 1024 * 1024;
-    private static final int TIME_ZONE_MAX = 40; // current longest time zone is 32
+    // current longest time zone is 32
+    private static final int TIME_ZONE_MAX = 40;
     private static final int TIME_MAX = "HH:mm:ss.SSS".length();
     private static final int TIME_WITH_TIME_ZONE_MAX = TIME_MAX + TIME_ZONE_MAX;
     private static final int TIMESTAMP_MAX = "yyyy-MM-dd HH:mm:ss.SSS".length();

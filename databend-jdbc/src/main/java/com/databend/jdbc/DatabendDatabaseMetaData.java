@@ -101,7 +101,10 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     protected static String stringColumnLike(String columnName, String pattern) {
         if (pattern == null || pattern.isEmpty()) {
             return null;
-        } if (Pattern.matches("^[^%]*$", pattern)) { // Checks if the string does not contain the %
+        }
+
+        // Checks if the string does not contain the %
+        if (Pattern.matches("^[^%]*$", pattern)) {
             return stringColumnEquals(columnName, pattern);
         }
         StringBuilder filter = new StringBuilder();
@@ -997,7 +1000,8 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
     }};
 
     private static StringBuilder columnMetaSqlTemplate() {
-        StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" + // 1
+        // 1
+        StringBuilder sql = new StringBuilder("SELECT table_catalog as TABLE_CAT" +
                 ", table_schema as TABLE_SCHEM" + // 2
                 ", table_name as TABLE_NAME" + // 3
                 ", column_name as COLUMN_NAME" + // 4
@@ -1022,38 +1026,57 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         try (ResultSet rs = select(sql)) {
             while (rs.next()) {
                 List<Object> result = new ArrayList<>();
-                result.add(rs.getString(1));// TABLE_CAT
-                result.add(rs.getString(2));// TABLE_SCHEM
-                result.add(rs.getString(3));// TABLE_NAME
-                result.add(rs.getString(4));// COLUMN_NAME
+                // TABLE_CAT
+                result.add(rs.getString(1));
+                // TABLE_SCHEM
+                result.add(rs.getString(2));
+                // TABLE_NAME
+                result.add(rs.getString(3));
+                // COLUMN_NAME
+                result.add(rs.getString(4));
                 String originType = rs.getString(5);
                 DatabendRawType rowType = new DatabendRawType(originType);
                 DatabendDataType dataType = rowType.getDataType();
-                result.add(dataType.getSqlType());// DATA_TYPE
-                result.add(rowType.getType());// TYPE_NAME
-                result.add(rowType.getColumnSize());// COLUMN_SIZE
-                result.add(0);// BUFFER_LENGTH
-                result.add(rowType.getDecimalDigits());// DECIMAL_DIGITS
-                result.add(0);// NUM_PREC_RADIX
-                result.add(rs.getString(6));// COLUMN_NAME
-                result.add(rs.getObject(7));// REMARKS
-                result.add(rs.getString(8));// COLUMN_DEF
-                result.add(0);// SQL_DATA_TYPE
-                result.add(0);// SQL_DATETIME_SUB
+                // DATA_TYPE
+                result.add(dataType.getSqlType());
+                // TYPE_NAME
+                result.add(rowType.getType());
+                // COLUMN_SIZE
+                result.add(rowType.getColumnSize());
+                // BUFFER_LENGTH
+                result.add(0);
+                // DECIMAL_DIGITS
+                result.add(rowType.getDecimalDigits());
+                // NUM_PREC_RADIX
+                result.add(0);
+                // COLUMN_NAME
+                result.add(rs.getString(6));
+                // REMARKS
+                result.add(rs.getObject(7));
+                // COLUMN_DEF
+                result.add(rs.getString(8));
+                // SQL_DATA_TYPE
+                result.add(0);
+                // SQL_DATETIME_SUB
+                result.add(0);
                 // CHAR_OCTET_LENGTH (for char types the maximum number of bytes in the column)
                 if (dataType == DatabendDataType.STRING) {
                     result.add(dataType.getLength());
                 } else {
                     result.add(null);
                 }
-                result.add(rs.getString(9));// ORDINAL_POSITION
-                result.add(rs.getString(10));// IS_NULLABLE
+                // ORDINAL_POSITION
+                result.add(rs.getString(9));
+                // IS_NULLABLE
+                result.add(rs.getString(10));
                 result.add(null);
                 result.add(null);
                 result.add(null);
                 result.add(null);
-                result.add("NO");// IS_AUTOINCREMENT
-                result.add("NO");// IS_GENERATEDCOLUMN
+                // IS_AUTOINCREMENT
+                result.add("NO");
+                // IS_GENERATEDCOLUMN
+                result.add("NO");
                 results.add(result);
             }
         }

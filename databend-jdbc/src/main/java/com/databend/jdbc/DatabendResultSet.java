@@ -56,7 +56,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         if (client.getServerVersion() != null) {
             try {
                 serverVersion =  Version.valueOf(client.getServerVersion());
-            } catch (Exception _e) {
+            } catch (Exception ignored) {
 
             }
         }

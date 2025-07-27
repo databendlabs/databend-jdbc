@@ -61,7 +61,7 @@ import java.util.stream.Collectors;
 
 import static com.databend.jdbc.ObjectCasts.*;
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
-import static com.databend.jdbc.constant.DatabendConstant.BASE64_STR;
+import static com.databend.jdbc.constant.DatabendConstant.*;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -428,7 +428,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         try {
             for (int i = 0; i < statements.size(); i++) {
                 String sql = statements.get(i).getSql();
-                if (sql.toLowerCase().contains("insert into") && !sql.toLowerCase().contains("select")) {
+                if (isBatchInsert(sql)) {
                     handleBatchInsert();
                 } else {
                     execute(sql);
@@ -442,6 +442,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return true;
     }
 
+    private boolean isBatchInsert(String sql) {
+        return sql.toLowerCase().contains(DATABEND_KEYWORDS_INSERT_INTO) && !sql.toLowerCase().contains(DATABEND_KEYWORDS_SELECT);
+    }
     protected void handleBatchInsert() throws SQLException {
         try {
             addBatch();
