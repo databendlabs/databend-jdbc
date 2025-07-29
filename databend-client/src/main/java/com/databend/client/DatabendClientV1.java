@@ -242,14 +242,14 @@ public class DatabendClientV1
 
         long start = System.nanoTime();
         int attempts = 0;
-        Exception cause = null;
+//        Exception cause = null;
 
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)",
-                            attempts, sinceStart.getSeconds()), cause);
+                            attempts, sinceStart.getSeconds()), null);
                 }
 
                 try {
