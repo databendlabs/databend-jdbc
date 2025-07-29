@@ -2,9 +2,15 @@ name: Code Quality Check
 
 on:
   pull_request:
+    types: [opened, synchronize, reopened]
     branches: [ main, master ]
   push:
     branches: [ main, master ]
+
+permissions:
+  contents: read
+  pull-requests: write
+  checks: write
 
 jobs:
   checkstyle:
