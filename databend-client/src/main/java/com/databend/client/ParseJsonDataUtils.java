@@ -59,7 +59,8 @@ final class ParseJsonDataUtils {
                 newRow.add(parsed);
                 column++;
             }
-            rows.add(unmodifiableList(newRow)); // allow nulls in list
+            // allow nulls in list
+            rows.add(unmodifiableList(newRow));
         }
         return rows.build();
     }

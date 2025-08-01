@@ -1,7 +1,10 @@
 package com.databend.jdbc;
 
 public enum StatementType {
-    PARAM_SETTING, // SET
-    QUERY, // eg: SELECT, SHOW
-    NON_QUERY // eg: INSERT
+    // SET
+    PARAM_SETTING,
+    // eg: SELECT, SHOW
+    QUERY,
+    // eg: INSERT
+    NON_QUERY
 }

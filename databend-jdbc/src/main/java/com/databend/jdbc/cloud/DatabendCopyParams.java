@@ -36,7 +36,7 @@ public class DatabendCopyParams {
         try {
             DatabendParams p = DatabendParams.valueOf(s.getKey().toUpperCase(Locale.US));
             needQuote = p.needQuote();
-        } catch (IllegalArgumentException e) {
+        } catch (IllegalArgumentException ignored) {
         }
         if (needQuote) {
             sb.append(s.getKey()).append(" = ").append("'").append(s.getValue()).append("'").append(" ");
@@ -124,7 +124,8 @@ public class DatabendCopyParams {
         ROW_TAG("ROW_TAG", String.class),
         COMPRESSION("COMPRESSION", String.class),
         SIZE_LIMIT("SIZE_LIMIT", Integer.class),
-        PURGE("PURGE", Boolean.class),// default false
+        // default false
+        PURGE("PURGE", Boolean.class),
         FORCE("FORCE", Boolean.class),
         // on error only support continue/abort without quote
         ON_ERROR("ON_ERROR", null);

@@ -13,8 +13,10 @@ public class DatabendConnectionPool extends GenericObjectPool<DatabendConnection
 
     public void testDemo() throws Exception {
         GenericObjectPoolConfig<DatabendConnection> config = new GenericObjectPoolConfig<>();
-        config.setMaxTotal(10); // set max total connection
-        config.setMinIdle(2); // set min idle connection
+        // set max total connection
+        config.setMaxTotal(10);
+        // set min idle connection
+        config.setMinIdle(2);
 
         Properties props = new Properties();
         props.setProperty("database", "db3");

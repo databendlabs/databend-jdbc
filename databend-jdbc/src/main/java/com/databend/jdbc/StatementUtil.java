@@ -216,7 +216,8 @@ public class StatementUtil {
             } else if (StringUtils.startsWithIgnoreCase(withoutQuotes, "DESCRIBE")) {
                 from = Optional.of("tables");
             } else if (StringUtils.startsWithIgnoreCase(withoutQuotes, "SHOW")) {
-                from = Optional.empty(); // Depends on the information requested
+                // Depends on the information requested
+                from = Optional.empty();
             } else {
                 log.debug("Could not find table name for query {}. This may happen when there is no table.", cleanSql);
             }

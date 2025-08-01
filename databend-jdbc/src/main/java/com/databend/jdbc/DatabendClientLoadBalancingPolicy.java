@@ -111,7 +111,8 @@ public class DatabendClientLoadBalancingPolicy {
         if (query_id.isEmpty()) {
             return 0;
         }
-        int hash = 202011; // Using the seed value
+        // Using the seed value
+        int hash = 202011;
         for (char c : query_id.toCharArray()) {
             hash = hash * 31 + c;
         }

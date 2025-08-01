@@ -197,7 +197,8 @@ public class DatabendStatement implements Statement {
             resultSet = DatabendResultSet.create(this, client, maxRows.get());
             currentResult.set(resultSet);
             if (isQueryStatement(sql)) {
-                currentUpdateCount = -1;// Always -1 when returning a ResultSet with query statement
+                // Always -1 when returning a ResultSet with query statement
+                currentUpdateCount = -1;
             } else {
                 QueryResults results = client.getResults();
                 if (sql.toLowerCase().startsWith("update") || sql.toLowerCase().startsWith("delete")) {
