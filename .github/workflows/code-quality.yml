@@ -30,7 +30,7 @@ jobs:
 
       - name: Run Checkstyle
         run: |
-          mvn checkstyle:checkstyle -B -q  # 添加 -B 和 -q 参数
+          mvn checkstyle:checkstyle -B -q
         continue-on-error: true
 
       - name: Report Checkstyle results
