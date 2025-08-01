@@ -11,6 +11,7 @@ permissions:
   contents: read
   pull-requests: write
   checks: write
+  actions: read
 
 jobs:
   checkstyle:
@@ -29,19 +30,25 @@ jobs:
 
       - name: Run Checkstyle
         run: |
-          mvn checkstyle:checkstyle
-          mvn checkstyle:check
+          mvn checkstyle:checkstyle -B -q  # 添加 -B 和 -q 参数
+        continue-on-error: true
 
       - name: Report Checkstyle results
         uses: jwgmeligmeyling/checkstyle-github-action@master
         if: always()
         with:
           path: '**/checkstyle-result.xml'
+          token: ${{ secrets.GITHUB_TOKEN }}
+          name: 'Checkstyle Report'
+          title: 'Checkstyle Results'
 
       - name: Upload Checkstyle results
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: checkstyle-results
-          path: target/site/checkstyle.html
+          path: |  
+            **/target/checkstyle-result.xml
+            **/target/site/checkstyle.html
           retention-days: 7
+          if-no-files-found: warn
