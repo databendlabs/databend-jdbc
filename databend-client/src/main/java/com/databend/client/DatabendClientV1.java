@@ -184,7 +184,8 @@ public class DatabendClientV1
                 }
 
                 try {
-                    MILLISECONDS.sleep(attempts * 100); // Exponential backoff
+                    // Exponential backoff
+                    MILLISECONDS.sleep(attempts * 100L);
                 } catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
                     throw new RuntimeException("Interrupted while fetching discovery nodes", e);
@@ -211,7 +212,8 @@ public class DatabendClientV1
             if (response.getStatusCode() == HTTP_OK && response.hasValue()) {
                 DiscoveryResponseCodec.DiscoveryResponse discoveryResponse = response.getValue();
                 if (discoveryResponse.getError() == null) {
-                    return discoveryResponse; // Successful response
+                    // Successful response
+                    return discoveryResponse;
                 }
                 if (discoveryResponse.getError().notFound()) {
                     throw new UnsupportedOperationException("Discovery request feature not supported: " + discoveryResponse.getError());
@@ -240,20 +242,21 @@ public class DatabendClientV1
 
         long start = System.nanoTime();
         int attempts = 0;
-        Exception cause = null;
+//        Exception cause = null;
 
         while (true) {
             if (attempts > 0) {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
                     throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)",
-                            attempts, sinceStart.getSeconds()), cause);
+                            attempts, sinceStart.getSeconds()), null);
                 }
 
                 try {
                     logger.log(Level.FINE, "Executing query attempt #" + attempts);
                     // Apply exponential backoff with a cap
-                    long sleepTime = Math.min(100 * (1 << Math.min(attempts - 1, 10)), 5000); // Max 5 seconds
+                    // Max 5 seconds
+                    long sleepTime = Math.min(100 * (1 << Math.min(attempts - 1, 10)), 5000);
                     MILLISECONDS.sleep(sleepTime);
                 } catch (InterruptedException e) {
                     try {
@@ -274,7 +277,8 @@ public class DatabendClientV1
                 if (e.getCause() instanceof ConnectException) {
                     // Log the connection exception but rethrow it to match original behavior
                     logger.log(Level.WARNING, "Connection exception on attempt " + attempts + ": " + e.getMessage());
-                    throw e; // This will be caught by the caller's retry mechanism
+                    // This will be caught by the caller's retry mechanism
+                    throw e;
                 }
                 throw new RuntimeException("Query failed: " + e.getMessage(), e);
             }
@@ -344,7 +348,7 @@ public class DatabendClientV1
             if (serverVersionString != null) {
                 try {
                     serverVersion = serverVersionString;
-                } catch (Exception e) {
+                } catch (Exception ignored) {
                 }
             }
             String route_hint = headers.get(ClientSettings.X_DATABEND_ROUTE_HINT);

@@ -161,11 +161,7 @@ public class DatabendPresignClientV1
                     MILLISECONDS.sleep(attempts * 100);
                 }
                 catch (InterruptedException e) {
-                    try {
-                    }
-                    finally {
-                        Thread.currentThread().interrupt();
-                    }
+                    Thread.currentThread().interrupt();
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
@@ -326,7 +322,8 @@ class InputStreamRequestBody
     @Override
     public long contentLength()
     {
-        return fileSize; // return the actual file size
+        // return the actual file size
+        return fileSize;
 //        return inputStream.available() == 0 ? -1 : inputStream.available();
     }
 

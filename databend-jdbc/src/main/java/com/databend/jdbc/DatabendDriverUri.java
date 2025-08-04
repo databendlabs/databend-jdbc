@@ -306,7 +306,8 @@ public final class DatabendDriverUri {
             uris.clear();
             uris.addAll(uriSet);
             // Create DatabendNodes object
-            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED); // You might want to make this configurable
+            // You might want to make this configurable
+            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED);
             DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment, 5 * 60 * 1000);
             return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
