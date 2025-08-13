@@ -9,7 +9,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TestBatchInsertUtils {
-    @Test(groups = "Unit")
+    @Test(groups = "UNIT")
     public void testFiles() {
         List<String[]> data = new ArrayList<>();
         data.add(new String[]{"1", "2", "{\"a\": 1, \"b\": \"2\"}", "hello, world 321"});
@@ -26,7 +26,7 @@ public class TestBatchInsertUtils {
         }
     }
 
-    @Test(groups = "Unit")
+    @Test(groups = "UNIT")
     public void testGetDatabaseTableName() {
         BatchInsertUtils b = BatchInsertUtils.tryParseInsertSql("INSERT INTO tb01(id,d,x,x,x,x,xt,col1) VALUES").get();
         Assert.assertEquals("tb01", b.getDatabaseTableName());

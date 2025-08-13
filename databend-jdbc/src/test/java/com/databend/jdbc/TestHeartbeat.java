@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;

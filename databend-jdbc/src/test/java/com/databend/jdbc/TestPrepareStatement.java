@@ -1,13 +1,10 @@
 package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
-import org.junit.jupiter.api.Assertions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
-import java.math.BigDecimal;
-import java.math.RoundingMode;
 import java.sql.Connection;
 import java.sql.Date;
 import java.sql.PreparedStatement;
@@ -370,7 +367,7 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-            Assertions.assertEquals(1, result.length);
+            Assert.assertEquals(1, result.length);
         }
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
@@ -378,15 +375,15 @@ public class TestPrepareStatement {
             statement.setNull(1, Types.NULL);
             int result = statement.executeUpdate();
             System.out.println(result);
-            Assertions.assertEquals(1, result);
+            Assert.assertEquals(1, result);
         }
         try (PreparedStatement statement = conn
                 .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
             statement.setInt(1, 1);
             ResultSet r = statement.executeQuery();
             while (r.next()) {
-                Assertions.assertEquals(1, r.getInt(1));
-                Assertions.assertEquals(null, r.getString(2));
+                Assert.assertEquals(1, r.getInt(1));
+                Assert.assertEquals(null, r.getString(2));
             }
         }
         String insertSelectSql = "insert overwrite test_prepare_statement select * from test_prepare_statement";
@@ -409,7 +406,7 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-            Assertions.assertEquals(1, result.length);
+            Assert.assertEquals(1, result.length);
         }
         String updateSQL = "update test_prepare_statement set b = ? where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
@@ -417,15 +414,15 @@ public class TestPrepareStatement {
             statement.setObject(1, "c'c");
             int result = statement.executeUpdate();
             System.out.println(result);
-            Assertions.assertEquals(1, result);
+            Assert.assertEquals(1, result);
         }
         try (PreparedStatement statement = conn
                 .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where a = ?")) {
             statement.setInt(1, 1);
             ResultSet r = statement.executeQuery();
             while (r.next()) {
-                Assertions.assertEquals(1, r.getInt(1));
-                Assertions.assertEquals("c'c", r.getString(2));
+                Assert.assertEquals(1, r.getInt(1));
+                Assert.assertEquals("c'c", r.getString(2));
             }
 
             // truncate table
@@ -455,22 +452,22 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-            Assertions.assertEquals(5, result.length);
+            Assert.assertEquals(5, result.length);
         }
         String updateSQL = "update test_prepare_statement set b = ? where b = ?";
         try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
             statement.setString(1, "c");
             statement.setString(2, "b");
             int result = statement.executeUpdate();
-            Assertions.assertEquals(1, result);
+            Assert.assertEquals(1, result);
         }
         try (PreparedStatement statement = conn
                 .prepareStatement("select a, regexp_replace(b, '\\d', '*') from test_prepare_statement where b = ?")) {
             statement.setString(1, "c");
             ResultSet r = statement.executeQuery();
             while (r.next()) {
-                Assertions.assertEquals(1, r.getInt(1));
-                Assertions.assertEquals("c", r.getString(2));
+                Assert.assertEquals(1, r.getInt(1));
+                Assert.assertEquals("c", r.getString(2));
             }
         }
         String replaceIntoSQL = "replace into test_prepare_statement on(a) values (?,?)";
@@ -514,14 +511,14 @@ public class TestPrepareStatement {
     @Test
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
         Connection conn = Utils.createConnection();
-        Assertions.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
+        Assert.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
         StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
                 "stagePath");
 
-        Assertions.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
-        Assertions.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
-        Assertions.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
-        Assertions.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
+        Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
+        Assert.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
+        Assert.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
+        Assert.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
     }
 
     @Test
@@ -539,7 +536,7 @@ public class TestPrepareStatement {
             statement.addBatch();
             int[] result = statement.executeBatch();
             System.out.println(result);
-            Assertions.assertEquals(2, result.length);
+            Assert.assertEquals(2, result.length);
         }
         conn.createStatement().execute("alter table default.test_clusterkey cluster by (a)");
         String selectSQL = "select * from clustering_information('default','test_clusterkey')";
@@ -547,10 +544,10 @@ public class TestPrepareStatement {
             ResultSet rs = statement.executeQuery();
             int rows = 0;
             while (rs.next()) {
-                Assertions.assertEquals("linear", rs.getString(2));
+                Assert.assertEquals("linear", rs.getString(2));
                 rows += 1;
             }
-            Assertions.assertEquals(1, rows);
+            Assert.assertEquals(1, rows);
         }
     }
 
@@ -593,7 +590,7 @@ public class TestPrepareStatement {
             statement.setString(1, "x");
             statement.setInt(2, 1);
             int updatedRows = statement.executeUpdate();
-            Assertions.assertEquals(1, updatedRows, "only update one row");
+            Assert.assertEquals(1, updatedRows, "only update one row");
         }
 
         String updateMultiSql = "update test_prepare_statement set b = ? where a in (?, ?)";
@@ -602,7 +599,7 @@ public class TestPrepareStatement {
             statement.setInt(2, 2);
             statement.setInt(3, 3);
             int updatedRows = statement.executeUpdate();
-            Assertions.assertEquals(2, updatedRows, "should update two rows");
+            Assert.assertEquals(2, updatedRows, "should update two rows");
         }
 
         String updateAndSql = "update test_prepare_statement set b = ? where ((a = ?)) and (b = ?)";
@@ -611,14 +608,14 @@ public class TestPrepareStatement {
             statement.setInt(2, 2);
             statement.setString(3, "y");
             int updatedRows = statement.executeUpdate();
-            Assertions.assertEquals(1, updatedRows, "should update one row with and condition");
+            Assert.assertEquals(1, updatedRows, "should update one row with and condition");
         }
 
         String deleteSql = "delete from test_prepare_statement where a = ?";
         try (PreparedStatement statement = conn.prepareStatement(deleteSql)) {
             statement.setInt(1, 1);
             int deletedRows = statement.executeUpdate();
-            Assertions.assertEquals(1, deletedRows, "should delete one row");
+            Assert.assertEquals(1, deletedRows, "should delete one row");
         }
 
         ResultSet rs = conn.createStatement().executeQuery("select * from test_prepare_statement order by a");
@@ -626,14 +623,14 @@ public class TestPrepareStatement {
         while (rs.next()) {
             count++;
             if (count == 1) {
-                Assertions.assertEquals(2, rs.getInt(1));
-                Assertions.assertEquals("z", rs.getString(2));
+                Assert.assertEquals(2, rs.getInt(1));
+                Assert.assertEquals("z", rs.getString(2));
             } else if (count == 2) {
-                Assertions.assertEquals(3, rs.getInt(1));
-                Assertions.assertEquals("y", rs.getString(2));
+                Assert.assertEquals(3, rs.getInt(1));
+                Assert.assertEquals("y", rs.getString(2));
             }
         }
-        Assertions.assertEquals(2, count, "should have two rows left in the table");
+        Assert.assertEquals(2, count, "should have two rows left in the table");
         // Clean up
         conn.createStatement().execute("delete from test_prepare_statement");
     }
@@ -648,7 +645,7 @@ public class TestPrepareStatement {
         try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
             statement.setString(1, "a");
             int insertedRows = statement.executeUpdate();
-            Assertions.assertEquals(0, insertedRows, "should not insert any rows as the table is empty");
+            Assert.assertEquals(0, insertedRows, "should not insert any rows as the table is empty");
         }
 
         // Insert some data
@@ -667,7 +664,7 @@ public class TestPrepareStatement {
         try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
             statement.setString(1, "a");
             int insertedRows = statement.executeUpdate();
-            Assertions.assertEquals(1, insertedRows, "should insert two rows from the select");
+            Assert.assertEquals(1, insertedRows, "should insert two rows from the select");
         }
 
         ResultSet rs = conn.createStatement().executeQuery("select * from test_prepare_statement order by a");
@@ -675,7 +672,7 @@ public class TestPrepareStatement {
         while (rs.next()) {
             count++;
         }
-        Assertions.assertEquals(3, count, "should have four rows in the table after insert with select");
+        Assert.assertEquals(3, count, "should have four rows in the table after insert with select");
 
         // Clean up
         conn.createStatement().execute("delete from test_prepare_statement");

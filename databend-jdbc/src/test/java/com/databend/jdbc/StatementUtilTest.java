@@ -1,12 +1,12 @@
 package com.databend.jdbc;
 
 import com.google.common.collect.ImmutableMap;
-import org.junit.jupiter.api.Test;
+import org.testng.annotations.Test;
 
 import java.util.Map;
 
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
-import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.testng.Assert.assertEquals;
 
 public class StatementUtilTest {
     @Test

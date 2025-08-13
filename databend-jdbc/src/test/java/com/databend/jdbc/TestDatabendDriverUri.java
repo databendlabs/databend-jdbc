@@ -9,8 +9,6 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
-import static org.assertj.core.api.Assertions.assertThatThrownBy;
-
 @Test(timeOut = 10000)
 public class TestDatabendDriverUri {
     private static DatabendDriverUri createDriverUri(String url)
@@ -21,12 +19,15 @@ public class TestDatabendDriverUri {
     }
 
     private static void assertInvalid(String url, String prefix) {
-        assertThatThrownBy(() -> createDriverUri(url))
-                .isInstanceOf(SQLException.class)
-                .hasMessageStartingWith(prefix);
+        SQLException exception = Assert.expectThrows(SQLException.class, () -> createDriverUri(url));
+        String msg = exception.getMessage();
+        Assert.assertTrue(
+                msg.startsWith(prefix),
+                "error message not start with " + prefix + ":" + msg
+        );
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testInvalidUri() {
         // missing jdbc: prefix
         assertInvalid("test", "Invalid JDBC URL: test");
@@ -38,7 +39,7 @@ public class TestDatabendDriverUri {
 
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testBasic() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost", null);
         Assert.assertEquals(uri.getUri().getScheme(), "http");
@@ -46,7 +47,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testMultiHost() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost,localhost:9991,localhost:31919/d2?ssl=true", null);
         Assert.assertEquals(uri.getNodes().getUris().size(), 3);
@@ -61,7 +62,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getNodes().getUris().get(2).getPort(), 31919);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testSameHost() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1:p1@localhost,localhost:9991,localhost/d2?ssl=false", null);
         System.out.println(uri.getNodes().toString());
@@ -77,7 +78,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getNodes().getUris().get(1).getPort(), 9991);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testDefaultSSL() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost", null);
 
@@ -86,7 +87,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testSSLSetFalse() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?SSL=false", null);
 
@@ -95,7 +96,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 8000);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testSSLSetTrue() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost?ssl=true", null);
 
@@ -104,7 +105,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 443);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testSSLCustomPort() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:33101", null);
 
@@ -113,7 +114,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 33101);
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testSSLCustomPort2() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://http://localhost:33101", null);
 
@@ -123,7 +124,7 @@ public class TestDatabendDriverUri {
 
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testUser() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101?password=p1", null);
 
@@ -132,7 +133,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getDatabase(), "default");
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testUserDatabase() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1", null);
 
@@ -141,7 +142,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getDatabase(), "db1");
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testUserDatabasePath() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1@localhost:33101/db1?password=p1&database=db2", null);
 
@@ -150,7 +151,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getDatabase(), "db2");
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testUserDatabaseProp() throws SQLException {
         Properties props = new Properties();
         props.setProperty("database", "db3");
@@ -178,7 +179,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals("enable", uri.getSslmode().toString());
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testUserDatabasePropFull() throws SQLException {
         Properties props = new Properties();
         props.setProperty("database", "db3");
@@ -202,7 +203,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals("", uri.binaryFormat().toString());
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testFull() throws SQLException {
         Properties props = new Properties();
         props.setProperty("database", "db3");
@@ -235,7 +236,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(false, uri.getStrNullAsNull());
     }
 
-    @Test
+    @Test(groups = "IT")
     public void TestSetSchema() throws SQLException {
         DatabendConnection connection = (DatabendConnection) Utils.createConnection();
         try {
@@ -249,7 +250,7 @@ public class TestDatabendDriverUri {
         connection.createStatement().execute("insert into test2 values (1)");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void TestSetSessionSettings() throws SQLException{
         Properties props = new Properties();
         // set session settings

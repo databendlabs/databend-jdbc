@@ -32,7 +32,7 @@ public class TestDatabendPresignClient {
         return csvPath;
     }
 
-    @Test(groups = {"Local"})
+    @Test(groups = {"LOCAL"})
     public void uploadFileAPI() {
         String filePath = null;
         try (DatabendConnection connection = Utils.createConnection().unwrap(DatabendConnection.class)) {

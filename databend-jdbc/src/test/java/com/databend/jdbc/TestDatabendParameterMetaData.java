@@ -25,7 +25,7 @@ public class TestDatabendParameterMetaData {
     }
 
 
-    @Test(groups = "integration")
+    @Test(groups = "IT")
     public void testGetParameterMetaData() throws SQLException {
         try (Connection conn = Utils.createConnection();
              PreparedStatement emptyPs = conn.prepareStatement("select 1");

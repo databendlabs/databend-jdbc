@@ -5,7 +5,8 @@ import com.databend.client.data.DatabendRawType;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
-import com.solidfire.gson.Gson;
+import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.NonNull;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
@@ -88,6 +89,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private final Optional<BatchInsertUtils> batchInsertUtils;
     private final String statementName;
     private int batchSize = 0;
+
+    private static final ObjectMapper objectMapper = new ObjectMapper();
 
     DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String statementName,
             String sql) {
@@ -751,8 +754,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     public static String convertToJsonString(Map<?, ?> map) {
-        Gson gson = new Gson();
-        return gson.toJson(map);
+        try {
+            return objectMapper.writeValueAsString(map);
+        } catch (JsonProcessingException e) {
+            throw new RuntimeException("Failed to convert map to JSON string", e);
+        }
     }
 
     public static String convertArrayToString(Array array) {
