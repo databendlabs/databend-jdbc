@@ -10,7 +10,7 @@ import java.util.Map;
 import static org.testng.Assert.assertEquals;
 
 public class TestDatabendCopyParams {
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testDatabendStage() {
         DatabendCopyParams prms = DatabendCopyParams.builder()
                 .setPattern("*.csv")

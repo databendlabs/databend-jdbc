@@ -19,8 +19,8 @@ import java.sql.Statement;
 import java.sql.Timestamp;
 import java.util.Properties;
 
-import static org.junit.jupiter.api.Assertions.assertThrows;
-import static org.testng.AssertJUnit.assertEquals;
+import static org.testng.Assert.assertThrows;
+
 
 @Test(timeOut = 10000)
 public class TestBasicDriver {
@@ -57,9 +57,6 @@ public class TestBasicDriver {
                 r.next();
                 Assert.assertEquals(r.getInt(1), i);
             }
-            connection.close();
-        } finally {
-
         }
     }
 
@@ -73,6 +70,7 @@ public class TestBasicDriver {
         });
     }
 
+    @Test(groups = {"IT"})
     public void testSchema() {
         try (Connection connection = Utils.createConnection()) {
             PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
@@ -87,9 +85,8 @@ public class TestBasicDriver {
             while (r.next()) {
                 System.out.println(r.getString(1));
             }
-            connection.close();
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        } catch (SQLException throwable) {
+            throwable.printStackTrace();
         }
     }
 
@@ -221,7 +218,7 @@ public class TestBasicDriver {
             statement.execute("SELECT version()");
             ResultSet r = statement.getResultSet();
             r.next();
-            assertEquals(-1, statement.getUpdateCount());
+            Assert.assertEquals(-1, statement.getUpdateCount());
         }
     }
 
@@ -281,9 +278,6 @@ public class TestBasicDriver {
                 String columnType = r.getString("type_name");
                 System.out.println(tableSchem + " " + tableName + " " + columnName + " " + dataType + " " + columnType);
             }
-            connection.close();
-        } finally {
-
         }
     }
 
@@ -304,15 +298,13 @@ public class TestBasicDriver {
         try (Connection connection = Utils.createConnection()) {
             Statement statement = connection.createStatement();
             ResultSet r = statement.executeQuery("SELECT 1e189he 198h");
-
-            connection.close();
         } catch (SQLException e) {
             Assert.assertTrue(e.getMessage().contains("Query failed"));
         }
     }
 
     @Test(groups = {"IT"})
-    public void testSelectWithPreparement()
+    public void testSelectWithPreparedStatement()
             throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp, d date, ts timestamp)");

@@ -5,7 +5,7 @@ import org.testng.annotations.Test;
 import static org.testng.Assert.assertEquals;
 
 public class TestDatabendStage {
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testDatabendStage() {
         DatabendStage stage = DatabendStage.builder()
                 .stageName("stage_name")
@@ -16,7 +16,7 @@ public class TestDatabendStage {
         assertEquals(stage.toString(), "@stage_name/path");
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testDatabendStageWithExternalLocation() {
         DatabendStage stage = DatabendStage.builder()
                 .externalLocationS3(ExternalLocationS3.builder()

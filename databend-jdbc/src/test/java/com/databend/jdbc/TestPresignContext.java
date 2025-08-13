@@ -4,7 +4,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 public class TestPresignContext {
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void TestPreisgnUrlBuild() {
         String presignSql = PresignContext.buildRequestSQL(PresignContext.PresignMethod.UPLOAD, "test_bucket", "test.csv");
         Assert.assertEquals(presignSql, "PRESIGN UPLOAD @test_bucket/test.csv");

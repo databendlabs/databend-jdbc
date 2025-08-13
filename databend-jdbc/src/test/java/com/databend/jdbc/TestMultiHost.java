@@ -27,10 +27,10 @@ public class TestMultiHost {
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testDefaultLoadBalancing()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
+        // try to connect with three nodes 1000 times and count for each node
         int node8000 = 0;
         int node8002 = 0;
         int node8003 = 0;
@@ -58,10 +58,10 @@ public class TestMultiHost {
         Assert.assertEquals(unknown, 0);
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testRandomLoadBalancing()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
+        // try to connect with three nodes 1000 times and count for each node
         int node8000 = 0;
         int node8002 = 0;
         int node8003 = 0;
@@ -88,10 +88,10 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 100);
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testRoundRobinLoadBalancing()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
+        // try to connect with three nodes 1000 times and count for each node
         int node8000 = 0;
         int node8002 = 0;
         int node8003 = 0;
@@ -123,10 +123,10 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testRoundRobinTransaction()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
+        // try to connect with three nodes 1000 times and count for each node
         try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("drop table if exists test_transaction;");
@@ -157,7 +157,7 @@ public class TestMultiHost {
         }
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testFailOver()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
@@ -191,7 +191,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testAutoDiscovery()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
@@ -227,7 +227,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "cluster"})
+    @Test(groups = {"IT", "CLUSTER"})
     public void testUnSupportedAutoDiscovery()
             throws SQLException {
         try (Connection connection = createConnection(UNSUPPORT_AUTO_DISCOVERY_JDBC_URL)) {
@@ -245,7 +245,7 @@ public class TestMultiHost {
         }
     }
 
-    @Test(groups = {"unit"})
+    @Test(groups = {"UNIT"})
     public void testAutoDiscoveryUriParsing() throws SQLException {
         DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:8000?ssl=true", null);
         DatabendDriverUri uri2 = DatabendDriverUri.create("jdbc:databend://127.0.0.1:8000,127.0.0.1:8002,127.0.0.1:8003?ssl=true", null);

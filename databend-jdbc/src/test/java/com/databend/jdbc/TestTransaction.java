@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import org.junit.Assert;
+import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -26,31 +26,31 @@ public class TestTransaction {
             throws SQLException {
         Connection c = Utils.createConnection();
         c.createStatement().execute("delete from test_txn.table1");
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("begin");
-            ResultSet r = statemte.getResultSet();
+        try (Statement statement = c.createStatement()) {
+            statement.execute("begin");
+            ResultSet r = statement.getResultSet();
         }
 
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("select 11");
+        try (Statement statement = c.createStatement()) {
+            statement.execute("select 11");
             // txn_state = Auto_Commit, not correct, should be Active
-            ResultSet r = statemte.getResultSet();
+            ResultSet r = statement.getResultSet();
             while (r.next()) {
             }
         }
 
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("insert into test_txn.table1 values(3)");
-            ResultSet r = statemte.getResultSet();
+        try (Statement statement = c.createStatement()) {
+            statement.execute("insert into test_txn.table1 values(3)");
+            ResultSet r = statement.getResultSet();
         }
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("rollback");
-            ResultSet r = statemte.getResultSet();
+        try (Statement statement = c.createStatement()) {
+            statement.execute("rollback");
+            ResultSet r = statement.getResultSet();
         }
 
-        try (Statement statemte = c.createStatement()) {
-            statemte.execute("select * from test_txn.table1");
-            ResultSet rs = statemte.getResultSet();
+        try (Statement statement = c.createStatement()) {
+            statement.execute("select * from test_txn.table1");
+            ResultSet rs = statement.getResultSet();
             while (rs.next()) {
                 Assert.assertEquals(0, rs.getInt(1));
             }
