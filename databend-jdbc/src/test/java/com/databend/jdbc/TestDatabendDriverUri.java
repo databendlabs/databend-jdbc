@@ -251,13 +251,13 @@ public class TestDatabendDriverUri {
     }
 
     @Test(groups = "IT")
-    public void TestSetSessionSettings() throws SQLException{
+    public void TestSetSessionSettings() throws SQLException {
         Properties props = new Properties();
         // set session settings
         props.setProperty("session_settings", "key1=value1,key2=value2");
-        props.setProperty("user","databend");
-        props.setProperty("password","databend");
-        DatabendConnection connection = (DatabendConnection) Utils.createConnection("default",props);
+        props.setProperty("user", "databend");
+        props.setProperty("password", "databend");
+        DatabendConnection connection = (DatabendConnection) Utils.createConnection("default", props);
         try {
             Statement statement = connection.createStatement();
             statement.execute("show settings");
