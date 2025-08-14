@@ -18,7 +18,7 @@ public interface FileTransferAPI {
      * @param compressData whether to compress the data
      * @throws SQLException failed to upload input stream
      */
-    public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData) throws SQLException;
+    void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData) throws SQLException;
 
     /**
      * Download a file from the databend internal stage, the data would be downloaded as one file with no split.
@@ -27,18 +27,18 @@ public interface FileTransferAPI {
      * @param sourceFileName the file name in the stage
      * @param decompress whether to decompress the data
      * @return the input stream of the file
-     * @throws SQLException
+     * @throws SQLException failed to download input stream
      */
-    public InputStream downloadStream(String stageName, String sourceFileName, boolean decompress) throws SQLException;
+    InputStream downloadStream(String stageName, String sourceFileName, boolean decompress) throws SQLException;
 
     /**
      * Copy into the target table from files on the internal stage
-     * Documentation: https://databend.rs/doc/sql-commands/dml/dml-copy-into-table
+     * Documentation: <a href="https://databend.rs/doc/sql-commands/dml/dml-copy-into-table">...</a>
      *
      * @param database the target table's database
      * @param tableName the target table name
      * @param params copy options and file options
-     * @throws SQLException
+     * @throws SQLException fail to copy into table
      */
-    public void copyIntoTable(String database, String tableName, DatabendCopyParams params) throws SQLException;
+    void copyIntoTable(String database, String tableName, DatabendCopyParams params) throws SQLException;
 }

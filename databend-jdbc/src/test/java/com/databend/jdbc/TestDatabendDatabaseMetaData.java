@@ -57,18 +57,30 @@ public class TestDatabendDatabaseMetaData {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = Utils.createConnection();
-        c.createStatement().execute("drop table if exists test_column_meta");
-        c.createStatement().execute("drop table if exists decimal_test");
-        c.createStatement().execute("drop table if exists decimal_test_1");
-        c.createStatement().execute("drop table if exists test_comment");
-        c.createStatement().execute("drop view if exists v_test_comment");
-        c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
-        c.createStatement().execute("create table decimal_test (a decimal(4,2))");
-        c.createStatement().execute("create table decimal_test_1 (a decimal(15,12))");
-        c.createStatement().execute("create table test_comment (a int comment 'test comment')");
-        c.createStatement().execute("create view v_test_comment as select * from test_comment");
+        try (Connection c = Utils.createConnection()) {
+            c.createStatement().execute("drop table if exists test_column_meta");
+            c.createStatement().execute("drop table if exists decimal_test");
+            c.createStatement().execute("drop table if exists decimal_test_1");
+            c.createStatement().execute("drop table if exists test_comment");
+            c.createStatement().execute("drop view if exists v_test_comment");
+            c.createStatement().execute("create table test_column_meta (nu1 uint8 null, u1 uint8, u2 uint16, u3 uint32, u4 uint64, i1 int8, i2 int16, i3 int32, i4 int64, f1 float32, f2 float64, s1 string,d1 date, d2 datetime, v1 variant, a1 array(int64), t1 Tuple(x Int64, y Int64 NULL)) engine = fuse");
+            c.createStatement().execute("create table decimal_test (a decimal(4,2))");
+            c.createStatement().execute("create table decimal_test_1 (a decimal(15,12))");
+            c.createStatement().execute("create table test_comment (a int comment 'test comment')");
+            c.createStatement().execute("create view v_test_comment as select * from test_comment");
+        }
         // json data
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testVersion() throws SQLException {
+        try (Connection c = Utils.createConnection()) {
+            DatabaseMetaData metaData = c.getMetaData();
+            int major = metaData.getDriverMajorVersion();
+            int minor = metaData.getDriverMinorVersion();
+            assertEquals(major, 0);
+            assertEquals(minor, 4);
+        }
     }
 
     @Test(groups = {"IT"})
@@ -76,7 +88,7 @@ public class TestDatabendDatabaseMetaData {
         try (Connection c = Utils.createConnection()) {
             DatabaseMetaData metaData = c.getMetaData();
             String url = metaData.getURL();
-            Assert.assertEquals(url,  "jdbc:databend://http://localhost:" + Utils.port);;
+            Assert.assertEquals(url,  "jdbc:databend://http://localhost:" + Utils.port);
         }
     }
 
@@ -113,7 +125,6 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetTables() throws Exception {
         try (Connection connection = Utils.createConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getTables(null, null, null, null)) {
                 assertTableMetadata(rs);
                 // test for view
@@ -133,11 +144,11 @@ public class TestDatabendDatabaseMetaData {
     public void testGetSchemas() throws Exception {
         try (Connection connection = Utils.createConnection()) {
             DatabaseMetaData metaData = connection.getMetaData();
-            try (ResultSet rs = connection.getMetaData().getSchemas()) {
+            try (ResultSet rs = metaData.getSchemas()) {
                 ResultSetMetaData metaData1 = rs.getMetaData();
                 assertEquals(metaData1.getColumnCount(), 2);
             }
-            try (ResultSet rs = connection.getMetaData().getCatalogs()) {
+            try (ResultSet rs = metaData.getCatalogs()) {
                 ResultSetMetaData metaData1 = rs.getMetaData();
                 assertEquals(metaData1.getColumnCount(), 1);
             }
@@ -147,7 +158,6 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetColumns() throws Exception {
         try (Connection connection = Utils.createConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 24);
             }
@@ -157,7 +167,6 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testComment() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getColumns("default", "default", "test_comment", null)) {
                 while (rs.next()) {
                     String tableSchem = rs.getString("table_schem");
@@ -281,7 +290,6 @@ public class TestDatabendDatabaseMetaData {
     @Test(groups = {"IT"})
     public void testGetPrimaryKeys() throws Exception {
         try (Connection connection = Utils.createConnection()) {
-            DatabaseMetaData metaData = connection.getMetaData();
             try (ResultSet rs = connection.getMetaData().getPrimaryKeys(null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 6);
             }

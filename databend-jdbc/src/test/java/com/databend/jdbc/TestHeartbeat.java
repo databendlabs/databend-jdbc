@@ -11,7 +11,7 @@ import java.util.Properties;
 import java.util.Vector;
 
 public class TestHeartbeat {
-    @Test
+    @Test(groups = {"IT"})
     public void testHeartbeat() throws SQLException {
         Properties p = new Properties();
         p.setProperty("max_rows_in_buffer", "10000");
@@ -26,7 +26,7 @@ public class TestHeartbeat {
             int n = 80000;
             int numQuery = 3;
 
-            Vector<ResultSet> rss = new Vector();
+            Vector<ResultSet> rss = new Vector<>();
             for (int i = 0; i < numQuery; i++) {
                 statement = c1.createStatement();
                 statement.executeQuery("select * from numbers(" + n + ") order by number");
@@ -39,10 +39,10 @@ public class TestHeartbeat {
             for (int i = 0; i < numQuery; i++) {
                 ResultSet rs = rss.get(i);
                 for (int j = 0; j < n; j++) {
-                    Assert.assertEquals(true, rs.next());
+                    Assert.assertTrue(rs.next());
                     Assert.assertEquals(j, rs.getInt(1));
                 }
-                Assert.assertEquals(false, rs.next());
+                Assert.assertFalse(rs.next());
                 rs.close();
             }
             statement.close();
