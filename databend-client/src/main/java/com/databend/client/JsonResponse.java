@@ -20,8 +20,8 @@ import okhttp3.*;
 import javax.annotation.Nullable;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.util.Objects;
 import java.util.Optional;
-import java.util.OptionalLong;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static com.google.common.net.HttpHeaders.LOCATION;
@@ -59,7 +59,7 @@ public final class JsonResponse<T> {
         this.hasValue = (exception == null);
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, OptionalLong materializedJsonSizeLimit) throws RuntimeException {
+    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, Long materializedJsonSizeLimit) throws RuntimeException {
         try (Response response = client.newCall(request).execute()) {
             // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
             if ((response.code() == 307) || (response.code() == 308)) {
@@ -76,7 +76,7 @@ public final class JsonResponse<T> {
                 T value = null;
                 IllegalArgumentException exception = null;
                 try {
-                    if (materializedJsonSizeLimit.isPresent() && (responseBody.contentLength() < 0 || responseBody.contentLength() > materializedJsonSizeLimit.getAsLong())) {
+                    if (!Objects.isNull(materializedJsonSizeLimit) && (responseBody.contentLength() < 0 || responseBody.contentLength() > materializedJsonSizeLimit)) {
                         // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
                         // will not be available if parsing fails
                         value = codec.fromJson(responseBody.byteStream());
