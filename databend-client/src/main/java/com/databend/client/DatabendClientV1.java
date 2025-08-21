@@ -16,7 +16,6 @@ package com.databend.client;
 
 import com.databend.client.errors.CloudErrors;
 import okhttp3.*;
-import okio.Buffer;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
@@ -50,10 +49,6 @@ public class DatabendClientV1
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
     public static final JsonCodec<DiscoveryResponseCodec.DiscoveryResponse> DISCOVERY_RESULT_CODEC = jsonCodec(DiscoveryResponseCodec.DiscoveryResponse.class);
-    public static final String succeededState = "succeeded";
-    public static final String failedState = "failed";
-    public static final String runningState = "running";
-
 
     public static final String QUERY_PATH = "/v1/query";
     public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
@@ -66,15 +61,14 @@ public class DatabendClientV1
     private final PaginationOptions paginationOptions;
     // request with retry timeout
     private final Integer requestTimeoutSecs;
-    private final Map<String, String> additonalHeaders;
-    private String serverVersion;
+    private final Map<String, String> additionalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
     private String nodeID;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
 
-    private Consumer<DatabendSession> on_session_state_update;
+    private final Consumer<DatabendSession> on_session_state_update;
 
     public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings,
             Consumer<DatabendSession> on_session_state_update,
@@ -89,7 +83,7 @@ public class DatabendClientV1
         this.host = settings.getHost();
         this.paginationOptions = settings.getPaginationOptions();
         this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
-        this.additonalHeaders = settings.getAdditionalHeaders();
+        this.additionalHeaders = settings.getAdditionalHeaders();
         this.maxRetryAttempts = settings.getRetryAttempts();
         this.databendSession = new AtomicReference<>(settings.getSession());
         this.nodeID = last_node_id.get();
@@ -126,7 +120,7 @@ public class DatabendClientV1
     }
 
     private Request buildQueryRequest(String query, ClientSettings settings) {
-        HttpUrl url = HttpUrl.get(settings.getHost());
+        HttpUrl url = HttpUrl.parse(settings.getHost());
         if (url == null) {
             // TODO(zhihanz) use custom exception
             throw new IllegalArgumentException("Invalid host: " + settings.getHost());
@@ -139,7 +133,7 @@ public class DatabendClientV1
         }
 
         url = url.newBuilder().encodedPath(QUERY_PATH).build();
-        Request.Builder builder = prepareRequest(url, this.additonalHeaders);
+        Request.Builder builder = prepareRequest(url, this.additionalHeaders);
         DatabendSession session = databendSession.get();
         if (session != null && session.getNeedSticky()) {
             builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, nodeID);
@@ -149,10 +143,6 @@ public class DatabendClientV1
 
     private static Request buildDiscoveryRequest(ClientSettings settings) {
         HttpUrl url = HttpUrl.get(settings.getHost());
-        if (url == null) {
-            // TODO(zhihanz) use custom exception
-            throw new IllegalArgumentException("Invalid host: " + settings.getHost());
-        }
         String discoveryPath = DISCOVERY_PATH;
         // intentionally use unsupported discovery path for testing
         if (settings.getAdditionalHeaders().get("~mock.unsupported.discovery") != null && BOOLEAN_TRUE_STR.equals(settings.getAdditionalHeaders().get("~mock.unsupported.discovery"))) {
@@ -313,19 +303,6 @@ public class DatabendClientV1
         }
     }
 
-    private String requestBodyToString(Request request) {
-        try {
-            final Request copy = request.newBuilder().build();
-            final Buffer buffer = new Buffer();
-            if (copy.body() != null) {
-                copy.body().writeTo(buffer);
-            }
-            return buffer.readUtf8();
-        } catch (final IOException e) {
-            return "did not work";
-        }
-    }
-
     @Override
     public boolean execute(Request request) {
         return executeInternal(request, OptionalLong.empty());
@@ -340,20 +317,13 @@ public class DatabendClientV1
                 this.on_session_state_update.accept(session);
             }
         }
-        if (results.getQueryId() != null && this.additonalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
-            this.additonalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
+        if (results.getQueryId() != null && this.additionalHeaders.get(ClientSettings.X_Databend_Query_ID) == null) {
+            this.additionalHeaders.put(ClientSettings.X_Databend_Query_ID, results.getQueryId());
         }
         if (headers != null) {
-            String serverVersionString = headers.get(ClientSettings.X_DATABEND_VERSION);
-            if (serverVersionString != null) {
-                try {
-                    serverVersion = serverVersionString;
-                } catch (Exception ignored) {
-                }
-            }
             String route_hint = headers.get(ClientSettings.X_DATABEND_ROUTE_HINT);
             if (route_hint != null) {
-                this.additonalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, route_hint);
+                this.additionalHeaders.put(ClientSettings.X_DATABEND_ROUTE_HINT, route_hint);
             }
         }
         currentResults.set(results);
@@ -375,7 +345,7 @@ public class DatabendClientV1
         String nextUriPath = this.currentResults.get().getNextUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
-        Request.Builder builder = prepareRequest(url, this.additonalHeaders);
+        Request.Builder builder = prepareRequest(url, this.additionalHeaders);
         builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
         return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
@@ -388,7 +358,7 @@ public class DatabendClientV1
 
     @Override
     public Map<String, String> getAdditionalHeaders() {
-        return additonalHeaders;
+        return additionalHeaders;
     }
 
     @Override
@@ -405,12 +375,6 @@ public class DatabendClientV1
     public String getNodeID() {
         return this.nodeID;
     }
-
-    @Override
-    public String getServerVersion() {
-        return this.serverVersion;
-    }
-
 
     @Override
     public void close() {
@@ -432,7 +396,7 @@ public class DatabendClientV1
         String path = uri.toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(path).build();
-        Request r = prepareRequest(url, this.additonalHeaders).get().build();
+        Request r = prepareRequest(url, this.additionalHeaders).get().build();
         try {
             httpClient.newCall(r).execute().close();
         } catch (IOException ignored) {

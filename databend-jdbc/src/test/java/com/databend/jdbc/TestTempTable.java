@@ -10,7 +10,7 @@ import java.sql.Statement;
 
 public class TestTempTable {
 
-    @Test
+    @Test( groups = {"IT"})
     public void testTempTable() throws SQLException {
         try(Connection c1 = Utils.createConnection()) {
             Statement statement= c1.createStatement();

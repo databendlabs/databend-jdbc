@@ -7,6 +7,8 @@ import org.testng.annotations.Test;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Properties;
 
 @Test(timeOut = 10000)
@@ -254,7 +256,7 @@ public class TestDatabendDriverUri {
     public void TestSetSessionSettings() throws SQLException {
         Properties props = new Properties();
         // set session settings
-        props.setProperty("session_settings", "key1=value1,key2=value2");
+        props.setProperty("session_settings", "max_threads=1,query_tag=tag1");
         props.setProperty("user", "databend");
         props.setProperty("password", "databend");
         DatabendConnection connection = (DatabendConnection) Utils.createConnection("default", props);
@@ -262,15 +264,13 @@ public class TestDatabendDriverUri {
             Statement statement = connection.createStatement();
             statement.execute("show settings");
             ResultSet r = statement.getResultSet();
+            Map<String, String> settings = new HashMap<>();
             while (r.next()) {
-                String name = r.getString("name");
-                String value = r.getString("value");
-                if (name.equals("key1")) {
-                    Assert.assertEquals(value, "value1");
-                } else if (name.equals("key2")) {
-                    Assert.assertEquals(value, "value2");
-                }
+                settings.put(r.getString("name"), r.getString("value"));
             }
+            Assert.assertEquals(settings.get("max_threads"), "1");
+            Assert.assertEquals(settings.get("query_tag"), "tag1");
+
         } catch (SQLException e) {
             throw new RuntimeException(e);
         } finally {

@@ -28,7 +28,6 @@ public class TestTransaction {
               Connection c2 = Utils.createConnection();
               Connection c3 = Utils.createConnection()
         ) {
-
             c1.createStatement().execute("create or replace table test_txn.table1(i int)");
 
             try (Statement statement = c1.createStatement()) {
