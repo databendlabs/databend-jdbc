@@ -72,7 +72,7 @@ public class TestDatabendDatabaseMetaData {
         // json data
     }
 
-    @Test(groups = {"UNIT"})
+    @Test(groups = {"IT"})
     public void testVersion() throws SQLException {
         try (Connection c = Utils.createConnection()) {
             DatabaseMetaData metaData = c.getMetaData();
@@ -110,6 +110,13 @@ public class TestDatabendDatabaseMetaData {
             int minorVersion = metaData.getDatabaseMinorVersion();
             String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
+
+            DatabendConnection conn = connection.unwrap(DatabendConnection.class);
+            if (conn.getServerVersion() != null) {
+                String semver = "v" + conn.getServerVersion().toString();
+                Assert.assertTrue(semver.startsWith(checkVersion), semver);
+                Assert.assertNotNull(conn.getServerCapability());
+            }
         }
     }
 

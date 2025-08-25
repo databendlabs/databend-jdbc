@@ -9,7 +9,6 @@
         <version>0.4.0</version>
         <relativePath>../pom.xml</relativePath>
     </parent>
-    <groupId>com.databend</groupId>
     <artifactId>databend-jdbc</artifactId>
     <version>0.4.0</version>
     <name>databend-jdbc</name>
@@ -42,6 +41,11 @@
         <dependency>
             <groupId>com.fasterxml.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>com.vdurmont</groupId>
+            <artifactId>semver4j</artifactId>
+            <version>3.1.0</version>
         </dependency>
 
         <!-- https://mvnrepository.com/artifact/org.projectlombok/lombok -->

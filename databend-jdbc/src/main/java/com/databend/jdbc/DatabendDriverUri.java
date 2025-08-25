@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.GlobalCookieJar;
+import com.databend.jdbc.util.GlobalCookieJar;
 import com.databend.jdbc.util.URLUtils;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
@@ -23,7 +23,6 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
@@ -37,7 +36,6 @@ import static java.util.Objects.requireNonNull;
  * Parses and extracts parameters from a databend JDBC URL
  */
 public final class DatabendDriverUri {
-    private static final Logger logger = Logger.getLogger(DatabendDriverUri.class.getPackage().getName());
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "databend://";
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();
@@ -251,8 +249,7 @@ public final class DatabendDriverUri {
         }
         Map<String, String> uriProperties = new LinkedHashMap<>();
         String raw = url.substring(pos + JDBC_URL_START.length());
-        String scheme;
-        String host = null;
+        String host;
         int port = -1;
         raw = tryParseUriUserPassword(raw, uriProperties);
 

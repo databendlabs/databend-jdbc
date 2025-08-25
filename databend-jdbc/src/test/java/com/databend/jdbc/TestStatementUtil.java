@@ -9,7 +9,7 @@ import static org.testng.Assert.assertEquals;
 
 
 public class TestStatementUtil {
-    @Test
+    @Test(groups = {"UNIT"})
     public void testExtractColumnTypes() {
         String sql = "insert into non_existing_table ('col2 String, col3 Int8, col1 VARIANT') values (?, ?, ?)";
         Map<Integer, String> columnTypes = StatementUtil.extractColumnTypes(sql);

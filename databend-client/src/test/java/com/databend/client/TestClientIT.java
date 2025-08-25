@@ -97,7 +97,7 @@ public class TestClientIT {
         Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
     }
 
-    @Test(groups = {"it"})
+    @Test(groups = {"IT"})
     public void testDiscoverNodes() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         String expectedUUID = UUID.randomUUID().toString().replace("-", "");

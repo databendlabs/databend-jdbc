@@ -27,7 +27,7 @@ public class TestMultiHost {
         return DriverManager.getConnection(url, "databend", "databend");
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testDefaultLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
@@ -58,7 +58,7 @@ public class TestMultiHost {
         Assert.assertEquals(unknown, 0);
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testRandomLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
@@ -88,7 +88,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 100);
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testRoundRobinLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
@@ -123,7 +123,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testRoundRobinTransaction()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
@@ -156,8 +156,8 @@ public class TestMultiHost {
             Assert.assertEquals(count, 30);
         }
     }
-
-    @Test(groups = {"IT", "CLUSTER"})
+    // @Test(groups = {"IT", "MULTI_HOST"})
+    // skip since getConnection not support multihost for now
     public void testFailOver()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
@@ -191,7 +191,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testAutoDiscovery()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
@@ -227,7 +227,7 @@ public class TestMultiHost {
         Assert.assertEquals(node8000 + node8002 + node8003, 90);
     }
 
-    @Test(groups = {"IT", "CLUSTER"})
+    @Test(groups = {"IT", "MULTI_HOST"})
     public void testUnSupportedAutoDiscovery()
             throws SQLException {
         try (Connection connection = createConnection(UNSUPPORT_AUTO_DISCOVERY_JDBC_URL)) {

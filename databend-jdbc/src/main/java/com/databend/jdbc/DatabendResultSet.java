@@ -3,7 +3,6 @@ package com.databend.jdbc;
 import com.databend.client.DatabendClient;
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
-import com.github.zafarkhaja.semver.Version;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
@@ -38,7 +37,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private final QueryLiveness liveness;
 
-    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows, QueryLiveness liveness) throws SQLException {
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows, QueryLiveness liveness) {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
                 new AsyncIterator<>(flatten(new ResultsPageIterator(client, liveness), maxRows), client), client.getResults().getQueryId());
         this.statement = statement;
@@ -46,21 +45,13 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         this.liveness = liveness;
     }
 
-    static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows)
+    static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows, Capability capability)
             throws SQLException {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
         AtomicLong lastRequestTime = new AtomicLong(System.currentTimeMillis());
         QueryResults r = client.getResults();
-        Version serverVersion = null;
-        if (client.getServerVersion() != null) {
-            try {
-                serverVersion =  Version.valueOf(client.getServerVersion());
-            } catch (Exception ignored) {
-
-            }
-        }
-        QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), serverVersion);
+        QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), capability.heartBeat());
         return new DatabendResultSet(statement, client, s, maxRows, liveness);
     }
 

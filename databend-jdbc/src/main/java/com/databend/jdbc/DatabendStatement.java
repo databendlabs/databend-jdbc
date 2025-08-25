@@ -194,7 +194,7 @@ public class DatabendStatement implements Statement {
                     break;
                 }
             }
-            resultSet = DatabendResultSet.create(this, client, maxRows.get());
+            resultSet = DatabendResultSet.create(this, client, maxRows.get(), connection().getServerCapability());
             currentResult.set(resultSet);
             if (isQueryStatement(sql)) {
                 // Always -1 when returning a ResultSet with query statement
