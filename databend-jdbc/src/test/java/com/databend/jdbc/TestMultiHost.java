@@ -208,11 +208,12 @@ public class TestMultiHost {
                     statement.execute("select value from system.configs where name = 'http_handler_port';");
                     ResultSet r = statement.getResultSet();
                     r.next();
-                    if (r.getInt(1) == 8001) {
+                    int p = r.getInt(1);
+                    if (p == 8001) {
                         node8001++;
-                    } else if (r.getInt(1) == 8002) {
+                    } else if (p == 8002) {
                         node8002++;
-                    } else if (r.getInt(1) == 8003) {
+                    } else if (p == 8003) {
                         node8003++;
                     } else {
                         unknown++;
