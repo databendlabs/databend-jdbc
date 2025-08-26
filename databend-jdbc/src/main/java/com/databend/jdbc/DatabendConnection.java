@@ -1111,7 +1111,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 String str = new String(bytes, StandardCharsets.UTF_8);
                 try {
                     session = SESSION_JSON_CODEC.fromJson(str);
-                }   catch(JsonProcessingException e) {
+                }   catch(Exception e) {
                     throw new RuntimeException(e);
                 }
                 if (session != null) {

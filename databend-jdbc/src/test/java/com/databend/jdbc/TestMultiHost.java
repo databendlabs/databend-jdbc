@@ -14,12 +14,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 public class TestMultiHost {
-    private final String DEFAULT_JDBC_URL = "jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default";
-    private final String RANDOM_JDBC_URL = "jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random";
-    private final String ROUND_ROBIN_JDBC_URL = "jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=round_robin";
-    private final String FAIL_OVER_JDBC_URL = "jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?load_balancing_policy=round_robin&max_failover_retry=4";
-    private final String AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8000/default?load_balancing_policy=round_robin&auto_discovery=true";
-    private final String UNSUPPORT_AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8000/default?load_balancing_policy=round_robin&auto_discovery=true&enable_mock=true";
+    private final String DEFAULT_JDBC_URL = "jdbc:databend://localhost:8001,localhost:8002,localhost:8003/default";
+    private final String RANDOM_JDBC_URL = "jdbc:databend://localhost:8001,localhost:8002,localhost:8003/default?load_balancing_policy=random";
+    private final String ROUND_ROBIN_JDBC_URL = "jdbc:databend://localhost:8001,localhost:8002,localhost:8003/default?load_balancing_policy=round_robin";
+    private final String FAIL_OVER_JDBC_URL = "jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8001/default?load_balancing_policy=round_robin&max_failover_retry=4";
+    private final String AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8001/default?load_balancing_policy=round_robin&auto_discovery=true";
+    private final String UNSUPPORT_AUTO_DISCOVERY_JDBC_URL = "jdbc:databend://localhost:8001/default?load_balancing_policy=round_robin&auto_discovery=true&enable_mock=true";
 
 
     private Connection createConnection(String url)
@@ -31,7 +31,7 @@ public class TestMultiHost {
     public void testDefaultLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
-        int node8000 = 0;
+        int node8001 = 0;
         int node8002 = 0;
         int node8003 = 0;
         int unknown = 0;
@@ -41,8 +41,9 @@ public class TestMultiHost {
                 statement.execute("select value from system.configs where name = 'http_handler_port';");
                 ResultSet r = statement.getResultSet();
                 r.next();
-                if (r.getInt(1) == 8000) {
-                    node8000++;
+
+                if (r.getInt(1) == 8001) {
+                    node8001++;
                 } else if (r.getInt(1) == 8002) {
                     node8002++;
                 } else if (r.getInt(1) == 8003) {
@@ -52,7 +53,7 @@ public class TestMultiHost {
                 }
             }
         }
-        Assert.assertEquals(node8000, 100);
+        Assert.assertEquals(node8001, 100);
         Assert.assertEquals(node8002, 0);
         Assert.assertEquals(node8003, 0);
         Assert.assertEquals(unknown, 0);
@@ -62,7 +63,7 @@ public class TestMultiHost {
     public void testRandomLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
-        int node8000 = 0;
+        int node8001 = 0;
         int node8002 = 0;
         int node8003 = 0;
         int unknown = 0;
@@ -72,8 +73,8 @@ public class TestMultiHost {
                 statement.execute("select value from system.configs where name = 'http_handler_port';");
                 ResultSet r = statement.getResultSet();
                 r.next();
-                if (r.getInt(1) == 8000) {
-                    node8000++;
+                if (r.getInt(1) == 8001) {
+                    node8001++;
                 } else if (r.getInt(1) == 8002) {
                     node8002++;
                 } else if (r.getInt(1) == 8003) {
@@ -83,16 +84,16 @@ public class TestMultiHost {
                 }
             }
         }
-        Assert.assertTrue(node8000 > 0 && node8002 > 0 && node8003 > 0);
+        Assert.assertTrue(node8001 > 0 && node8002 > 0 && node8003 > 0);
         Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8000 + node8002 + node8003, 100);
+        Assert.assertEquals(node8001 + node8002 + node8003, 100);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testRoundRobinLoadBalancing()
             throws SQLException {
         // try to connect with three nodes 1000 times and count for each node
-        int node8000 = 0;
+        int node8001 = 0;
         int node8002 = 0;
         int node8003 = 0;
         int unknown = 0;
@@ -104,8 +105,8 @@ public class TestMultiHost {
                     statement.execute("select value from system.configs where name = 'http_handler_port';");
                     ResultSet r = statement.getResultSet();
                     r.next();
-                    if (r.getInt(1) == 8000) {
-                        node8000++;
+                    if (r.getInt(1) == 8001) {
+                        node8001++;
                     } else if (r.getInt(1) == 8002) {
                         node8002++;
                     } else if (r.getInt(1) == 8003) {
@@ -116,11 +117,11 @@ public class TestMultiHost {
                 }
             }
         }
-        Assert.assertEquals(node8000, 30);
+        Assert.assertEquals(node8001, 30);
         Assert.assertEquals(node8002, 30);
         Assert.assertEquals(node8003, 30);
         Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8000 + node8002 + node8003, 90);
+        Assert.assertEquals(node8001 + node8002 + node8003, 90);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
@@ -161,7 +162,7 @@ public class TestMultiHost {
     public void testFailOver()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
-        int node8000 = 0;
+        int node8001 = 0;
         int node8002 = 0;
         int node8003 = 0;
         int unknown = 0;
@@ -173,8 +174,8 @@ public class TestMultiHost {
                     statement.execute("select value from system.configs where name = 'http_handler_port';");
                     ResultSet r = statement.getResultSet();
                     r.next();
-                    if (r.getInt(1) == 8000) {
-                        node8000++;
+                    if (r.getInt(1) == 8001) {
+                        node8001++;
                     } else if (r.getInt(1) == 8002) {
                         node8002++;
                     } else if (r.getInt(1) == 8003) {
@@ -186,16 +187,16 @@ public class TestMultiHost {
             }
         }
 
-        Assert.assertEquals(node8000, 90);
+        Assert.assertEquals(node8001, 90);
         Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8000 + node8002 + node8003, 90);
+        Assert.assertEquals(node8001 + node8002 + node8003, 90);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testAutoDiscovery()
             throws SQLException {
         // try connect with three nodes 1000 times and count for each node
-        int node8000 = 0;
+        int node8001 = 0;
         int node8002 = 0;
         int node8003 = 0;
         int unknown = 0;
@@ -207,8 +208,8 @@ public class TestMultiHost {
                     statement.execute("select value from system.configs where name = 'http_handler_port';");
                     ResultSet r = statement.getResultSet();
                     r.next();
-                    if (r.getInt(1) == 8000) {
-                        node8000++;
+                    if (r.getInt(1) == 8001) {
+                        node8001++;
                     } else if (r.getInt(1) == 8002) {
                         node8002++;
                     } else if (r.getInt(1) == 8003) {
@@ -220,11 +221,11 @@ public class TestMultiHost {
             }
         }
 
-        Assert.assertEquals(node8000, 31);
+        Assert.assertEquals(node8001, 31);
         Assert.assertEquals(node8002, 30);
         Assert.assertEquals(node8003, 29);
         Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8000 + node8002 + node8003, 90);
+        Assert.assertEquals(node8001 + node8002 + node8003, 90);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
@@ -247,13 +248,13 @@ public class TestMultiHost {
 
     @Test(groups = {"UNIT"})
     public void testAutoDiscoveryUriParsing() throws SQLException {
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:8000?ssl=true", null);
-        DatabendDriverUri uri2 = DatabendDriverUri.create("jdbc:databend://127.0.0.1:8000,127.0.0.1:8002,127.0.0.1:8003?ssl=true", null);
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:8001?ssl=true", null);
+        DatabendDriverUri uri2 = DatabendDriverUri.create("jdbc:databend://127.0.0.1:8001,127.0.0.1:8002,127.0.0.1:8003?ssl=true", null);
         List<URI> uris2 = uri2.getNodes().getUris();
 
         DatabendNodes nodes = uri.getNodes();
         List<DiscoveryNode> discoveryNodes = new ArrayList<>();
-        discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8000"));
+        discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8001"));
         discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8002"));
         discoveryNodes.add(DiscoveryNode.create("127.0.0.1:8003"));
         List<URI> uris = nodes.parseURI(discoveryNodes);
