@@ -90,7 +90,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testCreateUserFunction() throws SQLException {
         String s = "create or replace function add_plus(int,int)\n" +
                 "returns int\n" +
@@ -119,7 +119,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void TestMergeinto() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
@@ -162,7 +162,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testWriteDouble() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
@@ -194,7 +194,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testDefaultSelectNullValue() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
@@ -246,7 +246,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testPrepareStatementQuery() throws SQLException {
         String sql = "SELECT number from numbers(100) where number = ? or number = ?";
         Connection conn = Utils.createConnection("test_basic_driver");

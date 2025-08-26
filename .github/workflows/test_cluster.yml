@@ -44,7 +44,7 @@ jobs:
 
       - name: check nginx
         run: |
-          curl -u 'databend:databend' -X POST "http://localhost:8010/v1/query" \
+          curl -u 'databend:databend' -X POST "http://localhost:8000/v1/query" \
           -H 'Content-Type: application/json' \
           -d '{"sql": "select 1", "pagination": { "wait_time_secs": 5 }}' || true
         env:
@@ -57,4 +57,4 @@ jobs:
         run: mvn test -DexcludedGroups=FLAKY
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-          DATABEND_TEST_CONN_PORT: 8010
+          DATABEND_TEST_CONN_PORT: 8000
