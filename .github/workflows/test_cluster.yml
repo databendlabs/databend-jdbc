@@ -1,4 +1,4 @@
-name: Databend Cluster Tests
+name: Cluster Tests
 
 on:
   push:
