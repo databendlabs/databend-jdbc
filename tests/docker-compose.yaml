@@ -1,0 +1,74 @@
+x-query-base: &query-base
+  image: docker.io/datafuselabs/databend-query:${DATABEND_QUERY_VERSION:-nightly}
+  volumes:
+    - ./config/databend-query-node-1.toml:/conf.toml:ro
+  command: -c /conf.toml
+  environment:
+    - QUERY_DATABEND_ENTERPRISE_LICENSE
+  depends_on:
+    minio:
+      condition: service_started
+    meta:
+      condition: service_healthy
+  healthcheck:
+    test: "curl -f localhost:8080/v1/health || exit 1"
+    interval: 2s
+    retries: 10
+    start_period: 2s
+    timeout: 1s
+
+services:
+  minio:
+    image: docker.io/minio/minio
+    command: server /data
+    ports:
+      - "9000:9000"
+    volumes:
+      - ./data:/data
+  meta:
+    image: docker.io/datafuselabs/databend-meta:${DATABEND_META_VERSION:-nightly}
+    volumes:
+      - ./config/databend-meta-node-1.toml:/conf.toml:ro
+    command: -c /conf.toml
+    ports:
+      - "28101:28101"
+    healthcheck:
+      test: "databend-metactl status || exit 1"
+      interval: 2s
+      retries: 10
+      start_period: 2s
+      timeout: 1s
+  query-node-1:
+    <<: *query-base
+    environment:
+      - QUERY_HTTP_HANDLER_PORT=8001
+      - QUERY_DISCOVERY_ADDRESS=localhost:8001
+    ports:
+      - "8001:8001"
+  query-node-2:
+    <<: *query-base
+    environment:
+      - QUERY_HTTP_HANDLER_PORT=8002
+      - QUERY_DISCOVERY_ADDRESS=localhost:8002
+    ports:
+      - "8002:8002"
+  query-node-3:
+    <<: *query-base
+    environment:
+      - QUERY_HTTP_HANDLER_PORT=8003
+      - QUERY_DISCOVERY_ADDRESS=localhost:8003
+    ports:
+      - "8003:8003"
+  ngnix-lb:
+    image: docker.io/nginx
+    volumes:
+      - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
+    ports:
+      - "8000:8000"
+    depends_on:
+      query-node-1:
+        condition: service_healthy
+      query-node-2:
+        condition: service_healthy
+      query-node-3:
+        condition: service_healthy
