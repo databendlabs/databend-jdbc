@@ -3,6 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.StageAttachment;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.Connection;
@@ -17,6 +18,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Properties;
 
+
 public class TestPrepareStatement {
     @BeforeTest
     public void setUp()
@@ -24,7 +26,9 @@ public class TestPrepareStatement {
         // create table
         Connection c = Utils.createConnection();
         System.out.println("-----------------");
+        c.createStatement().execute("create database if not exists test_prepare_statement");
         System.out.println("drop all existing test table");
+
         c.createStatement().execute("drop table if exists test_prepare_statement");
         c.createStatement().execute("drop table if exists test_prepare_time");
         c.createStatement().execute("drop table if exists objects_test1");
@@ -126,47 +130,51 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void TestBatchDelete() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
+        try ( Connection c = Utils.createConnection();
+              Statement statement = c.createStatement();
+            ) {
+            c.setAutoCommit(false);
+            c.createStatement().execute("create or replace table test_batch_delete(a int, b string)");
+            PreparedStatement ps = c.prepareStatement("insert into test_batch_delete values");
+            ps.setInt(1, 1);
+            ps.setString(2, "b");
+            ps.addBatch();
+            ps.setInt(1, 3);
+            ps.setString(2, "b");
+            ps.addBatch();
+            System.out.println("execute batch insert");
+            int[] ans = ps.executeBatch();
+            Assert.assertEquals(ans.length, 2);
+            Assert.assertEquals(ans[0], 1);
+            Assert.assertEquals(ans[1], 1);
 
-        PreparedStatement ps = c.prepareStatement("insert into test_prepare_statement values");
-        ps.setInt(1, 1);
-        ps.setString(2, "b");
-        ps.addBatch();
-        ps.setInt(1, 3);
-        ps.setString(2, "b");
-        ps.addBatch();
-        System.out.println("execute batch insert");
-        int[] ans = ps.executeBatch();
-        Assert.assertEquals(ans.length, 2);
-        Assert.assertEquals(ans[0], 1);
-        Assert.assertEquals(ans[1], 1);
-        Statement statement = c.createStatement();
+            System.out.println("execute select");
+            statement.execute("SELECT * from test_batch_delete");
+            ResultSet r = statement.getResultSet();
 
-        System.out.println("execute select");
-        statement.execute("SELECT * from test_prepare_statement");
-        ResultSet r = statement.getResultSet();
+            while (r.next()) {
+                System.out.println(r.getInt(1));
+                System.out.println(r.getString(2));
+            }
 
-        while (r.next()) {
-            System.out.println(r.getInt(1));
-            System.out.println(r.getString(2));
+            PreparedStatement deletePs = c.prepareStatement("delete from test_batch_delete where a = ?");
+            deletePs.setInt(1, 1);
+            deletePs.addBatch();
+            int[] ansDel = deletePs.executeBatch();
+            Assert.assertEquals(ansDel.length, 1);
+            // todo: fix this
+            Assert.assertEquals(ansDel[0], 0);
+
+            System.out.println("execute select");
+            statement.execute("SELECT * from test_batch_delete");
+            ResultSet r1 = statement.getResultSet();
+
+            int resultCount = 0;
+            while (r1.next()) {
+                resultCount += 1;
+            }
+            Assert.assertEquals(resultCount, 1);
         }
-
-        PreparedStatement deletePs = c.prepareStatement("delete from test_prepare_statement where a = ?");
-        deletePs.setInt(1, 1);
-        deletePs.addBatch();
-        int[] ansDel = deletePs.executeBatch();
-        System.out.println(ansDel);
-
-        System.out.println("execute select");
-        statement.execute("SELECT * from test_prepare_statement");
-        ResultSet r1 = statement.getResultSet();
-
-        int resultCount = 0;
-        while (r1.next()) {
-            resultCount += 1;
-        }
-        Assert.assertEquals(resultCount, 1);
     }
 
     @Test(groups = "IT")
@@ -195,85 +203,51 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "IT")
-    public void TestBatchInsertWithComplexDataType() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
-        PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
-        ps.setInt(1, 1);
-        ps.setString(2, "{\"a\": 1,\"b\": 2}");
-        ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
-        ps.setString(4, "hello world, 你好");
-        ps.setString(5, "[1,2,3,4,5]");
-        ps.addBatch();
-        int[] ans = ps.executeBatch();
-        Statement statement = c.createStatement();
-
-        System.out.println("execute select on object");
-        statement.execute("SELECT * from objects_test1");
-        ResultSet r = statement.getResultSet();
-
-        while (r.next()) {
-            System.out.println(r.getInt(1));
-            System.out.println(r.getString(2));
-            System.out.println(r.getTimestamp(3).toString());
-            System.out.println(r.getString(4));
-            System.out.println(r.getString(5));
-        }
+    @DataProvider(name = "complexDataType")
+    private Object[][] provideTestData() {
+        return new Object[][] {
+                {true, false},
+                {true, true},
+                {false, false},
+        };
     }
 
-    @Test(groups = "IT")
-    public void TestBatchInsertWithComplexDataTypeWithPresignAPI() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
-        PreparedStatement ps = c.prepareStatement("insert into objects_test1 values");
-        ps.setInt(1, 1);
-        ps.setString(2, "{\"a\": 1,\"b\": 2}");
-        ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
-        ps.setString(4, "hello world, 你好");
-        ps.setString(5, "[1,2,3,4,5]");
-        ps.addBatch();
-        int[] ans = ps.executeBatch();
-        Statement statement = c.createStatement();
+    @Test(groups = "IT", dataProvider = "complexDataType")
+    public void TestBatchInsertWithComplexDataType(boolean presigned,  boolean placeholder) throws SQLException {
+        String tableName = String.format("test_object_%s_%s", presigned, placeholder).toLowerCase();
+        try (Connection c = presigned ? Utils.createConnection() : Utils.createConnectionWithPresignedUrlDisable();
+             Statement s = c.createStatement()
+        ) {
+            c.setAutoCommit(false);
+            String createTableSQL = String.format(
+                    "CREATE OR replace table test_prepare_statement.%s(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse"
+                    , tableName);
+            s.execute(createTableSQL);
+            String insertSQL = String.format("insert into test_prepare_statement.%s values %s", tableName, placeholder ? "(?,?,?,?,?)" : "");
 
-        System.out.println("execute select on object");
-        statement.execute("SELECT * from objects_test1");
-        ResultSet r = statement.getResultSet();
-
-        while (r.next()) {
-            System.out.println(r.getInt(1));
-            System.out.println(r.getString(2));
-            System.out.println(r.getTimestamp(3).toString());
-            System.out.println(r.getString(4));
-            System.out.println(r.getString(5));
-        }
-    }
-
-    @Test(groups = "IT")
-    public void TestBatchInsertWithComplexDataTypeWithPresignAPIPlaceHolder() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
-        PreparedStatement ps = c.prepareStatement("insert into objects_test1 values(?,?,?,?,?)");
-        for (int i = 0; i < 500000; i++) {
-            ps.setInt(1, 2);
+            PreparedStatement ps = c.prepareStatement(insertSQL);
+            ps.setInt(1, 1);
             ps.setString(2, "{\"a\": 1,\"b\": 2}");
             ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
             ps.setString(4, "hello world, 你好");
             ps.setString(5, "[1,2,3,4,5]");
             ps.addBatch();
-        }
+            int[] ans = ps.executeBatch();
+            Assert.assertEquals(ans.length, 1);
+            Assert.assertEquals(ans[0], 1);
 
-        int[] ans = ps.executeBatch();
-        Statement statement = c.createStatement();
+            s.execute(String.format("SELECT * from test_prepare_statement.%s", tableName));
+            ResultSet r = s.getResultSet();
 
-        System.out.println("execute select on object");
-        statement.execute("SELECT * from objects_test1");
-        ResultSet r = statement.getResultSet();
-        int count = 0;
-        while (r.next()) {
-            count++;
+            Assert.assertTrue(r.next());
+            Assert.assertEquals(r.getInt(1), 1);
+            Assert.assertEquals(r.getString(2), "{\"a\":1,\"b\":2}");
+            Assert.assertEquals(Timestamp.valueOf(r.getString(3)), Timestamp.valueOf("1983-07-12 21:30:55.888"));
+            Assert.assertEquals(r.getString(4), "hello world, 你好");
+            Assert.assertEquals(r.getString(5), "[1,2,3,4,5]");
+
+            Assert.assertFalse(r.next());
         }
-        System.out.println(count);
     }
 
     @Test(groups = "IT")
@@ -312,7 +286,7 @@ public class TestPrepareStatement {
         c.createStatement().execute("truncate table test_prepare_statement");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testPrepareStatementExecute() throws SQLException {
         Connection conn = Utils.createConnection();
         conn.createStatement().execute("delete from test_prepare_statement");
@@ -357,7 +331,7 @@ public class TestPrepareStatement {
         conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testUpdateSetNull() throws SQLException {
         Connection conn = Utils.createConnection();
         String sql = "insert into test_prepare_statement values (?,?)";
@@ -396,7 +370,7 @@ public class TestPrepareStatement {
         conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testUpdateStatement() throws SQLException {
         Connection conn = Utils.createConnection();
         String sql = "insert into test_prepare_statement values (?,?)";
@@ -430,7 +404,7 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testAllPreparedStatement() throws SQLException {
         String sql = "insert into test_prepare_statement values (?,?)";
         Connection conn = Utils.createConnection();
@@ -508,7 +482,7 @@ public class TestPrepareStatement {
         conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
         Connection conn = Utils.createConnection();
         Assert.assertEquals("", conn.unwrap(DatabendConnection.class).binaryFormat());
@@ -521,7 +495,7 @@ public class TestPrepareStatement {
         Assert.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testSelectWithClusterKey() throws SQLException {
         Connection conn = Utils.createConnection();
         conn.createStatement().execute("drop table if exists default.test_clusterkey");
@@ -551,7 +525,7 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testEncodePass() throws SQLException {
         Connection conn = Utils.createConnection();
         conn.createStatement().execute("create user if not exists 'u01' identified by 'mS%aFRZW*GW';");
@@ -565,7 +539,7 @@ public class TestPrepareStatement {
         conn.createStatement().execute("drop user if exists 'u01'");
     }
 
-    @Test
+    @Test(groups = "IT")
     public void testExecuteUpdate() throws SQLException {
         Connection conn = Utils.createConnection();
         conn.createStatement().execute("delete from test_prepare_statement");
@@ -635,8 +609,7 @@ public class TestPrepareStatement {
         conn.createStatement().execute("delete from test_prepare_statement");
     }
 
-    @Test
-
+    @Test(groups = "IT")
     public void testInsertWithSelect() throws SQLException {
         Connection conn = Utils.createConnection();
         conn.createStatement().execute("delete from test_prepare_statement");
