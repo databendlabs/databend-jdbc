@@ -4,20 +4,15 @@ on:
   push:
     branches:
       - main
-      - master
   pull_request:
     branches:
       - main
-      - master
 
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.ref }}
+      - uses: actions/checkout@v4
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -28,30 +23,9 @@ jobs:
           gpg-private-key: ${{ secrets.GPG_PRIVATE_KEY }} # Value of the GPG private key to import
           gpg-passphrase: MAVEN_GPG_PASSPHRASE # env variable for GPG private key passphrase
 
-      - uses: ./.github/actions/setup_databend_cluster
-        timeout-minutes: 15
-        with:
-          version: '1.2.797-nightly'
-          target: 'x86_64-unknown-linux-gnu'
-
-      - name: Test with conn to node 1
-        run: mvn test -DexcludedGroups=FLAKY
-        env:
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: View Nginx logs
-        run: docker logs nginx-lb
-
-      - name: check nginx
-        run: |
-          curl -u 'databend:databend' -X POST "http://localhost:8000/v1/query" \
-          -H 'Content-Type: application/json' \
-          -d '{"sql": "select 1", "pagination": { "wait_time_secs": 5 }}' || true
-        env:
-          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
-
-      - name: View Nginx logs
-        run: docker logs nginx-lb
+      - name: Start Cluster With Nginx and Minio
+        working-directory: tests
+        run: make up
 
       - name: Test with conn to nginx
         run: mvn test -DexcludedGroups=FLAKY
