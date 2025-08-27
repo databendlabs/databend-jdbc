@@ -11,6 +11,7 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 
 public class TestMultiHost {
@@ -30,98 +31,36 @@ public class TestMultiHost {
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testDefaultLoadBalancing()
             throws SQLException {
-        // try to connect with three nodes 1000 times and count for each node
-        int node8001 = 0;
-        int node8002 = 0;
-        int node8003 = 0;
-        int unknown = 0;
-        for (int i = 0; i < 100; i++) {
-            try (Connection connection = createConnection(DEFAULT_JDBC_URL)) {
-                DatabendStatement statement = (DatabendStatement) connection.createStatement();
-                statement.execute("select value from system.configs where name = 'http_handler_port';");
-                ResultSet r = statement.getResultSet();
-                r.next();
+        HashMap<Integer, Integer> expect = new HashMap<>();
+        expect.put(8001, 90);
 
-                if (r.getInt(1) == 8001) {
-                    node8001++;
-                } else if (r.getInt(1) == 8002) {
-                    node8002++;
-                } else if (r.getInt(1) == 8003) {
-                    node8003++;
-                } else {
-                    unknown++;
-                }
-            }
-        }
-        Assert.assertEquals(node8001, 100);
-        Assert.assertEquals(node8002, 0);
-        Assert.assertEquals(node8003, 0);
-        Assert.assertEquals(unknown, 0);
+        HashMap<Integer, Integer> actual = get_hosts_used(DEFAULT_JDBC_URL);
+        Assert.assertEquals(expect, actual);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testRandomLoadBalancing()
             throws SQLException {
-        // try to connect with three nodes 1000 times and count for each node
-        int node8001 = 0;
-        int node8002 = 0;
-        int node8003 = 0;
-        int unknown = 0;
-        for (int i = 0; i < 100; i++) {
-            try (Connection connection = createConnection(RANDOM_JDBC_URL)) {
-                DatabendStatement statement = (DatabendStatement) connection.createStatement();
-                statement.execute("select value from system.configs where name = 'http_handler_port';");
-                ResultSet r = statement.getResultSet();
-                r.next();
-                if (r.getInt(1) == 8001) {
-                    node8001++;
-                } else if (r.getInt(1) == 8002) {
-                    node8002++;
-                } else if (r.getInt(1) == 8003) {
-                    node8003++;
-                } else {
-                    unknown++;
-                }
-            }
-        }
-        Assert.assertTrue(node8001 > 0 && node8002 > 0 && node8003 > 0);
-        Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8001 + node8002 + node8003, 100);
+        HashMap<Integer, Integer> actual = get_hosts_used(RANDOM_JDBC_URL);
+
+        int node8001 = actual.get(8001);
+        int node8002 = actual.get(8002);
+        int node8003 = actual.get(8003);
+
+        Assert.assertTrue(node8001 > 0 && node8002 > 0 && node8003 > 0, "got " + actual);
+        Assert.assertEquals(node8001 + node8002 + node8003, 90, "got " + actual);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testRoundRobinLoadBalancing()
             throws SQLException {
-        // try to connect with three nodes 1000 times and count for each node
-        int node8001 = 0;
-        int node8002 = 0;
-        int node8003 = 0;
-        int unknown = 0;
-        for (int i = 0; i < 30; i++) {
-            try (Connection connection = createConnection(ROUND_ROBIN_JDBC_URL)) {
-                DatabendStatement statement = (DatabendStatement) connection.createStatement();
-                // remove the effect setup commands
-                for (int j = 0; j < 3; j++) {
-                    statement.execute("select value from system.configs where name = 'http_handler_port';");
-                    ResultSet r = statement.getResultSet();
-                    r.next();
-                    if (r.getInt(1) == 8001) {
-                        node8001++;
-                    } else if (r.getInt(1) == 8002) {
-                        node8002++;
-                    } else if (r.getInt(1) == 8003) {
-                        node8003++;
-                    } else {
-                        unknown++;
-                    }
-                }
-            }
-        }
-        Assert.assertEquals(node8001, 30);
-        Assert.assertEquals(node8002, 30);
-        Assert.assertEquals(node8003, 30);
-        Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8001 + node8002 + node8003, 90);
+        HashMap<Integer, Integer> expect = new HashMap<>();
+        expect.put(8001, 30);
+        expect.put(8002, 30);
+        expect.put(8003, 30);
+
+        HashMap<Integer, Integer> actual = get_hosts_used(ROUND_ROBIN_JDBC_URL);
+        Assert.assertEquals(expect, actual);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
@@ -161,79 +100,29 @@ public class TestMultiHost {
     // skip since getConnection not support multihost for now
     public void testFailOver()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
-        int node8001 = 0;
-        int node8002 = 0;
-        int node8003 = 0;
-        int unknown = 0;
-        for (int i = 0; i < 30; i++) {
-            try (Connection connection = createConnection(FAIL_OVER_JDBC_URL)) {
-                DatabendStatement statement = (DatabendStatement) connection.createStatement();
-                // remove the effect setup commands
-                for (int j = 0; j < 3; j++) {
-                    statement.execute("select value from system.configs where name = 'http_handler_port';");
-                    ResultSet r = statement.getResultSet();
-                    r.next();
-                    if (r.getInt(1) == 8001) {
-                        node8001++;
-                    } else if (r.getInt(1) == 8002) {
-                        node8002++;
-                    } else if (r.getInt(1) == 8003) {
-                        node8003++;
-                    } else {
-                        unknown++;
-                    }
-                }
-            }
-        }
+        HashMap<Integer, Integer> expect = new HashMap<>();
+        expect.put(8001, 90);
 
-        Assert.assertEquals(node8001, 90);
-        Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8001 + node8002 + node8003, 90);
+        HashMap<Integer, Integer> actual = get_hosts_used(FAIL_OVER_JDBC_URL);
+        Assert.assertEquals(expect, actual);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testAutoDiscovery()
             throws SQLException {
-        // try connect with three nodes 1000 times and count for each node
-        int node8001 = 0;
-        int node8002 = 0;
-        int node8003 = 0;
-        int unknown = 0;
-        try (Connection connection = createConnection(AUTO_DISCOVERY_JDBC_URL)) {
-            for (int i = 0; i < 30; i++) {
-                DatabendStatement statement = (DatabendStatement) connection.createStatement();
-                // remove the effect setup commands
-                for (int j = 0; j < 3; j++) {
-                    statement.execute("select value from system.configs where name = 'http_handler_port';");
-                    ResultSet r = statement.getResultSet();
-                    r.next();
-                    int p = r.getInt(1);
-                    if (p == 8001) {
-                        node8001++;
-                    } else if (p == 8002) {
-                        node8002++;
-                    } else if (p == 8003) {
-                        node8003++;
-                    } else {
-                        unknown++;
-                    }
-                }
-            }
-        }
+        HashMap<Integer, Integer> expect = new HashMap<>();
+        expect.put(8001, 31);
+        expect.put(8002, 30);
+        expect.put(8003, 29);
 
-        Assert.assertEquals(node8001, 31);
-        Assert.assertEquals(node8002, 30);
-        Assert.assertEquals(node8003, 29);
-        Assert.assertEquals(unknown, 0);
-        Assert.assertEquals(node8001 + node8002 + node8003, 90);
+        HashMap<Integer, Integer> actual = get_hosts_used(AUTO_DISCOVERY_JDBC_URL);
+        Assert.assertEquals(expect, actual);
     }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testUnSupportedAutoDiscovery()
             throws SQLException {
         try (Connection connection = createConnection(UNSUPPORT_AUTO_DISCOVERY_JDBC_URL)) {
-
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("select value from system.configs where name = 'http_handler_port';");
             ResultSet r = statement.getResultSet();
@@ -241,9 +130,6 @@ public class TestMultiHost {
             DatabendConnection dbc = (DatabendConnection) connection;
             // automatically
             Assert.assertFalse(dbc.isAutoDiscovery());
-        } catch (SQLException e) {
-            // there should be no exception
-            Assert.fail("Should not throw exception");
         }
     }
 
@@ -263,5 +149,23 @@ public class TestMultiHost {
         Assert.assertEquals(uris2.size(), 3);
         Assert.assertEquals(uris2, uris);
 
+    }
+
+    private HashMap<Integer, Integer> get_hosts_used(String dsn) throws SQLException {
+        HashMap<Integer, Integer> ports = new HashMap<>();
+        try (Connection connection = createConnection(dsn)) {
+            for (int i = 0; i < 30; i++) {
+                DatabendStatement statement = (DatabendStatement) connection.createStatement();
+                // remove the effect setup commands
+                for (int j = 0; j < 3; j++) {
+                    statement.execute("select value from system.configs where name = 'http_handler_port';");
+                    ResultSet r = statement.getResultSet();
+                    r.next();
+                    int p = r.getInt(1);
+                    ports.merge(p, 1, Integer::sum);
+                }
+            }
+        }
+        return ports;
     }
 }
