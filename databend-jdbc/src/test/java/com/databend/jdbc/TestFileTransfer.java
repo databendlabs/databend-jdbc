@@ -152,7 +152,7 @@ public class TestFileTransfer {
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
-            f.delete()
+            f.delete();
         }
     }
 
