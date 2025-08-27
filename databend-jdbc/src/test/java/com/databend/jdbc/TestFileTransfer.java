@@ -152,7 +152,7 @@ public class TestFileTransfer {
         } catch (Exception e) {
             throw new RuntimeException(e);
         } finally {
-            f.delete();
+            f.delete()
         }
     }
 
@@ -191,8 +191,11 @@ public class TestFileTransfer {
     }
 
     public void testLoadStreamToTableInner(String method) {
-        if (!Utils.driverCapability.streamingLoad || !Utils.serverCapability.streamingLoad) {
-            throw new SkipException("version too low");
+        if (!Utils.driverCapability.streamingLoad) {
+            throw new SkipException("driver version too low");
+        }
+        if (!Utils.serverCapability.streamingLoad) {
+            throw new SkipException("server version too low");
         }
         System.out.println("testLoadStreamToTableInner " + method);
         String filePath = generateRandomCSVComplex(10);
@@ -218,6 +221,5 @@ public class TestFileTransfer {
         } catch (Exception e) {
             throw new RuntimeException(e);
         }
-
     }
 }
