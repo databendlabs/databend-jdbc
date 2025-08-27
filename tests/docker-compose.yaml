@@ -59,7 +59,7 @@ services:
       - QUERY_DISCOVERY_ADDRESS=localhost:8003
     ports:
       - "8003:8003"
-  ngnix-lb:
+  nginx-lb:
     image: docker.io/nginx
     volumes:
       - ./config/nginx.conf:/etc/nginx/nginx.conf:ro
