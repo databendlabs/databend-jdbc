@@ -78,8 +78,13 @@ public class TestDatabendDatabaseMetaData {
             DatabaseMetaData metaData = c.getMetaData();
             int major = metaData.getDriverMajorVersion();
             int minor = metaData.getDriverMinorVersion();
-            assertEquals(major, 0);
-            assertEquals(minor, 4);
+            if (Compatibility.driverVersion != null) {
+                assertEquals(major, (int) Compatibility.driverVersion.getMajor());
+                assertEquals(minor, (int) Compatibility.driverVersion.getMinor());
+            } else {
+                assertEquals(major, 0);
+                assertEquals(minor, 4);
+            }
         }
     }
 
@@ -111,7 +116,7 @@ public class TestDatabendDatabaseMetaData {
             String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
 
-            if (Utils.serverCapability.streamingLoad && Utils.driverCapability.streamingLoad) {
+            if (Compatibility.serverCapability.streamingLoad && Compatibility.driverCapability.streamingLoad) {
                 DatabendConnection conn = connection.unwrap(DatabendConnection.class);
                 if (conn.getServerVersion() != null) {
                     String semver = "v" + conn.getServerVersion().toString();

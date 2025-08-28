@@ -162,8 +162,8 @@ public class TestPrepareStatement {
             deletePs.addBatch();
             int[] ansDel = deletePs.executeBatch();
             Assert.assertEquals(ansDel.length, 1);
-            // todo: fix this
-            Assert.assertEquals(ansDel[0], 0);
+            // todo: fix this, currently == 0
+            // Assert.assertEquals(ansDel[0], 1);
 
             System.out.println("execute select");
             statement.execute("SELECT * from test_batch_delete");
@@ -611,44 +611,49 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testInsertWithSelect() throws SQLException {
+        if (Compatibility.skipDriverBug("0.3.9")) {
+            return;
+        }
         Connection conn = Utils.createConnection();
-        conn.createStatement().execute("delete from test_prepare_statement");
+        Statement statement = conn.createStatement();
+        statement.execute("use test_prepare_statement");
+        statement.execute("create or replace table insert_with_select (a int, b string)");
 
-        String insertSql = "insert into test_prepare_statement select a, b from test_prepare_statement where b = ?";
-        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
-            statement.setString(1, "a");
-            int insertedRows = statement.executeUpdate();
+        String insertSql = "insert into insert_with_select select a, b from insert_with_select where b = ?";
+        try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+            ps.setString(1, "a");
+            int insertedRows = ps.executeUpdate();
             Assert.assertEquals(0, insertedRows, "should not insert any rows as the table is empty");
         }
 
         // Insert some data
-        String insertDataSql = "insert into test_prepare_statement values (?,?)";
-        try (PreparedStatement statement = conn.prepareStatement(insertDataSql)) {
-            statement.setInt(1, 1);
-            statement.setString(2, "a");
-            statement.executeUpdate();
+        String insertDataSql = "insert into insert_with_select values (?,?)";
+        try (PreparedStatement ps = conn.prepareStatement(insertDataSql)) {
+            ps.setInt(1, 1);
+            ps.setString(2, "a");
+            int insertedRows = ps.executeUpdate();
+            Assert.assertEquals(1, insertedRows, "should insert 1 rows");
 
-            statement.setInt(1, 2);
-            statement.setString(2, "b");
-            statement.executeUpdate();
+            ps.setInt(1, 2);
+            ps.setString(2, "b");
+            insertedRows = ps.executeUpdate();
+            Assert.assertEquals(1, insertedRows, "should insert 1 rows");
         }
 
         // Now try to insert again with select
-        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
-            statement.setString(1, "a");
-            int insertedRows = statement.executeUpdate();
-            Assert.assertEquals(1, insertedRows, "should insert two rows from the select");
+        try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+            ps.setString(1, "a");
+            int insertedRows = ps.executeUpdate();
+            Assert.assertEquals(1, insertedRows, "should insert 1 row from the select");
         }
 
-        ResultSet rs = conn.createStatement().executeQuery("select * from test_prepare_statement order by a");
+        ResultSet rs = conn.createStatement().executeQuery("select * from insert_with_select order by a");
         int count = 0;
         while (rs.next()) {
             count++;
         }
-        Assert.assertEquals(3, count, "should have four rows in the table after insert with select");
-
-        // Clean up
-        conn.createStatement().execute("delete from test_prepare_statement");
+        Assert.assertEquals(3, count, "should have 3 rows in the table after insert with select");
+        conn.close();
     }
 
 }

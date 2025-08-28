@@ -15,6 +15,5 @@ public class TestStageAttachment {
         StageAttachment attachment = new StageAttachment.Builder().setLocation(stagePath)
                 .build();
         assertEquals("StageAttachment{location=@~/prefix/uuid/test, file_format_options={type=CSV}, copy_options=null}", attachment.toString());
-
     }
 }

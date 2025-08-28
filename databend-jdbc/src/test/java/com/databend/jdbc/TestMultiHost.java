@@ -148,7 +148,6 @@ public class TestMultiHost {
         Assert.assertEquals(uris.size(), 3);
         Assert.assertEquals(uris2.size(), 3);
         Assert.assertEquals(uris2, uris);
-
     }
 
     private HashMap<Integer, Integer> get_hosts_used(String dsn) throws SQLException {

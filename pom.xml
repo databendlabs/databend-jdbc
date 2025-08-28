@@ -48,7 +48,6 @@
         <dep.jackson.version>2.19.2</dep.jackson.version>
         <dep.guava.version>32.0.1-jre</dep.guava.version>
         <dep.slf4j.version>1.7.6</dep.slf4j.version>
-        <dep.testng.version>7.11.0</dep.testng.version>
         <!-- not in airbase -->
         <dep.okio.version>3.1.0</dep.okio.version>
         <!-- not in airbase -->

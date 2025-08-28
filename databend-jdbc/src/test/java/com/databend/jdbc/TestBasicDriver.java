@@ -32,8 +32,6 @@ public class TestBasicDriver {
         c.createStatement().execute("create table test_basic_driver.table1(i int)");
         c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
         c.createStatement().execute("create database test_basic_driver_2");
-        c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
-        c.createStatement().execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
     }
 
     @Test(groups = {"IT"})
@@ -153,8 +151,8 @@ public class TestBasicDriver {
 
             Assert.assertTrue(r.next());
             Assert.assertEquals(3, statement.getUpdateCount());
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        } catch (SQLException throwable) {
+            throwable.printStackTrace();
         }
     }
 
@@ -169,7 +167,7 @@ public class TestBasicDriver {
                     "    City VARCHAR(50),\n" +
                     "    Score DOUBLE\n" +
                     ");");
-            Double infDouble = Double.POSITIVE_INFINITY;
+            double infDouble = Double.POSITIVE_INFINITY;
 
             String sql = "INSERT INTO test_basic_driver.table_double (ID, Name, Age, City, Score) values";
             PreparedStatement prepareStatement = connection.prepareStatement(sql);
@@ -192,17 +190,24 @@ public class TestBasicDriver {
 
     @Test(groups = {"IT"})
     public void testDefaultSelectNullValue() throws SQLException {
-        try (Connection connection = Utils.createConnection()) {
-            DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.executeQuery("SELECT a,b,c,d from test_basic_driver.table_with_null");
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()
+         ) {
+            statement.execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
+            statement.execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
+            statement.execute("SELECT a,b,c,d from test_basic_driver.table_with_null");
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 1);
             Assert.assertNull(r.getObject(2));
             Assert.assertEquals(r.getObject(3), "null");
-            Assert.assertEquals(r.getObject(4), "NULL");
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+            if (Compatibility.skipDriverBug("0.3.9")) {
+                Assert.assertNull(r.getObject(4));
+            } else {
+                Assert.assertEquals(r.getObject(4), "NULL");
+            }
+        } catch (SQLException throwable) {
+            throwable.printStackTrace();
         }
     }
 
@@ -293,7 +298,7 @@ public class TestBasicDriver {
     public void testResultException() {
         try (Connection connection = Utils.createConnection()) {
             Statement statement = connection.createStatement();
-            ResultSet r = statement.executeQuery("SELECT 1e189he 198h");
+            statement.execute("SELECT 1e189he 198h");
         } catch (SQLException e) {
             Assert.assertTrue(e.getMessage().contains("Query failed"));
         }

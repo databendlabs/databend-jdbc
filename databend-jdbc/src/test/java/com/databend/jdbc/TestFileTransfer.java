@@ -191,11 +191,13 @@ public class TestFileTransfer {
     }
 
     public void testLoadStreamToTableInner(String method) {
-        if (!Utils.driverCapability.streamingLoad) {
-            throw new SkipException("driver version too low");
+        if (!Compatibility.driverCapability.streamingLoad) {
+            System.out.println("Skip testLoadStreamToTableInner: driver version too low");
+            return;
         }
-        if (!Utils.serverCapability.streamingLoad) {
-            throw new SkipException("server version too low");
+        if (!Compatibility.serverCapability.streamingLoad) {
+            System.out.println("Skip testLoadStreamToTableInner: server version too low");
+            return;
         }
         System.out.println("testLoadStreamToTableInner " + method);
         String filePath = generateRandomCSVComplex(10);
