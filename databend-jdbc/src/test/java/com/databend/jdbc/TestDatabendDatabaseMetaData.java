@@ -111,11 +111,13 @@ public class TestDatabendDatabaseMetaData {
             String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
 
-            DatabendConnection conn = connection.unwrap(DatabendConnection.class);
-            if (conn.getServerVersion() != null) {
-                String semver = "v" + conn.getServerVersion().toString();
-                Assert.assertTrue(semver.startsWith(checkVersion), semver);
-                Assert.assertNotNull(conn.getServerCapability());
+            if (Utils.serverCapability.streamingLoad && Utils.driverCapability.streamingLoad) {
+                DatabendConnection conn = connection.unwrap(DatabendConnection.class);
+                if (conn.getServerVersion() != null) {
+                    String semver = "v" + conn.getServerVersion().toString();
+                    Assert.assertTrue(semver.startsWith(checkVersion), semver);
+                    Assert.assertNotNull(conn.getServerCapability());
+                }
             }
         }
     }

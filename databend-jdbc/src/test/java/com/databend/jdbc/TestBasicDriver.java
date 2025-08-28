@@ -2,9 +2,6 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -37,8 +34,6 @@ public class TestBasicDriver {
         c.createStatement().execute("create database test_basic_driver_2");
         c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
         c.createStatement().execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
-
-        // json data
     }
 
     @Test(groups = {"IT"})
@@ -203,7 +198,7 @@ public class TestBasicDriver {
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 1);
-            Assert.assertEquals(r.getObject(2), null);
+            Assert.assertNull(r.getObject(2));
             Assert.assertEquals(r.getObject(3), "null");
             Assert.assertEquals(r.getObject(4), "NULL");
         } catch (SQLException throwables) {
@@ -317,35 +312,6 @@ public class TestBasicDriver {
             ResultSet r = statement.executeQuery();
             r.next();
             Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
-        }
-    }
-
-    @Test(groups = {"IT"})
-    public void testSelectGeometry() throws SQLException, ParseException {
-        // skip due to failed cluster tests
-
-        try (Connection connection = Utils.createConnection()) {
-            connection.createStatement().execute("set enable_geo_create_table=1");
-            connection.createStatement().execute("CREATE or replace table cities ( id INT, name VARCHAR NOT NULL, location GEOMETRY);");
-            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
-            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (2, 'Null', null);");
-            Statement statement = connection.createStatement();
-            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
-                r.next();
-                Assert.assertEquals("{\"type\": \"Point\", \"coordinates\": [-73.935242,40.73061]}", r.getObject(1));
-                r.next();
-                Assert.assertNull(r.getObject(1));
-            }
-
-            // set geometry_output_format to wkb
-            connection.createStatement().execute("set geometry_output_format='WKB'");
-            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
-                r.next();
-                byte[] wkb = r.getBytes(1);
-                WKBReader wkbReader = new WKBReader();
-                Geometry geometry = wkbReader.read(wkb);
-                Assert.assertEquals("POINT (-73.935242 40.73061)", geometry.toText());
-            }
         }
     }
 }

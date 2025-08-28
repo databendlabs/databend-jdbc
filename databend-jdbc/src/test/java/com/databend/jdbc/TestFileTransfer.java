@@ -133,7 +133,7 @@ public class TestFileTransfer {
         }
     }
 
-    @Test(groups = {"LOCAL"})
+    @Test(groups = {"IT"})
     public void testFileTransferThroughAPI() {
         String filePath = generateRandomCSV(100000);
         File f = new File(filePath);
