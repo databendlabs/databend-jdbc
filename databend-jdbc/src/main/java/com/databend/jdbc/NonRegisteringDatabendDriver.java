@@ -72,7 +72,7 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable {
             }
         }
 
-        return new DatabendConnection(uri, builder.build());
+        return connection;
     }
 
     @Override
