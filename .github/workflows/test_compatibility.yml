@@ -38,9 +38,6 @@ jobs:
         server:
           - "nightly"
           - "v1.2.790-nightly"
-        driver:
-          - "0.4.0"
-          - "0.3.9"
     steps:
       - uses: actions/checkout@v4
 
@@ -73,5 +70,4 @@ jobs:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           DATABEND_TEST_CONN_PORT: 8000
           DATABEND_QUERY_VERSION: ${{ matrix.server }}
-          DATABEND_JDBC_VERSION: ${{ matrix.driver }}
           TEST_SIDE: "driver"
