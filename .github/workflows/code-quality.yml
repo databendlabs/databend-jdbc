@@ -47,7 +47,7 @@ jobs:
         if: always()
         with:
           name: checkstyle-results
-          path: |  
+          path: |
             **/target/checkstyle-result.xml
             **/target/site/checkstyle.html
           retention-days: 7
