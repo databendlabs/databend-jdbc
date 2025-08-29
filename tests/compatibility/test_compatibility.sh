@@ -1,6 +1,6 @@
 #!/bin/bash
 
-set -exo pipefail
+set -ex
 
 curl -sSLfo ./testng.jar https://repo.maven.apache.org/maven2/org/testng/testng/7.11.0/testng-7.11.0.jar
 curl -sSLfo ./semver4j.jar https://repo1.maven.org/maven2/com/vdurmont/semver4j/3.1.0/semver4j-3.1.0.jar
@@ -8,17 +8,18 @@ curl -sSLfo ./jcommander.jar https://repo1.maven.org/maven2/org/jcommander/jcomm
 curl -sSLfo ./jts-core.jar https://repo1.maven.org/maven2/org/locationtech/jts/jts-core/1.19.0/jts-core-1.19.0.jar
 curl -sSLfo ./slf4j-api.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar
 
-TEST_VER=0.4.0
-JDBC_VER=${DATABEND_JDBC_VERSION:-0.4.0}
+original_dir=$(pwd)
+cd ../..
+CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
+mvn clean package -DskipTests
+cd "$original_dir"
 
-# for dev
-# 1. run `mvn clean package -DskipTests`
-# 2. set TEST_DEV=1
-# 3. unset DATABEND_JDBC_VERSION
+TEST_SIDE=${TEST_SIDE:-server}
+TEST_VER=${DATABEND_JDB_TEST_VERSION:-$CURRENT_VERSION}
+JDBC_VER=${DATABEND_JDBC_VERSION:-$CURRENT_VERSION}
 
-TEST_DEV=${TEST_DEV:-0}
 
-if [ "$TEST_DEV" = "1" ]; then
+if [ "$TEST_SIDE" = "server" ]; then
     curl -sSLfo ./databend-jdbc-tests.jar "https://github.com/databendlabs/databend-jdbc/releases/download/v${TEST_VER}/databend-jdbc-${TEST_VER}-tests.jar"
 else
     cp ../../databend-jdbc/target/databend-jdbc-${TEST_VER}-tests.jar databend-jdbc-tests.jar
