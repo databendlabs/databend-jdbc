@@ -201,7 +201,7 @@ public class TestBasicDriver {
             Assert.assertEquals(r.getInt(1), 1);
             Assert.assertNull(r.getObject(2));
             Assert.assertEquals(r.getObject(3), "null");
-            if (Compatibility.skipDriverBug("0.3.9")) {
+            if (Compatibility.skipDriverBugLowerThen("0.3.9")) {
                 Assert.assertNull(r.getObject(4));
             } else {
                 Assert.assertEquals(r.getObject(4), "NULL");

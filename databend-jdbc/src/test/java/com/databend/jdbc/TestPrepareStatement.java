@@ -609,7 +609,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testInsertWithSelect() throws SQLException {
-        if (Compatibility.skipDriverBug("0.3.9")) {
+        if (Compatibility.skipDriverBugLowerThen("0.3.9")) {
             return;
         }
         Connection conn = Utils.createConnection();

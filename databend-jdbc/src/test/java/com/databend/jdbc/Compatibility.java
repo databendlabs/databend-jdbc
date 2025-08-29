@@ -44,12 +44,24 @@ public class Compatibility {
         return new Semver(env, Semver.SemverType.NPM).withClearedSuffixAndBuild();
     }
 
-     public static boolean skipDriverBug(String version) {
+     public static boolean skipDriverBugLowerThen(String version) {
         if (driverVersion != null && driverVersion.isLowerThan(new Semver(version))) {
            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
            String callerName = stackTrace[2].getMethodName();
            System.out.println("SkipDriverBug version=" + version + ", method=" +  callerName);
            return true;
+        }
+        return false;
+    }
+    public static boolean skipBugLowerThenOrEqualTo(String serverVersionBug, String driverVersionBug) {
+        if (driverVersion != null && driverVersion.isLowerThanOrEqualTo(new Semver(serverVersionBug))
+                && serverVersion != null && serverVersion.isLowerThanOrEqualTo(serverVersionBug)
+        ) {
+            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+            String callerName = stackTrace[2].getMethodName();
+            System.out.printf("SkipDriverBug (server <= %s && driver <=%s), method = %s",
+                    serverVersionBug, driverVersionBug, callerName);
+            return true;
         }
         return false;
     }
