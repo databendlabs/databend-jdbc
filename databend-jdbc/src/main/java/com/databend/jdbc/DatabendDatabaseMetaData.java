@@ -979,11 +979,11 @@ public class DatabendDatabaseMetaData implements DatabaseMetaData {
         add(new QueryRowField("COLUMN_NAME", new DatabendRawType("String")));// 5
         add(new QueryRowField("DATA_TYPE", new DatabendRawType("Int32")));// 6
         add(new QueryRowField("TYPE_NAME", new DatabendRawType("String")));// 7
-        add(new QueryRowField("COLUMN_SIZE", new DatabendRawType("Int32")));// 8
-        add(new QueryRowField("BUFFER_LENGTH", new DatabendRawType("Int32")));// 9
-        add(new QueryRowField("DECIMAL_DIGITS", new DatabendRawType("Int32")));// 10
-        add(new QueryRowField("NUM_PREC_RADIX", new DatabendRawType("Int32")));// 11
-        add(new QueryRowField("NULLABLE", new DatabendRawType("Int32")));// 12
+        add(new QueryRowField("COLUMN_SIZE", new DatabendRawType("Int64")));// 8
+        add(new QueryRowField("BUFFER_LENGTH", new DatabendRawType("Int64")));// 9
+        add(new QueryRowField("DECIMAL_DIGITS", new DatabendRawType("Int64")));// 10
+        add(new QueryRowField("NUM_PREC_RADIX", new DatabendRawType("Int64")));// 11
+        add(new QueryRowField("NULLABLE", new DatabendRawType("Int64")));// 12
         add(new QueryRowField("REMARKS", new DatabendRawType("String")));// 13
         add(new QueryRowField("COLUMN_DEF", new DatabendRawType("String")));// 14
         add(new QueryRowField("SQL_DATA_TYPE", new DatabendRawType("Int32")));// 15
