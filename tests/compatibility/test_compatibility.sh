@@ -8,16 +8,17 @@ curl -sSLfo ./jcommander.jar https://repo1.maven.org/maven2/org/jcommander/jcomm
 curl -sSLfo ./jts-core.jar https://repo1.maven.org/maven2/org/locationtech/jts/jts-core/1.19.0/jts-core-1.19.0.jar
 curl -sSLfo ./slf4j-api.jar https://repo1.maven.org/maven2/org/slf4j/slf4j-api/2.0.16/slf4j-api-2.0.16.jar
 
+
+
 original_dir=$(pwd)
 cd ../..
+# got 1 if not in java project
 CURRENT_VERSION=$(mvn help:evaluate -Dexpression=project.version -q -DforceStdout)
-mvn clean package -DskipTests
 cd "$original_dir"
 
 TEST_SIDE=${TEST_SIDE:-server}
 TEST_VER=${DATABEND_JDB_TEST_VERSION:-$CURRENT_VERSION}
 JDBC_VER=${DATABEND_JDBC_VERSION:-$CURRENT_VERSION}
-
 
 if [ "$TEST_SIDE" = "server" ]; then
     curl -sSLfo ./databend-jdbc-tests.jar "https://github.com/databendlabs/databend-jdbc/releases/download/v${TEST_VER}/databend-jdbc-${TEST_VER}-tests.jar"
@@ -26,6 +27,7 @@ else
 fi
 
 if [ -z "DATABEND_JDBC_VERSION" ]; then
+    # only for dev
     cp ../../databend-jdbc/target/databend-jdbc-${JDBC_VER}.jar databend-jdbc.jar
 else
     curl -sSLfo "./databend-jdbc-${JDBC_VER}.jar" "https://github.com/databendlabs/databend-jdbc/releases/download/v${JDBC_VER}/databend-jdbc-${JDBC_VER}.jar"
