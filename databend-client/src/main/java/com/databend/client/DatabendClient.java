@@ -29,8 +29,6 @@ public interface DatabendClient extends Closeable {
 
     String getNodeID();
 
-    String getServerVersion();
-
 
     Map<String, String> getAdditionalHeaders();
 

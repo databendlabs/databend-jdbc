@@ -6,6 +6,7 @@ import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
 import okhttp3.OkHttpClient;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -25,7 +26,7 @@ public class TestFileTransfer {
         byte[] buffer = new byte[1024];
         ByteArrayOutputStream os = new ByteArrayOutputStream();
 
-        int line = 0;
+        int line;
         // read bytes from stream, and store them in buffer
         while ((line = stream.read(buffer)) != -1) {
             // Writes bytes from byte array (buffer) into output stream.
@@ -40,10 +41,11 @@ public class TestFileTransfer {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = Utils.createConnection();
+        try (Connection c = Utils.createConnection()) {
 
-        c.createStatement().execute("drop table if exists copy_into");
-        c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
+            c.createStatement().execute("drop table if exists copy_into");
+            c.createStatement().execute("CREATE TABLE IF NOT EXISTS copy_into (i int, a Variant, b string) ENGINE = FUSE");
+        }
     }
 
     // generate a csv file in a temp directory with given lines, return absolute path of the generated csv
@@ -98,7 +100,7 @@ public class TestFileTransfer {
             FileWriter writer = new FileWriter(csvPath);
             CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(writer);
             for (int i = 0; i < lines; i++) {
-                w.writeRow("1", "{\"str_col\": 1, \"int_col\": 2}", "c");
+                w.writeRow(String.valueOf(i), "{\"str_col\": 1, \"int_col\": 2}", "c");
             }
             writer.close();
         } catch (Exception e) {
@@ -113,8 +115,8 @@ public class TestFileTransfer {
         String filePath = generateRandomCSV(10000);
         File f = new File(filePath);
         InputStream downloaded = null;
-        try (FileInputStream fileInputStream = new FileInputStream(f)) {
-            Connection connection = Utils.createConnection();
+        try (FileInputStream fileInputStream = new FileInputStream(f);
+             Connection connection = Utils.createConnection()) {
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
@@ -131,14 +133,15 @@ public class TestFileTransfer {
         }
     }
 
-    @Test(groups = {"LOCAL"})
+    @Test(groups = {"IT"})
     public void testFileTransferThroughAPI() {
         String filePath = generateRandomCSV(100000);
         File f = new File(filePath);
-        try (InputStream fileInputStream = Files.newInputStream(f.toPath())) {
+        try (InputStream fileInputStream = Files.newInputStream(f.toPath());
+             Connection connection = Utils.createConnectionWithPresignedUrlDisable()) {
             Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
 
-            Connection connection = Utils.createConnectionWithPresignedUrlDisable();
+
             String stageName = "test_stage";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
@@ -172,6 +175,51 @@ public class TestFileTransfer {
             while (r.next()) {
                 System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
             }
+        } catch (Exception e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testLoadStreamToTableWithStage() {
+        testLoadStreamToTableInner("stage");
+    }
+
+    @Test(groups = {"IT"})
+    public void testLoadStreamToTableWithStreaming() {
+        testLoadStreamToTableInner("streaming");
+    }
+
+    public void testLoadStreamToTableInner(String method) {
+        if (!Compatibility.driverCapability.streamingLoad) {
+            System.out.println("Skip testLoadStreamToTableInner: driver version too low");
+            return;
+        }
+        if (!Compatibility.serverCapability.streamingLoad) {
+            System.out.println("Skip testLoadStreamToTableInner: server version too low");
+            return;
+        }
+        System.out.println("testLoadStreamToTableInner " + method);
+        String filePath = generateRandomCSVComplex(10);
+        File f = new File(filePath);
+        try (FileInputStream fileInputStream = new FileInputStream(f);
+             Connection connection = Utils.createConnectionWithPresignedUrlDisable();
+             Statement statement = connection.createStatement()) {
+            statement.execute("create or replace database test_load");
+            statement.execute("use test_load");
+            statement.execute("create or replace table test_load(i int, a Variant, b string)");
+            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
+            String sql = "insert into test_load from @_databend_load file_format=(type=csv)";
+            int nUpdate = databendConnection.loadStreamToTable(sql, fileInputStream, f.length(), method);
+            Assert.assertEquals(nUpdate, 10);
+            fileInputStream.close();
+            ResultSet r = statement.executeQuery("SELECT * FROM test_load");
+            int n = 0;
+            while (r.next()) {
+                Assert.assertEquals(r.getInt(1), n);
+                n += 1;
+            }
+            Assert.assertEquals(10, n);
         } catch (Exception e) {
             throw new RuntimeException(e);
         }

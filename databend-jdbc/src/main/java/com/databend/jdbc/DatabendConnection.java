@@ -1,13 +1,8 @@
 package com.databend.jdbc;
 
-import com.databend.client.ClientSettings;
-import com.databend.client.DatabendClient;
-import com.databend.client.DatabendClientV1;
-import com.databend.client.DatabendSession;
-import com.databend.client.ServerVersions;
-import com.databend.client.PaginationOptions;
-import com.databend.client.QueryRequest;
-import com.databend.client.StageAttachment;
+import com.databend.client.*;
+
+import static com.databend.client.JsonCodec.jsonCodec;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
@@ -16,7 +11,11 @@ import com.databend.jdbc.exception.DatabendFailedToPingException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.vdurmont.semver4j.Semver;
 import okhttp3.*;
+import okio.BufferedSink;
+import okio.Okio;
+import okio.Source;
 
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
@@ -25,6 +24,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.net.ConnectException;
 import java.net.URI;
+import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -42,6 +42,7 @@ import java.sql.SQLXML;
 import java.sql.Savepoint;
 import java.sql.Statement;
 import java.sql.Struct;
+import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
@@ -70,25 +71,30 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class DatabendConnection implements Connection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
+    public static final String STREAMING_LOAD_PATH = "/v1/streaming_load";
+    public static final String LOGIN_PATH = "/v1/session/login";
     public static final String LOGOUT_PATH = "/v1/session/logout";
     public static final String HEARTBEAT_PATH = "/v1/session/heartbeat";
-    private static FileHandler FILE_HANDLER;
+    private static final ObjectMapper objectMapper = new ObjectMapper();
+    private static final JsonCodec<DatabendSession> SESSION_JSON_CODEC = jsonCodec(DatabendSession.class);
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
     private final URI httpUri;
     private final AtomicReference<String> schema = new AtomicReference<>();
     private final OkHttpClient httpClient;
-    private final ConcurrentHashMap<DatabendStatement, Boolean> statements = new ConcurrentHashMap();
+    private final ConcurrentHashMap<DatabendStatement, Boolean> statements = new ConcurrentHashMap<>();
     private final DatabendDriverUri driverUri;
     private boolean autoDiscovery;
-    private AtomicReference<DatabendSession> session = new AtomicReference<>();
+    private final AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     private String routeHint = "";
-    private AtomicReference<String> lastNodeID = new AtomicReference<>();
+    private final AtomicReference<String> lastNodeID = new AtomicReference<>();
+    private Semver serverVersion = null;
+    private Capability serverCapability = null;
 
-    static ExecutorService heartbeatScheduler = null;
-    private HeartbeatManager heartbeatManager = new HeartbeatManager();
+    static volatile ExecutorService heartbeatScheduler = null;
+    private final HeartbeatManager heartbeatManager = new HeartbeatManager();
 
     private void initializeFileHandler() {
         if (this.debug()) {
@@ -103,11 +109,11 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 System.setProperty("java.util.logging.FileHandler.count", "200");
                 // Enable log file reuse
                 System.setProperty("java.util.logging.FileHandler.append", "true");
-                FILE_HANDLER = new FileHandler(file.getAbsolutePath(), Integer.parseInt(System.getProperty("java.util.logging.FileHandler.limit")),
+                FileHandler fileHandler= new FileHandler(file.getAbsolutePath(), Integer.parseInt(System.getProperty("java.util.logging.FileHandler.limit")),
                         Integer.parseInt(System.getProperty("java.util.logging.FileHandler.count")), true);
-                FILE_HANDLER.setLevel(Level.ALL);
-                FILE_HANDLER.setFormatter(new SimpleFormatter());
-                logger.addHandler(FILE_HANDLER);
+                fileHandler.setLevel(Level.ALL);
+                fileHandler.setFormatter(new SimpleFormatter());
+                logger.addHandler(fileHandler);
             } catch (Exception e) {
                 throw new RuntimeException("Failed to create FileHandler", e);
             }
@@ -130,6 +136,42 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         this.setSession(session);
 
         initializeFileHandler();
+        this.login();
+    }
+
+    public Semver getServerVersion() {
+        return this.serverVersion;
+    }
+
+    public Capability getServerCapability() {
+        return this.serverCapability;
+    }
+
+    private void login() throws SQLException {
+        RetryPolicy retryPolicy = new RetryPolicy(true, true);
+
+        HashMap<String, String> headers = new HashMap<>();
+        headers.put("Accept", "application/json");
+        headers.put("Content-Type", "application/json");
+        try {
+            LoginRequest req = new LoginRequest();
+            req.database = this.getSchema();
+            req.settings = this.driverUri.getSessionSettings();
+            String bodyString = objectMapper.writeValueAsString(req);
+            RequestBody requestBody= RequestBody.create(MEDIA_TYPE_JSON, bodyString);
+
+            ResponseWithBody response = requestHelper(LOGIN_PATH, "post", requestBody, headers, retryPolicy);
+            // old server do not support this API
+            if (response.response.code() != 400) {
+                String version = objectMapper.readTree(response.body).get("version").asText();
+                if (version != null) {
+                    this.serverVersion = new Semver(version);
+                    this.serverCapability = new Capability(this.serverVersion);
+                }
+            }
+        } catch(JsonProcessingException e){
+            throw new RuntimeException(e);
+        }
     }
 
     public static String randRouteHint() {
@@ -204,7 +246,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         sb.append("FROM ");
         sb.append(params.getDatabendStage().toString());
         sb.append(" ");
-        sb.append(params.toString());
+        sb.append(params);
         return sb.toString();
     }
 
@@ -287,7 +329,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         } catch (SQLException e) {
             throw new SQLException("Failed to commit", e);
         }
-        return;
     }
 
     @Override
@@ -313,7 +354,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         } catch (SQLException e) {
             throw new SQLException("Failed to rollback", e);
         }
-        return;
     }
 
     @Override
@@ -364,7 +404,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     @Override
     public int getTransactionIsolation()
             throws SQLException {
-        return 0;
+        return Connection.TRANSACTION_NONE;
     }
 
     @Override
@@ -707,7 +747,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
-                String queryId = UUID.randomUUID().toString().replace("-", "");;
+                String queryId = UUID.randomUUID().toString().replace("-", "");
                 String candidateHost = selectHostForQuery(queryId);
 
                 // configure the client settings
@@ -874,6 +914,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         if (!this.routeHint.isEmpty()) {
             additionalHeaders.put(X_DATABEND_ROUTE_HINT, this.routeHint);
         }
+        additionalHeaders.put("User-Agent", USER_AGENT_VALUE);
         return additionalHeaders;
     }
 
@@ -950,10 +991,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                     logger.info("upload cost time: " + (uploadEndTime - uploadStartTime) / 1000000.0 + "ms");
                 }
             }
-        } catch (RuntimeException e) {
-            logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
-            throw new SQLException(e);
-        } catch (IOException e) {
+        } catch (RuntimeException | IOException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
             throw new SQLException(e);
         }
@@ -987,71 +1025,193 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         while (rs.next()) {
         }
     }
+    @Override
+    public int loadStreamToTable(String sql, InputStream inputStream, long fileSize,  String loadMethod) throws SQLException {
+        loadMethod = loadMethod.toLowerCase();
+        if (!"stage".equals(loadMethod) && !"streaming".equals(loadMethod)) {
+            throw new SQLException("invalid value for loadMethod(" + loadMethod + ") only accept \"stage\" or \" streaming\"");
+        }
+
+        if (!this.serverCapability.streamingLoad()) {
+            throw new SQLException("please upgrade databend-query to >1.2.781 to use loadStreamToTable, current version=" + this.serverVersion);
+        }
+
+        if (!sql.contains("@_databend_load")) {
+            throw new SQLException("invalid sql: must contain @_databend_load when used in loadStreamToTable ");
+        }
+
+        if ("streaming".equals(loadMethod)) {
+            return streamingLoad(sql, inputStream, fileSize);
+        } else {
+            Instant now = Instant.now();
+            long nanoTimestamp = now.getEpochSecond() * 1_000_000_000 + now.getNano();
+            String fileName = String.valueOf(nanoTimestamp);
+            String location = "~/_databend_load/" + fileName;
+            sql = sql.replace("_databend_load", location);
+            uploadStream("~", "_databend_load", inputStream, fileName, fileSize, false);
+            Statement statement = this.createStatement();
+            statement.execute(sql);
+            ResultSet rs = statement.getResultSet();
+            while (rs.next()) {
+            }
+            return statement.getUpdateCount();
+        }
+    }
+
+    MultipartBody buildMultiPart(InputStream inputStream, long fileSize) {
+        RequestBody requestBody = new RequestBody() {
+            @Override
+            public MediaType contentType() {
+                return MediaType.parse("application/octet-stream");
+            }
+
+            @Override
+            public long contentLength() {
+                return fileSize;
+            }
+
+            @Override
+            public void writeTo(BufferedSink sink) throws IOException {
+                try (Source source = Okio.source(inputStream)) {
+                    sink.writeAll(source);
+                }
+            }
+        };
+        return new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart(
+                "upload",
+                "java.io.InputStream",
+                requestBody
+        ).build();
+    }
+
+    int streamingLoad(String sql, InputStream inputStream, long fileSize) throws SQLException {
+        RetryPolicy retryPolicy = new RetryPolicy(true, true);
+
+        try {
+            HashMap<String, String> headers = new HashMap<>();
+            DatabendSession session = this.session.get();
+            if (session != null) {
+                String sessionString = objectMapper.writeValueAsString(session);
+                headers.put(DatabendQueryContextHeader, sessionString);
+            }
+            headers.put(DatabendSQLHeader, sql);
+            headers.put("Accept", "application/json");
+            RequestBody requestBody = buildMultiPart(inputStream, fileSize);
+            ResponseWithBody response = requestHelper(STREAMING_LOAD_PATH, "put", requestBody, headers, retryPolicy);
+            JsonNode json = objectMapper.readTree(response.body);
+            JsonNode error = json.get("error");
+            if (error != null) {
+                throw new SQLException("streaming load fail: code = " + error.get("code").asText() + ", message=" +  error.get("message").asText());
+            }
+            String base64 = response.response.headers().get(DatabendQueryContextHeader);
+            if (base64 != null) {
+                byte[] bytes = Base64.getUrlDecoder().decode(base64);
+                String str = new String(bytes, StandardCharsets.UTF_8);
+                try {
+                    session = SESSION_JSON_CODEC.fromJson(str);
+                }   catch(Exception e) {
+                    throw new RuntimeException(e);
+                }
+                if (session != null) {
+                    this.session.set(session);
+                }
+            }
+            JsonNode stats = json.get("stats");
+            if (stats != null) {
+                int rows = stats.get("rows").asInt(-1);
+                if (rows != -1) {
+                    return  rows;
+                }
+            }
+            throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.body);
+        } catch(JsonProcessingException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
     void logout() throws SQLException {
         DatabendSession session = this.session.get();
         if (session == null || !session.getNeedKeepAlive()) {
             return;
         }
-        generalRequest(LOGOUT_PATH, "{}");
+        RetryPolicy retryPolicy = new RetryPolicy(false, false);
+        RequestBody body = RequestBody.create(MEDIA_TYPE_JSON, "{}");
+        requestHelper(LOGOUT_PATH, "post", body, new HashMap<>(), retryPolicy);
     }
 
-    String generalRequest(String path, String body)  throws SQLException {
-        DatabendSession session = this.session.get();
-        int times = getMaxFailoverRetries() + 1;
-        List hosts = new LinkedList<String>();
+
+    HttpUrl getUrl(String path) {
+        String host = this.driverUri.getUri().toString();
+        HttpUrl url = HttpUrl.get(host);
+        return url.newBuilder().encodedPath(path).build();
+    }
+
+    ResponseWithBody sendRequestWithRetry(Request request, RetryPolicy retryPolicy, String path) throws SQLException {
         String failReason = null;
-        String lastHost = null;
 
-        for (int i = 1; i <= times; i++) {
-            String candidateHost = this.driverUri.getUri("").toString();
-            // candidateHost = "http://localhost:8888";
-            hosts.add(candidateHost);
-            if (lastHost == candidateHost) {
-                break;
-            }
-            lastHost = candidateHost;
-            logger.log(Level.FINE, "retry " + i + " times to logout on " + candidateHost);
-
-            ClientSettings settings = this.makeClientSettings("", candidateHost).build();
-            HttpUrl url = HttpUrl.get(candidateHost).newBuilder().encodedPath(path).build();
-            Request.Builder builder = new Request.Builder()
-                    .url(url)
-                    .header("User-Agent", USER_AGENT_VALUE);
-            if (settings.getAdditionalHeaders() != null) {
-                settings.getAdditionalHeaders().forEach(builder::addHeader);
-            }
-            if (session.getNeedSticky()) {
-                builder.addHeader(ClientSettings.X_DATABEND_ROUTE_HINT, uriRouteHint(candidateHost));
-                String lastNodeID = this.lastNodeID.get();
-                if (lastNodeID != null) {
-                    builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
+        for (int j = 1; j <= 3; j++) {
+            try (Response response = httpClient.newCall(request).execute()) {
+                int code = response.code();
+                if (code != 200) {
+                    if (retryPolicy.shouldIgnore(code)) {
+                        return new ResponseWithBody(response, "");
+                    } else {
+                        failReason = "status code =" + response.code() + ", body = " + response.body().string();
+                        if (!retryPolicy.shouldRetry(code))
+                            break;
+                    }
+                } else {
+                    String body = response.body().string();
+                    return new ResponseWithBody(response, body);
+                }
+            } catch (IOException e) {
+                if (retryPolicy.shouldRetry(e)) {
+                    if (failReason == null) {
+                        failReason = e.getMessage();
+                    }
+                } else {
+                    break;
                 }
             }
-            for (int j = 1; j <= 3; j++) {
-                Request request = builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, body)).build();
-                try (Response response = httpClient.newCall(request).execute()) {
-                    if (response.code() != 200) {
-                        throw new SQLException("Error logout: code =" + response.code() + ", body = " + response.body());
-                    }
-                    return response.body().string();
-                } catch (IOException e) {
-                    if (e.getCause() instanceof ConnectException) {
-                        if (failReason == null) {
-                            failReason = e.getMessage();
-                        }
-                        try {
-                            MILLISECONDS.sleep(j * 100);
-                        } catch (InterruptedException e2) {
-                            Thread.currentThread().interrupt();
-                            return null;
-                        }
-                    } else {
-                       break;
-                    }
+            if (j < 3) {
+                try {
+                    MILLISECONDS.sleep(j * 100);
+                } catch (InterruptedException e2) {
+                    Thread.currentThread().interrupt();
+                    return null;
                 }
             }
         }
-        throw new SQLException("Failover Retry Error executing query after retries on hosts " + hosts + ": " + failReason);
+        throw new SQLException("Error accessing " + path  + ": " + failReason);
+    }
+
+    ResponseWithBody requestHelper(String path, String method, RequestBody body, Map<String, String> headers, RetryPolicy retryPolicy) throws SQLException {
+        DatabendSession session = this.session.get();
+        HttpUrl url = getUrl(path);
+
+        Request.Builder builder = new Request.Builder().url(url);
+        this.setAdditionalHeaders().forEach(builder::addHeader);
+        if (headers != null) {
+            headers.forEach(builder::addHeader);
+        }
+        if (session.getNeedSticky()) {
+            builder.addHeader(ClientSettings.X_DATABEND_ROUTE_HINT, url.host());
+            String lastNodeID = this.lastNodeID.get();
+            if (lastNodeID != null) {
+                builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
+            }
+        }
+        if ("post".equals(method)) {
+            builder = builder.post(body);
+        } else if ("put".equals(method)) {
+            builder = builder.put(body);
+        } else {
+            builder = builder.get();
+        }
+        Request request = builder.build();
+        return sendRequestWithRetry(request, retryPolicy, path);
     }
 
     class HeartbeatManager implements Runnable {
@@ -1087,7 +1247,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             ArrayList<QueryLiveness> arr = new ArrayList<>();
             for (DatabendStatement stmt : statements.keySet()) {
                 QueryLiveness ql = stmt.queryLiveness();
-                if (ql != null && !ql.stopped && ServerVersions.supportHeartbeat(ql.serverVersion)) {
+                if (ql != null && !ql.stopped && ql.serverSupportHeartBeat) {
                     arr.add(ql);
                 }
             }
@@ -1097,12 +1257,12 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         private void doHeartbeat(ArrayList<QueryLiveness> queryLivenesses ) {
             long now = System.currentTimeMillis();
             lastHeartbeatStartTimeMillis = now;
-            Map<String, ArrayList<String>> nodeToQueryID = new HashMap();
-            Map<String, QueryLiveness> queries = new HashMap();
+            Map<String, ArrayList<String>> nodeToQueryID = new HashMap<>();
+            Map<String, QueryLiveness> queries = new HashMap<>();
 
             for (QueryLiveness ql: queryLivenesses) {
                 if (now - ql.lastRequestTime.get() >= ql.resultTimeoutSecs * 1000 / 2) {
-                    nodeToQueryID.computeIfAbsent(ql.nodeID, k -> new ArrayList()).add(ql.queryID);
+                    nodeToQueryID.computeIfAbsent(ql.nodeID, k -> new ArrayList<>()).add(ql.queryID);
                     queries.put(ql.queryID, ql);
                 }
             }
@@ -1110,15 +1270,15 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
                 return;
             }
 
-            ObjectMapper mapper = new ObjectMapper();
             Map<String, Object> map = new HashMap<>();
             map.put("node_to_queries", nodeToQueryID);
 
             try {
-                String body = mapper.writeValueAsString(map);
-
-                body = generalRequest(HEARTBEAT_PATH, body);
-                JsonNode toRemove = mapper.readTree(body).get("queries_to_remove");
+                String body = objectMapper.writeValueAsString(map);
+                RequestBody requestBody = RequestBody.create(MEDIA_TYPE_JSON, body);
+                RetryPolicy retryPolicy = new RetryPolicy(true, false);
+                body = requestHelper(HEARTBEAT_PATH, "post", requestBody, null, retryPolicy).body;
+                JsonNode toRemove = objectMapper.readTree(body).get("queries_to_remove");
                 if (toRemove.isArray()) {
                     for (JsonNode element : toRemove) {
                         String queryId = element.asText();
@@ -1155,8 +1315,8 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
             ArrayList<QueryLiveness> arr = queryLiveness();
             doHeartbeat(arr);
 
+            heartbeatFuture = null;
             synchronized (DatabendConnection.this) {
-                heartbeatFuture = null;
                 if (arr.size() > 0) {
                     if (heartbeatFuture == null) {
                         scheduleHeartbeat();
@@ -1171,5 +1331,35 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     boolean isHeartbeatStopped() {
         return heartbeatManager.heartbeatFuture == null;
     }
-}
 
+    static class RetryPolicy {
+        boolean ignore404;
+        boolean retry503;
+        RetryPolicy(boolean ignore404, boolean retry503) {
+            this.ignore404 = ignore404;
+            this.retry503 = retry503;
+        }
+
+        boolean shouldIgnore(int code) {
+            return ignore404 && code == 404;
+        }
+
+        boolean shouldRetry(int code) {
+            return retry503 && (code == 502 || code == 503);
+        }
+
+        boolean shouldRetry(IOException e) {
+            return  e.getCause() instanceof ConnectException;
+        }
+    }
+
+    static class ResponseWithBody {
+        public  Response response;
+        public String body;
+
+        ResponseWithBody(Response response, String body) {
+            this.response = response;
+            this.body = body;
+        }
+    }
+}

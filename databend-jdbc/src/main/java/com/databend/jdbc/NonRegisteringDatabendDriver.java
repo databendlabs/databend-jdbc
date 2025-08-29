@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.GlobalCookieJar;
+import com.databend.jdbc.util.GlobalCookieJar;
 import okhttp3.Cookie;
 import okhttp3.OkHttpClient;
 
@@ -72,7 +72,7 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable {
             }
         }
 
-        return new DatabendConnection(uri, builder.build());
+        return connection;
     }
 
     @Override

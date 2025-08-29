@@ -15,18 +15,21 @@
 package com.databend.client;
 
 import com.databend.client.errors.QueryErrors;
-import io.airlift.json.JsonCodec;
+import com.fasterxml.jackson.core.JsonProcessingException;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import static io.airlift.json.JsonCodec.jsonCodec;
+import static com.databend.client.JsonCodec.jsonCodec;
+
+
+
 @Test(timeOut = 10000)
 public class TestQueryErrors
 {
     private static final JsonCodec<QueryErrors> QUERY_ERROR_JSON_CODEC = jsonCodec(QueryErrors.class);
 
     @Test( groups = {"unit"} )
-    public void testQueryError() {
+    public void testQueryError() throws JsonProcessingException {
         String json = "{\"code\": 1000, \"message\": \"test\"}";
         Assert.assertEquals(QUERY_ERROR_JSON_CODEC.fromJson(json).getCode(), 1000);
         Assert.assertEquals(QUERY_ERROR_JSON_CODEC.fromJson(json).getMessage(), "test");

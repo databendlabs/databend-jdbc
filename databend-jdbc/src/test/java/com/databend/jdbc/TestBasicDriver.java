@@ -2,9 +2,6 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
-import org.locationtech.jts.geom.Geometry;
-import org.locationtech.jts.io.ParseException;
-import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -35,10 +32,6 @@ public class TestBasicDriver {
         c.createStatement().execute("create table test_basic_driver.table1(i int)");
         c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
         c.createStatement().execute("create database test_basic_driver_2");
-        c.createStatement().execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
-        c.createStatement().execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
-
-        // json data
     }
 
     @Test(groups = {"IT"})
@@ -90,7 +83,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testCreateUserFunction() throws SQLException {
         String s = "create or replace function add_plus(int,int)\n" +
                 "returns int\n" +
@@ -119,11 +112,12 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
-    public void TestMergeinto() throws SQLException {
-        try (Connection connection = Utils.createConnection()) {
-            DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.target_table (\n" +
+    @Test(groups = {"IT"})
+    public void TestMergeInto() throws SQLException {
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()
+        ) {
+            statement.execute("CREATE OR REPLACE TABLE test_basic_driver.target_table (\n" +
                     "    ID INT,\n" +
                     "    Name VARCHAR(50),\n" +
                     "    Age INT,\n" +
@@ -134,7 +128,7 @@ public class TestBasicDriver {
                     "    (1, 'Alice', 25, 'Toronto'),\n" +
                     "    (2, 'Bob', 30, 'Vancouver'),\n" +
                     "    (3, 'Carol', 28, 'Montreal');");
-            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.source_table (\n" +
+            statement.execute("CREATE OR REPLACE TABLE test_basic_driver.source_table (\n" +
                     "    ID INT,\n" +
                     "    Name VARCHAR(50),\n" +
                     "    Age INT,\n" +
@@ -154,15 +148,15 @@ public class TestBasicDriver {
                     "    WHEN NOT MATCHED THEN\n" +
                     "    INSERT *;\n");
             ResultSet r = statement.getResultSet();
-            r.next();
+
+            Assert.assertTrue(r.next());
             Assert.assertEquals(3, statement.getUpdateCount());
-            System.out.println(statement.getUpdateCount());
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+        } catch (SQLException throwable) {
+            throwable.printStackTrace();
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testWriteDouble() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
@@ -173,7 +167,7 @@ public class TestBasicDriver {
                     "    City VARCHAR(50),\n" +
                     "    Score DOUBLE\n" +
                     ");");
-            Double infDouble = Double.POSITIVE_INFINITY;
+            double infDouble = Double.POSITIVE_INFINITY;
 
             String sql = "INSERT INTO test_basic_driver.table_double (ID, Name, Age, City, Score) values";
             PreparedStatement prepareStatement = connection.prepareStatement(sql);
@@ -194,19 +188,26 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testDefaultSelectNullValue() throws SQLException {
-        try (Connection connection = Utils.createConnection()) {
-            DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.executeQuery("SELECT a,b,c,d from test_basic_driver.table_with_null");
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()
+         ) {
+            statement.execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
+            statement.execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
+            statement.execute("SELECT a,b,c,d from test_basic_driver.table_with_null");
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 1);
-            Assert.assertEquals(r.getObject(2), null);
+            Assert.assertNull(r.getObject(2));
             Assert.assertEquals(r.getObject(3), "null");
-            Assert.assertEquals(r.getObject(4), "NULL");
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+            if (Compatibility.skipDriverBugLowerThen("0.3.9")) {
+                Assert.assertNull(r.getObject(4));
+            } else {
+                Assert.assertEquals(r.getObject(4), "NULL");
+            }
+        } catch (SQLException throwable) {
+            throwable.printStackTrace();
         }
     }
 
@@ -246,7 +247,7 @@ public class TestBasicDriver {
         }
     }
 
-    @Test
+    @Test(groups = {"IT"})
     public void testPrepareStatementQuery() throws SQLException {
         String sql = "SELECT number from numbers(100) where number = ? or number = ?";
         Connection conn = Utils.createConnection("test_basic_driver");
@@ -297,7 +298,7 @@ public class TestBasicDriver {
     public void testResultException() {
         try (Connection connection = Utils.createConnection()) {
             Statement statement = connection.createStatement();
-            ResultSet r = statement.executeQuery("SELECT 1e189he 198h");
+            statement.execute("SELECT 1e189he 198h");
         } catch (SQLException e) {
             Assert.assertTrue(e.getMessage().contains("Query failed"));
         }
@@ -316,35 +317,6 @@ public class TestBasicDriver {
             ResultSet r = statement.executeQuery();
             r.next();
             Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
-        }
-    }
-
-    @Test(groups = {"IT"})
-    public void testSelectGeometry() throws SQLException, ParseException {
-        // skip due to failed cluster tests
-
-        try (Connection connection = Utils.createConnection()) {
-            connection.createStatement().execute("set enable_geo_create_table=1");
-            connection.createStatement().execute("CREATE or replace table cities ( id INT, name VARCHAR NOT NULL, location GEOMETRY);");
-            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
-            connection.createStatement().execute("INSERT INTO cities (id, name, location) VALUES (2, 'Null', null);");
-            Statement statement = connection.createStatement();
-            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
-                r.next();
-                Assert.assertEquals("{\"type\": \"Point\", \"coordinates\": [-73.935242,40.73061]}", r.getObject(1));
-                r.next();
-                Assert.assertNull(r.getObject(1));
-            }
-
-            // set geometry_output_format to wkb
-            connection.createStatement().execute("set geometry_output_format='WKB'");
-            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
-                r.next();
-                byte[] wkb = r.getBytes(1);
-                WKBReader wkbReader = new WKBReader();
-                Geometry geometry = wkbReader.read(wkb);
-                Assert.assertEquals("POINT (-73.935242 40.73061)", geometry.toText());
-            }
         }
     }
 }

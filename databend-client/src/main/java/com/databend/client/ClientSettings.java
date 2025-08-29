@@ -31,6 +31,8 @@ public class ClientSettings {
     public static final String X_DATABEND_STICKY_NODE = "X-DATABEND-STICKY-NODE";
     public static final String DatabendWarehouseHeader = "X-DATABEND-WAREHOUSE";
     public static final String DatabendTenantHeader = "X-DATABEND-TENANT";
+    public static final String DatabendSQLHeader = "X-DATABEND-SQL";
+    public static final String DatabendQueryContextHeader = "X-DATABEND-QUERY-CONTEXT";
     private final String host;
     private final DatabendSession session;
     private final Integer queryTimeoutSecs;
@@ -40,14 +42,14 @@ public class ClientSettings {
     private final PaginationOptions paginationOptions;
 
     private final StageAttachment stageAttachment;
-    private Map<String, String> additionalHeaders;
+    private final Map<String, String> additionalHeaders;
 
     private final int retryAttempts;
     // TODO(zhihanz) timezone and locale info
 
     //ClientSettings for test case use
     public ClientSettings(String host) {
-        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), new HashMap<String, String>(), null, DEFAULT_RETRY_ATTEMPTS);
+        this(host, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), new HashMap<>(), null, DEFAULT_RETRY_ATTEMPTS);
     }
 
     public ClientSettings(String host, String database) {

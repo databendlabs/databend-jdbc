@@ -3,6 +3,7 @@
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
     <parent>
+        <!-- https://github.com/airlift/airbase/blob/130/airbase/pom.xml -->
         <groupId>io.airlift</groupId>
         <artifactId>airbase</artifactId>
         <version>130</version>
@@ -38,17 +39,19 @@
     </distributionManagement>
     <properties>
         <air.main.basedir>${project.basedir}</air.main.basedir>
-        <air.check.skip-all>true</air.check.skip-all>
-        <air.check.skip-spotbugs>true</air.check.skip-spotbugs>
-        <air.check.skip-pmd>true</air.check.skip-pmd>
-        <air.check.skip-jacoco>true</air.check.skip-jacoco>
         <air.modernizer.java-version>8</air.modernizer.java-version>
+
+        <air.check.skip-all>true</air.check.skip-all>
+
         <dep.airlift.version>219</dep.airlift.version>
         <dep.packaging.version>${dep.airlift.version}</dep.packaging.version>
+        <dep.jackson.version>2.19.2</dep.jackson.version>
+        <dep.guava.version>32.0.1-jre</dep.guava.version>
+        <dep.slf4j.version>1.7.6</dep.slf4j.version>
+        <!-- not in airbase -->
+        <dep.okio.version>3.1.0</dep.okio.version>
+        <!-- not in airbase -->
         <dep.okhttp.version>5.0.0-alpha.11</dep.okhttp.version>
-        <dep.okio.version>3.0.0</dep.okio.version>
-        <dep.errorprone.version>2.15.0</dep.errorprone.version>
-        <dep.semver.version>0.9.0</dep.semver.version>
         <air.javadoc.lint>-missing</air.javadoc.lint>
         <checkstyle.config.location>${maven.multiModuleProjectDirectory}/config/checkstyle/checkstyle.xml</checkstyle.config.location>
     </properties>
@@ -65,16 +68,7 @@
                 <artifactId>databend-client</artifactId>
                 <version>${project.version}</version>
             </dependency>
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>units</artifactId>
-                <version>1.7</version>
-            </dependency>
-            <dependency>
-                <groupId>io.airlift</groupId>
-                <artifactId>json</artifactId>
-                <version>${dep.airlift.version}</version>
-            </dependency>
+
             <dependency>
                 <groupId>net.jodah</groupId>
                 <artifactId>failsafe</artifactId>
@@ -82,15 +76,15 @@
             </dependency>
 
             <dependency>
-                <groupId>com.squareup.okhttp3</groupId>
-                <artifactId>okhttp</artifactId>
-                <version>${dep.okhttp.version}</version>
-            </dependency>
-            <!-- https://mvnrepository.com/artifact/com.squareup.okio/okio -->
-            <dependency>
                 <groupId>com.squareup.okio</groupId>
                 <artifactId>okio</artifactId>
                 <version>${dep.okio.version}</version>
+            </dependency>
+
+            <dependency>
+                <groupId>com.squareup.okhttp3</groupId>
+                <artifactId>okhttp</artifactId>
+                <version>${dep.okhttp.version}</version>
             </dependency>
 
             <dependency>
@@ -108,13 +102,19 @@
             <dependency>
                 <groupId>com.google.errorprone</groupId>
                 <artifactId>error_prone_annotations</artifactId>
-                <version>${dep.errorprone.version}</version>
+                <version>2.41.0</version>
             </dependency>
 
             <dependency>
-                <groupId>com.github.zafarkhaja</groupId>
-                <artifactId>java-semver</artifactId>
-                <version>${dep.semver.version}</version>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib-common</artifactId>
+                <version>1.7.10</version>
+            </dependency>
+
+            <dependency>
+                <groupId>org.jetbrains.kotlin</groupId>
+                <artifactId>kotlin-stdlib</artifactId>
+                <version>1.7.10</version>
             </dependency>
 
         </dependencies>
@@ -226,7 +226,6 @@
                 <version>3.3.0</version>
                 <configuration>
                     <configLocation>${checkstyle.config.location}</configLocation>
-                    <encoding>UTF-8</encoding>
                     <consoleOutput>true</consoleOutput>
                     <failsOnError>true</failsOnError>
                     <linkXRef>false</linkXRef>

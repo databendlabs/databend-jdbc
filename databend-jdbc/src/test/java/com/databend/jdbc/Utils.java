@@ -1,5 +1,7 @@
 package com.databend.jdbc;
 
+import com.vdurmont.semver4j.Semver;
+
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
@@ -8,9 +10,9 @@ import java.util.Properties;
 public class Utils {
 
     static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT").trim() : "8000";
-
     static String username = "databend";
     static String password = "databend";
+
     public static String baseURL() {
         return "jdbc:databend://localhost:" + port;
     }
@@ -18,6 +20,7 @@ public class Utils {
     public static String getUsername() {
         return username;
     }
+
     public static String getPassword() {
         return password;
     }
@@ -44,3 +47,4 @@ public class Utils {
         return DriverManager.getConnection(url, "databend", "databend");
     }
 }
+

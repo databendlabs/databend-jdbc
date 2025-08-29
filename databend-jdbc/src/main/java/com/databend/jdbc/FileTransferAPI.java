@@ -41,4 +41,15 @@ public interface FileTransferAPI {
      * @throws SQLException fail to copy into table
      */
     void copyIntoTable(String database, String tableName, DatabendCopyParams params) throws SQLException;
+
+    /**
+     * Upload inputStream into the target table
+     *
+     * @param sql the sql with syntax `Insert into <table> [(<columns></columns>) [values (?, ...)]] from @_databend_load [file_format=(...)]`
+     * @param inputStream the input stream of the file
+     * @param loadMethod one of "stage" or "streaming"
+     * @return num of rows loaded
+     * @throws SQLException fail to load file into table
+     */
+    int loadStreamToTable(String sql, InputStream inputStream, long fileSize, String loadMethod) throws SQLException;
 }

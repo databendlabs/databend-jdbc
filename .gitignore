@@ -6,3 +6,6 @@ databend-jdbc/databend-jdbc-debug.log
 target/
 /databend/
 .databend/
+tests/data
+tests/compatibility/*.jar
+test-output
