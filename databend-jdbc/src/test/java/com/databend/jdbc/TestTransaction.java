@@ -111,7 +111,7 @@ public class TestTransaction {
                     () ->  statement1.execute("commit")
             );
             // e.g. Unresolvable conflict detected for table 2249
-            Assert.assertTrue(exception.getMessage().toLowerCase().contains("conflict"));
+            Assert.assertTrue(exception.getMessage().toLowerCase().contains("conflict"), exception.getMessage());
 
 
             statement2.execute("select j from test_txn.table3 where i = 1");
