@@ -240,16 +240,13 @@ public class TestDatabendDriverUri {
 
     @Test(groups = "IT")
     public void TestSetSchema() throws SQLException {
-        DatabendConnection connection = (DatabendConnection) Utils.createConnection();
-        try {
+        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection()) {
             connection.createStatement().execute("create or replace database test2");
             connection.createStatement().execute("create or replace table test2.test2(id int)");
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
+            connection.setSchema("test2");
+            Assert.assertEquals(connection.getSchema(), "test2");
+            connection.createStatement().execute("insert into test2 values (1)");
         }
-        connection.setSchema("test2");
-        Assert.assertEquals(connection.getSchema(), "test2");
-        connection.createStatement().execute("insert into test2 values (1)");
     }
 
     @Test(groups = "IT")
@@ -259,8 +256,7 @@ public class TestDatabendDriverUri {
         props.setProperty("session_settings", "max_threads=1,query_tag=tag1");
         props.setProperty("user", "databend");
         props.setProperty("password", "databend");
-        DatabendConnection connection = (DatabendConnection) Utils.createConnection("default", props);
-        try {
+        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection("default", props)) {
             Statement statement = connection.createStatement();
             statement.execute("show settings");
             ResultSet r = statement.getResultSet();
@@ -270,11 +266,6 @@ public class TestDatabendDriverUri {
             }
             Assert.assertEquals(settings.get("max_threads"), "1");
             Assert.assertEquals(settings.get("query_tag"), "tag1");
-
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        } finally {
-            connection.close();
         }
     }
 }

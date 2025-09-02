@@ -24,43 +24,49 @@ public class TestPrepareStatement {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = Utils.createConnection();
-        System.out.println("-----------------");
-        c.createStatement().execute("create database if not exists test_prepare_statement");
+        try (Connection c = Utils.createConnection()) {
+            System.out.println("-----------------");
+            c.createStatement().execute("create database if not exists test_prepare_statement");
 
-        c.createStatement().execute("drop table if exists test_prepare_statement");
-        c.createStatement().execute("create table test_prepare_statement (a int, b string)");
+            c.createStatement().execute("drop table if exists test_prepare_statement");
+            c.createStatement().execute("create table test_prepare_statement (a int, b string)");
+        }
     }
 
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
-        Connection c = Utils.createConnection();
-        c.setAutoCommit(false);
-        Statement s = c.createStatement();
-        s.execute("use test_prepare_statement");
-        s.execute("create or replace table batch_insert (a int, b string)");
+        Statement s;
+        int[] c1;
+        String[] c2;
+        PreparedStatement ps;
+        try (Connection c = Utils.createConnection()) {
+            c.setAutoCommit(false);
+            s = c.createStatement();
+            s.execute("use test_prepare_statement");
+            s.execute("create or replace table batch_insert (a int, b string)");
 
-        int[] c1 = {1, 2};
-        String[] c2 = {"a", "b"};
+            c1 = new int[]{1, 2};
+            c2 = new String[]{"a", "b"};
 
-        PreparedStatement ps = c.prepareStatement("insert into batch_insert values");
-        for (int i = 0; i < c1.length; i++) {
-            ps.setInt(1, c1[i]);
-            ps.setString(2, c2[i]);
-            ps.addBatch();
+            ps = c.prepareStatement("insert into batch_insert values");
+            for (int i = 0; i < c1.length; i++) {
+                ps.setInt(1, c1[i]);
+                ps.setString(2, c2[i]);
+                ps.addBatch();
+            }
+            int[] ans = ps.executeBatch();
+            Assert.assertEquals(ans, new int[] {1, 1});
+
+            s.execute("SELECT * from batch_insert");
+            ResultSet r = s.getResultSet();
+
+            for (int i = 0; i < c1.length; i++) {
+                Assert.assertTrue(r.next());
+                Assert.assertEquals(r.getInt(1), c1[i]);
+                Assert.assertEquals(r.getString(2), c2[i]);
+            }
+            Assert.assertFalse(r.next());
         }
-        int[] ans = ps.executeBatch();
-        Assert.assertEquals(ans, new int[] {1, 1});
-
-        s.execute("SELECT * from batch_insert");
-        ResultSet r = s.getResultSet();
-
-        for (int i = 0; i < c1.length; i++) {
-            Assert.assertTrue(r.next());
-            Assert.assertEquals(r.getInt(1), c1[i]);
-            Assert.assertEquals(r.getString(2), c2[i]);
-        }
-        Assert.assertFalse(r.next());
     }
 
     @Test(groups = "IT")
@@ -286,47 +292,41 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testPrepareStatementExecute() throws SQLException {
-        Connection conn = Utils.createConnection();
-        conn.createStatement().execute("delete from test_prepare_statement");
-        String insertSql = "insert into test_prepare_statement values (?,?)";
-        try (PreparedStatement statement = conn.prepareStatement(insertSql)) {
-            statement.setInt(1, 1);
-            statement.setString(2, "b");
-            statement.execute();
-        }
-        String updateSql = "update test_prepare_statement set b = ? where a = ?";
-        try (PreparedStatement statement = conn.prepareStatement(updateSql)) {
-            statement.setString(1, "c");
-            statement.setInt(2, 1);
-            statement.execute();
-        }
-
-        String selectSql = "select * from test_prepare_statement";
-        try {
-            Statement statement = conn.createStatement();
-            ResultSet rs = statement.executeQuery(selectSql);
-            while (rs.next()) {
-                Assert.assertEquals("c", rs.getString(2));
+        try(Connection conn = Utils.createConnection();
+            Statement statement =  conn.createStatement()) {
+            statement.execute("use test_prepare_statement");
+            statement.execute("create or replace table testPrepareStatementExecute (a int, b string)");
+            String insertSql = "insert into testPrepareStatementExecute values (?,?)";
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "b");
+                ps.execute();
             }
-        } catch (Exception e) {
-            e.printStackTrace();
-        }
+            String updateSql = "update testPrepareStatementExecute set b = ? where a = ?";
+            try (PreparedStatement ps = conn.prepareStatement(updateSql)) {
+                ps.setString(1, "c");
+                ps.setInt(2, 1);
+                ps.execute();
+            }
 
-        String deleteSql = "delete from test_prepare_statement where a = ?";
-        try (PreparedStatement statement = conn.prepareStatement(deleteSql)) {
-            statement.setInt(1, 1);
-            statement.execute();
-        }
+            String selectSql = "select * from testPrepareStatementExecute";
+            try (ResultSet rs = statement.executeQuery(selectSql)) {
+                while (rs.next()) {
+                    Assert.assertEquals("c", rs.getString(2));
+                }
+            }
 
-        try {
-            Statement statement = conn.createStatement();
-            ResultSet rs = statement.executeQuery(selectSql);
-            Assert.assertEquals(0, rs.getRow());
-        } catch (Exception e) {
-            e.printStackTrace();
+            String deleteSql = "delete from testPrepareStatementExecute where a = ?";
+            try (PreparedStatement ps = conn.prepareStatement(deleteSql)) {
+                ps.setInt(1, 1);
+                ps.execute();
+            }
+
+            try (ResultSet rs = statement.executeQuery(selectSql)) {
+                Assert.assertEquals(0, rs.getRow());
+                Assert.assertFalse(rs.next());
+            }
         }
-        // truncate table
-        conn.createStatement().execute("truncate table test_prepare_statement");
     }
 
     @Test(groups = "IT")
@@ -355,14 +355,12 @@ public class TestPrepareStatement {
             ResultSet r = statement.executeQuery();
             while (r.next()) {
                 Assert.assertEquals(1, r.getInt(1));
-                Assert.assertEquals(null, r.getString(2));
+                Assert.assertNull(r.getString(2));
             }
         }
         String insertSelectSql = "insert overwrite test_prepare_statement select * from test_prepare_statement";
-        try (PreparedStatement statement = conn.prepareStatement(insertSelectSql)) {
-            statement.execute();
-        } catch (Exception e) {
-            e.printStackTrace();
+        try (PreparedStatement ps = conn.prepareStatement(insertSelectSql)) {
+            ps.execute();
         }
         // truncate table
         conn.createStatement().execute("truncate table test_prepare_statement");

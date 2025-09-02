@@ -12,7 +12,7 @@ import java.util.Vector;
 
 public class TestHeartbeat {
     @Test(groups = {"IT"})
-    public void testHeartbeat() throws SQLException {
+    public void testHeartbeat() throws SQLException, InterruptedException {
         Properties p = new Properties();
         p.setProperty("max_rows_in_buffer", "10000");
         // on the server side, the expired query is put into a queue before not deleted.
@@ -49,9 +49,6 @@ public class TestHeartbeat {
             Thread.sleep(5000);
 
             Assert.assertTrue(c1.unwrap(DatabendConnection.class).isHeartbeatStopped());
-
-        } catch (InterruptedException e) {
-            throw new RuntimeException(e);
         }
     }
 }

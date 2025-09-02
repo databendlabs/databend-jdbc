@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 
+@Test(timeOut = 10000, groups = "MULTI_HOST" )
 public class TestMultiHost {
     private final String DEFAULT_JDBC_URL = "jdbc:databend://localhost:8001,localhost:8002,localhost:8003/default";
     private final String RANDOM_JDBC_URL = "jdbc:databend://localhost:8001,localhost:8002,localhost:8003/default?load_balancing_policy=random";
@@ -98,14 +99,14 @@ public class TestMultiHost {
     }
     // @Test(groups = {"IT", "MULTI_HOST"})
     // skip since getConnection not support multihost for now
-    public void testFailOver()
-            throws SQLException {
-        HashMap<Integer, Integer> expect = new HashMap<>();
-        expect.put(8001, 90);
-
-        HashMap<Integer, Integer> actual = get_hosts_used(FAIL_OVER_JDBC_URL);
-        Assert.assertEquals(expect, actual);
-    }
+//    public void testFailOver()
+//            throws SQLException {
+//        HashMap<Integer, Integer> expect = new HashMap<>();
+//        expect.put(8001, 90);
+//
+//        HashMap<Integer, Integer> actual = get_hosts_used(FAIL_OVER_JDBC_URL);
+//        Assert.assertEquals(expect, actual);
+//    }
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testAutoDiscovery()
