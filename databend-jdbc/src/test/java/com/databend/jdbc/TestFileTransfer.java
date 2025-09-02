@@ -6,7 +6,6 @@ import de.siegmar.fastcsv.writer.CsvWriter;
 import de.siegmar.fastcsv.writer.LineDelimiter;
 import okhttp3.OkHttpClient;
 import org.testng.Assert;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -49,69 +48,61 @@ public class TestFileTransfer {
     }
 
     // generate a csv file in a temp directory with given lines, return absolute path of the generated csv
-    private String generateRandomCSV(int lines) {
+    private String generateRandomCSV(int lines) throws IOException {
         if (lines <= 0) {
             return "";
         }
         String tmpDir = System.getProperty("java.io.tmpdir");
         String csvPath = tmpDir + "/test.csv";
-        try {
-            FileWriter writer = new FileWriter(csvPath);
+        try (FileWriter writer = new FileWriter(csvPath)) {
             for (int i = 0; i < lines; i++) {
                 int num = (int) (Math.random() * 1000);
                 writer.write("a,b,c," + num + "\n");
             }
-            writer.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         return csvPath;
     }
 
-    private String generateLargeCSV() {
-        String tmpDir = System.getProperty("java.io.tmpdir");
-        String csvPath = tmpDir + "/large_test.csv";
-        long fileSizeInBytes = 0;
-        File f = new File(csvPath);
-        try {
-            FileWriter writer = new FileWriter(f);
-            while (fileSizeInBytes < 2L * 1024 * 1024 * 1024) { // 2GB
-                for (int i = 0; i < 1000; i++) { // write 1000 lines at a time
-                    int num = (int) (Math.random() * 1000);
-                    writer.write("a,b,c," + num + "\n");
-                }
-                writer.flush();
-                fileSizeInBytes = f.length();
-            }
-            writer.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
-        return csvPath;
-    }
+//    private String generateLargeCSV() {
+//        String tmpDir = System.getProperty("java.io.tmpdir");
+//        String csvPath = tmpDir + "/large_test.csv";
+//        long fileSizeInBytes = 0;
+//        File f = new File(csvPath);
+//        try {
+//            FileWriter writer = new FileWriter(f);
+//            while (fileSizeInBytes < 2L * 1024 * 1024 * 1024) { // 2GB
+//                for (int i = 0; i < 1000; i++) { // write 1000 lines at a time
+//                    int num = (int) (Math.random() * 1000);
+//                    writer.write("a,b,c," + num + "\n");
+//                }
+//                writer.flush();
+//                fileSizeInBytes = f.length();
+//            }
+//            writer.close();
+//        } catch (Exception e) {
+//            throw new RuntimeException(e);
+//        }
+//        return csvPath;
+//    }
 
-    private String generateRandomCSVComplex(int lines) {
+    private String generateRandomCSVComplex(int lines) throws IOException {
         if (lines <= 0) {
             return "";
         }
         String tmpDir = System.getProperty("java.io.tmpdir");
         String csvPath = tmpDir + "/complex.csv";
-        try {
-            FileWriter writer = new FileWriter(csvPath);
+        try (FileWriter writer = new FileWriter(csvPath)) {
             CsvWriter w = CsvWriter.builder().quoteCharacter('"').lineDelimiter(LineDelimiter.LF).build(writer);
             for (int i = 0; i < lines; i++) {
                 w.writeRow(String.valueOf(i), "{\"str_col\": 1, \"int_col\": 2}", "c");
             }
-            writer.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         return csvPath;
     }
 
     @Test(groups = {"IT"})
     public void testFileTransfer()
-            throws IOException {
+            throws IOException, SQLException {
         String filePath = generateRandomCSV(10000);
         File f = new File(filePath);
         InputStream downloaded = null;
@@ -124,8 +115,6 @@ public class TestFileTransfer {
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         } finally {
             if (downloaded != null) {
                 downloaded.close();
@@ -134,7 +123,7 @@ public class TestFileTransfer {
     }
 
     @Test(groups = {"IT"})
-    public void testFileTransferThroughAPI() {
+    public void testFileTransferThroughAPI() throws SQLException, IOException {
         String filePath = generateRandomCSV(100000);
         File f = new File(filePath);
         try (InputStream fileInputStream = Files.newInputStream(f.toPath());
@@ -149,15 +138,13 @@ public class TestFileTransfer {
             InputStream downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
             Assert.assertEquals(arr.length, f.length());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         } finally {
             f.delete();
         }
     }
 
     @Test(groups = {"IT"})
-    public void testCopyInto() {
+    public void testCopyInto() throws IOException, SQLException {
         String filePath = generateRandomCSVComplex(10);
         File f = new File(filePath);
         try (FileInputStream fileInputStream = new FileInputStream(f)) {
@@ -175,22 +162,20 @@ public class TestFileTransfer {
             while (r.next()) {
                 System.out.println(r.getInt(1) + " " + r.getString(2) + " " + r.getString(3));
             }
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 
     @Test(groups = {"IT"})
-    public void testLoadStreamToTableWithStage() {
+    public void testLoadStreamToTableWithStage() throws SQLException, IOException {
         testLoadStreamToTableInner("stage");
     }
 
     @Test(groups = {"IT"})
-    public void testLoadStreamToTableWithStreaming() {
+    public void testLoadStreamToTableWithStreaming() throws SQLException, IOException {
         testLoadStreamToTableInner("streaming");
     }
 
-    public void testLoadStreamToTableInner(String method) {
+    public void testLoadStreamToTableInner(String method) throws IOException, SQLException {
         if (!Compatibility.driverCapability.streamingLoad) {
             System.out.println("Skip testLoadStreamToTableInner: driver version too low");
             return;
@@ -220,8 +205,6 @@ public class TestFileTransfer {
                 n += 1;
             }
             Assert.assertEquals(10, n);
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 }

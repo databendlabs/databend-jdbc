@@ -3,6 +3,8 @@ package com.databend.jdbc;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.sql.SQLException;
+
 public class TestPresignContext {
     @Test(groups = {"UNIT"})
     public void TestPreisgnUrlBuild() {
@@ -15,30 +17,23 @@ public class TestPresignContext {
     }
 
     @Test(groups = {"IT"})
-    public void TestGetPresignUrl() {
-        try {
-            DatabendConnection connection = (DatabendConnection) Utils.createConnection();
-            PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
-            Assert.assertNotNull(ctx);
-            Assert.assertNotNull(ctx.getUrl());
-            Assert.assertNotNull(ctx.getHeaders());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
-        }
+    public void TestGetPresignUrl() throws SQLException {
+        DatabendConnection connection = (DatabendConnection) Utils.createConnection();
+        PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
+        Assert.assertNotNull(ctx);
+        Assert.assertNotNull(ctx.getUrl());
+        Assert.assertNotNull(ctx.getHeaders());
     }
 
     @Test(groups = {"IT"})
-    public void TestGetPresignUrlCase2() {
-        try {
-            DatabendConnection connection = (DatabendConnection) Utils.createConnection();
+    public void TestGetPresignUrlCase2() throws SQLException {
+        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection()) {
             String stageName = "test_stage";
             PresignContext.createStageIfNotExists(connection, stageName);
             PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, stageName, "a/b/d/test.csv");
             Assert.assertNotNull(ctx);
             Assert.assertNotNull(ctx.getUrl());
             Assert.assertNotNull(ctx.getHeaders());
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
     }
 }

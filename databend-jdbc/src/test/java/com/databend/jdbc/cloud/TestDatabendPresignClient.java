@@ -5,35 +5,28 @@ import com.databend.jdbc.Utils;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.FileWriter;
-import java.io.InputStream;
+import java.io.*;
 import java.sql.SQLException;
 
 public class TestDatabendPresignClient {
 
-    private String generateRandomCSV(int lines) {
+    private String generateRandomCSV(int lines) throws IOException {
         if (lines <= 0) {
             return "";
         }
         String tmpDir = System.getProperty("java.io.tmpdir");
         String csvPath = tmpDir + "/test.csv";
-        try {
-            FileWriter writer = new FileWriter(csvPath);
+        try (FileWriter writer = new FileWriter(csvPath)) {
             for (int i = 0; i < lines; i++) {
                 int num = (int) (Math.random() * 1000);
                 writer.write("a,b,c," + num + "\n");
             }
-            writer.close();
-        } catch (Exception e) {
-            throw new RuntimeException(e);
         }
         return csvPath;
     }
 
     @Test(groups = {"LOCAL"})
-    public void uploadFileAPI() {
+    public void uploadFileAPI() throws IOException, SQLException {
         String filePath = null;
         try (DatabendConnection connection = Utils.createConnection().unwrap(DatabendConnection.class)) {
             OkHttpClient client = connection.getHttpClient();
@@ -42,11 +35,6 @@ public class TestDatabendPresignClient {
             File file = new File(filePath);
             InputStream inputStream = new FileInputStream(file);
             presignClient.presignUpload(null, inputStream, "~", "api/upload/", "1.csv", file.length(), true);
-
-        } catch (SQLException e) {
-            e.printStackTrace();
-        } catch (Exception e) {
-            e.printStackTrace();
         } finally {
             //remove temp file
             if (filePath != null) {

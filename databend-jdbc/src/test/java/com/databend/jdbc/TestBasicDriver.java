@@ -25,13 +25,14 @@ public class TestBasicDriver {
     public void setUp()
             throws SQLException {
         // create table
-        Connection c = Utils.createConnection();
-        c.createStatement().execute("drop database if exists test_basic_driver");
-        c.createStatement().execute("drop database if exists test_basic_driver_2");
-        c.createStatement().execute("create database test_basic_driver");
-        c.createStatement().execute("create table test_basic_driver.table1(i int)");
-        c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
-        c.createStatement().execute("create database test_basic_driver_2");
+        try (Connection c = Utils.createConnection()) {
+            c.createStatement().execute("drop database if exists test_basic_driver");
+            c.createStatement().execute("drop database if exists test_basic_driver_2");
+            c.createStatement().execute("create database test_basic_driver");
+            c.createStatement().execute("create table test_basic_driver.table1(i int)");
+            c.createStatement().execute("insert into test_basic_driver.table1 values(1)");
+            c.createStatement().execute("create database test_basic_driver_2");
+        }
     }
 
     @Test(groups = {"IT"})
@@ -64,7 +65,7 @@ public class TestBasicDriver {
     }
 
     @Test(groups = {"IT"})
-    public void testSchema() {
+    public void testSchema() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
             Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
@@ -78,8 +79,6 @@ public class TestBasicDriver {
             while (r.next()) {
                 System.out.println(r.getString(1));
             }
-        } catch (SQLException throwable) {
-            throwable.printStackTrace();
         }
     }
 
@@ -95,20 +94,16 @@ public class TestBasicDriver {
                 "    return i+k;\n" +
                 "}\n" +
                 "$$;";
-        try (Connection connection = Utils.createConnection()) {
-            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
             statement.execute(s);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
         }
-        try (Connection connection = Utils.createConnection()) {
-            DatabendStatement statement = (DatabendStatement) connection.createStatement();
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
             statement.execute("select add_plus(1,2)");
             ResultSet r = statement.getResultSet();
             r.next();
             Assert.assertEquals(r.getInt(1), 3);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
         }
     }
 
@@ -151,8 +146,6 @@ public class TestBasicDriver {
 
             Assert.assertTrue(r.next());
             Assert.assertEquals(3, statement.getUpdateCount());
-        } catch (SQLException throwable) {
-            throwable.printStackTrace();
         }
     }
 
@@ -160,7 +153,7 @@ public class TestBasicDriver {
     public void testWriteDouble() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.execute("CREATE TABLE IF NOT EXISTS test_basic_driver.table_double (\n" +
+            statement.execute("CREATE OR replace TABLE test_basic_driver.table_double (\n" +
                     "    ID INT,\n" +
                     "    Name VARCHAR(50),\n" +
                     "    Age INT,\n" +
@@ -181,10 +174,10 @@ public class TestBasicDriver {
             prepareStatement.executeBatch();
             statement.execute("SELECT * FROM test_basic_driver.table_double");
             ResultSet r = statement.getResultSet();
-            r.next();
+            Assert.assertTrue(r.next());
+            System.out.println(r.getString(2));
             Assert.assertEquals(r.getDouble(5), Double.POSITIVE_INFINITY);
-        } catch (SQLException throwables) {
-            throwables.printStackTrace();
+            Assert.assertEquals(r.getInt(1), 1);
         }
     }
 
@@ -206,8 +199,6 @@ public class TestBasicDriver {
             } else {
                 Assert.assertEquals(r.getObject(4), "NULL");
             }
-        } catch (SQLException throwable) {
-            throwable.printStackTrace();
         }
     }
 
@@ -296,12 +287,12 @@ public class TestBasicDriver {
 
     @Test(groups = {"IT"})
     public void testResultException() {
-        try (Connection connection = Utils.createConnection()) {
-            Statement statement = connection.createStatement();
-            statement.execute("SELECT 1e189he 198h");
-        } catch (SQLException e) {
-            Assert.assertTrue(e.getMessage().contains("Query failed"));
-        }
+        assertThrows(SQLException.class, () -> {
+            try (Connection connection = Utils.createConnection();
+                 Statement statement = connection.createStatement()) {
+                statement.execute("SELECT 1e189he 198h");
+            }
+        });
     }
 
     @Test(groups = {"IT"})
