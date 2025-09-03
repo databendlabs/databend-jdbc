@@ -186,7 +186,7 @@ public class TestBasicDriver {
         try (Connection connection = Utils.createConnection();
              Statement statement = connection.createStatement()
          ) {
-            statement.execute("create table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
+            statement.execute("create or replace table test_basic_driver.table_with_null(a int,b varchar default null, c varchar, d varchar)");
             statement.execute("insert into test_basic_driver.table_with_null(a,b,c,d) values(1,null,'null','NULL')");
             statement.execute("SELECT a,b,c,d from test_basic_driver.table_with_null");
             ResultSet r = statement.getResultSet();
@@ -241,8 +241,8 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testPrepareStatementQuery() throws SQLException {
         String sql = "SELECT number from numbers(100) where number = ? or number = ?";
-        Connection conn = Utils.createConnection("test_basic_driver");
-        try (PreparedStatement statement = conn.prepareStatement(sql)) {
+        try (Connection conn = Utils.createConnection("test_basic_driver");
+             PreparedStatement statement = conn.prepareStatement(sql)) {
             statement.setInt(1, 1);
             statement.setInt(2, 2);
             ResultSet r = statement.executeQuery();

@@ -25,11 +25,12 @@ public class TestPrepareStatement {
     private static final ThreadLocal<String> METHOD_NAME = new ThreadLocal<>();
     private static final ThreadLocal<String> DB_NAME = new ThreadLocal<>();
 
-    @BeforeMethod
+    @BeforeMethod(groups = "IT")
     public void captureMethod(Method method) {
         METHOD_NAME.set(method.getName());
         String dbName = "TestPrepareStatement_" + METHOD_NAME.get();
         DB_NAME.set(dbName.toLowerCase());
+        System.out.println("【DEBUG】DB_NAME = " + METHOD_NAME.get());
     }
 
     Connection getConn() throws SQLException {
@@ -110,7 +111,7 @@ public class TestPrepareStatement {
     }
 
     @Test(groups = "UNIT")
-    public void TestConvertSQLWithBatchValues() throws SQLException {
+    public void TestConvertSQLWithBatchValues() {
         List<String[]> batchValues = new ArrayList<>();
         // Add string arrays to batchValues
         String[] values1 = { "1" };
