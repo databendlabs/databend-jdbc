@@ -21,7 +21,7 @@ import static org.testng.Assert.assertThrows;
 
 @Test(timeOut = 10000)
 public class TestBasicDriver {
-    @BeforeTest
+    @BeforeTest(groups = {"IT"})
     public void setUp()
             throws SQLException {
         // create table

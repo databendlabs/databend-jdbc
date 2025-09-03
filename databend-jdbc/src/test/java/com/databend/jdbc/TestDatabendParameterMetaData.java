@@ -15,7 +15,7 @@ import java.sql.Types;
 
 public class TestDatabendParameterMetaData {
 
-    @BeforeTest
+    @BeforeTest(groups = "IT")
     public void setUp()
             throws SQLException {
         // create table
@@ -33,7 +33,7 @@ public class TestDatabendParameterMetaData {
              // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
              PreparedStatement inputPs = conn.prepareStatement(
                      "insert into non_existing_table ('col2 String, col3 Int8, col1 String') values (?, ?, ?)");
-             PreparedStatement sqlPs = conn.prepareStatement("insert into test_table (a int, b int, c string) values (?,?,?)");) {
+             PreparedStatement sqlPs = conn.prepareStatement("insert into test_table (a int, b int, c string) values (?,?,?)")) {
             Assert.assertEquals(emptyPs.getParameterMetaData().getParameterCount(), 0);
 
             for (PreparedStatement ps : new PreparedStatement[]{inputPs, sqlPs}) {
@@ -51,7 +51,7 @@ public class TestDatabendParameterMetaData {
         }
 
         try (Connection conn = Utils.createConnection();
-             PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b int) values (?,?)");) {
+             PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b int) values (?,?)")) {
             Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 2);
             Assert.assertEquals(ps.getParameterMetaData().getParameterMode(2), ParameterMetaData.parameterModeIn);
             Assert.assertEquals(ps.getParameterMetaData().getParameterType(2), Types.INTEGER);
@@ -62,7 +62,7 @@ public class TestDatabendParameterMetaData {
         }
 
         try (Connection conn = Utils.createConnection();
-             PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b VARIANT) values (?,?)");) {
+             PreparedStatement ps = conn.prepareStatement("insert into test_table (a int, b VARIANT) values (?,?)")) {
             Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 2);
             Assert.assertEquals(ps.getParameterMetaData().getParameterMode(2), ParameterMetaData.parameterModeIn);
             Assert.assertEquals(ps.getParameterMetaData().getParameterType(2), Types.VARCHAR);
