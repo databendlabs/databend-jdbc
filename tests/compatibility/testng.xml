@@ -1,4 +1,4 @@
-<suite name="DatabendJdbcTests" verbose="10">
+<suite name="DatabendJdbcTests" verbose="10" parallel="methods">
   <test name="AllTests">
     <groups>
       <run>

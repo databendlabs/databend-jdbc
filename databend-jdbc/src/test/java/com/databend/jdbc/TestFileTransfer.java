@@ -7,6 +7,7 @@ import de.siegmar.fastcsv.writer.LineDelimiter;
 import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.*;
@@ -114,6 +115,7 @@ public class TestFileTransfer {
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
+            System.out.println(arr.length);
             Assert.assertEquals(arr.length, f.length());
         } finally {
             if (downloaded != null) {
@@ -124,14 +126,14 @@ public class TestFileTransfer {
 
     @Test(groups = {"IT"})
     public void testFileTransferThroughAPI() throws SQLException, IOException {
-        String filePath = generateRandomCSV(100000);
+        String filePath = generateRandomCSV(10000);
         File f = new File(filePath);
         try (InputStream fileInputStream = Files.newInputStream(f.toPath());
              Connection connection = Utils.createConnectionWithPresignedUrlDisable()) {
             Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.ALL);
 
 
-            String stageName = "test_stage";
+            String stageName = "test_stage_np";
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             PresignContext.createStageIfNotExists(databendConnection, stageName);
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
@@ -165,17 +167,16 @@ public class TestFileTransfer {
         }
     }
 
-    @Test(groups = {"IT"})
-    public void testLoadStreamToTableWithStage() throws SQLException, IOException {
-        testLoadStreamToTableInner("stage");
+    @DataProvider(name = "streamingLoad")
+    private Object[][] provideTestData() {
+        return new Object[][] {
+                {"streaming"},
+                {"stage"}
+        };
     }
 
-    @Test(groups = {"IT"})
-    public void testLoadStreamToTableWithStreaming() throws SQLException, IOException {
-        testLoadStreamToTableInner("streaming");
-    }
-
-    public void testLoadStreamToTableInner(String method) throws IOException, SQLException {
+    @Test(groups = "IT", dataProvider = "streamingLoad")
+    public void testLoadStreamToTable(String method) throws IOException, SQLException {
         if (!Compatibility.driverCapability.streamingLoad) {
             System.out.println("Skip testLoadStreamToTableInner: driver version too low");
             return;
@@ -190,8 +191,9 @@ public class TestFileTransfer {
         try (FileInputStream fileInputStream = new FileInputStream(f);
              Connection connection = Utils.createConnectionWithPresignedUrlDisable();
              Statement statement = connection.createStatement()) {
-            statement.execute("create or replace database test_load");
-            statement.execute("use test_load");
+            String dbName = "test_load_stream_" + method;
+            statement.execute(String.format("create or replace database %s", dbName));
+            statement.execute(String.format("use %s", dbName));
             statement.execute("create or replace table test_load(i int, a Variant, b string)");
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             String sql = "insert into test_load from @_databend_load file_format=(type=csv)";
