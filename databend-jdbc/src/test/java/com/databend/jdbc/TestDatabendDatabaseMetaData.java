@@ -53,7 +53,7 @@ public class TestDatabendDatabaseMetaData {
         assertEquals(metadata.getColumnType(10), Types.VARCHAR);
     }
 
-    @BeforeTest
+    @BeforeTest(groups = {"IT"})
     public void setUp()
             throws SQLException {
         // create table

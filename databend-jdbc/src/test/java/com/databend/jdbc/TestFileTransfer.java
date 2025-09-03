@@ -38,7 +38,7 @@ public class TestFileTransfer {
         return os.toByteArray();
     }
 
-    @BeforeTest
+    @BeforeTest(groups = "IT")
     public void setUp()
             throws SQLException {
         // create table
@@ -116,7 +116,6 @@ public class TestFileTransfer {
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
-            System.out.println("download size = " + arr.length);
             Assert.assertEquals(arr.length, f.length());
         } finally {
             if (downloaded != null) {

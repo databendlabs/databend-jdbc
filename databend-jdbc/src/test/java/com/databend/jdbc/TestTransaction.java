@@ -13,7 +13,7 @@ import static org.testng.Assert.*;
 
 public class TestTransaction {
 
-    @BeforeTest
+    @BeforeTest(groups = {"IT"})
     public void setUp()
             throws SQLException {
         // create db
