@@ -17,6 +17,7 @@ import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.UUID;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
@@ -54,7 +55,7 @@ public class TestFileTransfer {
             return "";
         }
         String tmpDir = System.getProperty("java.io.tmpdir");
-        String csvPath = tmpDir + "/test.csv";
+        String csvPath = tmpDir + "/" + UUID.randomUUID();
         try (FileWriter writer = new FileWriter(csvPath)) {
             for (int i = 0; i < lines; i++) {
                 int num = (int) (Math.random() * 1000);
@@ -115,7 +116,7 @@ public class TestFileTransfer {
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
-            System.out.println(arr.length);
+            System.out.println("download size = " + arr.length);
             Assert.assertEquals(arr.length, f.length());
         } finally {
             if (downloaded != null) {
