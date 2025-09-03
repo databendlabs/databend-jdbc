@@ -226,11 +226,13 @@ public class TestPrepareStatement {
              Statement s = c.createStatement()
         ) {
             c.setAutoCommit(false);
+            s.execute("create or replace database test_prepare_statement");
+            s.execute("use test_prepare_statement");
             String createTableSQL = String.format(
-                    "CREATE OR replace table test_prepare_statement.%s(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse"
+                    "CREATE OR replace table %s(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse"
                     , tableName);
             s.execute(createTableSQL);
-            String insertSQL = String.format("insert into test_prepare_statement.%s values %s", tableName, placeholder ? "(?,?,?,?,?)" : "");
+            String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?,?)" : "");
 
             PreparedStatement ps = c.prepareStatement(insertSQL);
             ps.setInt(1, 1);
@@ -243,7 +245,7 @@ public class TestPrepareStatement {
             Assert.assertEquals(ans.length, 1);
             Assert.assertEquals(ans[0], 1);
 
-            s.execute(String.format("SELECT * from test_prepare_statement.%s", tableName));
+            s.execute(String.format("SELECT * from %s", tableName));
             ResultSet r = s.getResultSet();
 
             Assert.assertTrue(r.next());
