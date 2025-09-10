@@ -8,41 +8,28 @@ import java.io.FileWriter;
 import java.io.IOException;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
-import java.util.stream.Stream;
 
 public class BatchInsertUtils {
-    private static final Logger logger = Logger.getLogger(BatchInsertUtils.class.getPackage().getName());
-
     private final String sql;
 
     private String databaseTableName;
     // prepareValues[i] is null if the i-th value is a placeholder
 
-    private TreeMap<Integer, String> placeHolderEntries;
+    private final TreeMap<Integer, String> placeHolderEntries;
+    private final TreeMap<Integer, String> placeHolderEntriesCSV;
 
-    private BatchInsertUtils(String sql) {
+    public BatchInsertUtils(String sql) {
         this.sql = sql;
         // sort key in ascending order
         this.placeHolderEntries = new TreeMap<>();
+        this.placeHolderEntriesCSV = new TreeMap<>();
 //        this.databaseTableName = getDatabaseTableName();
     }
 
-    /**
-     * Parse the sql to get insert AST
-     *
-     * @param sql candidate sql
-     * @return BatchInertUtils if the sql is a batch insert sql
-     */
-    public static Optional<BatchInsertUtils> tryParseInsertSql(String sql) {
-        return Optional.of(new BatchInsertUtils(sql));
-    }
 
     public String getSql() {
         return sql;
@@ -67,10 +54,11 @@ public class BatchInsertUtils {
         return databaseTableName;
     }
 
-    public void setPlaceHolderValue(int index, String value) throws IllegalArgumentException {
+    public void setPlaceHolderValue(int index, String value, String valueCSV) throws IllegalArgumentException {
         int i = index - 1;
 
         placeHolderEntries.put(i, value);
+        placeHolderEntriesCSV.put(i, valueCSV);
     }
 
     // get the sql with placeholder replaced by value
@@ -84,6 +72,17 @@ public class BatchInsertUtils {
         }
         return values;
     }
+    public String[] getValuesCSV() {
+        if (placeHolderEntriesCSV.isEmpty()) {
+            return null;
+        }
+        String[] values = new String[placeHolderEntriesCSV.lastKey() + 1];
+        for (Map.Entry<Integer, String> elem : placeHolderEntriesCSV.entrySet()) {
+            values[elem.getKey()] = elem.getValue();
+        }
+        return values;
+    }
+
 
     public File saveBatchToCSV(List<String[]> values) {
         // get a temporary directory
@@ -93,16 +92,10 @@ public class BatchInsertUtils {
         return saveBatchToCSV(values, tempFile);
     }
 
-    private String convertToCSV(String[] data) {
-        return Stream.of(data)
-                .collect(Collectors.joining(","));
-    }
 
     public File saveBatchToCSV(List<String[]> values, File file) {
-        int rowSize = 0;
         for (String[] row : values) {
             if (row != null) {
-                rowSize = row.length;
                 break;
             }
             throw new RuntimeException("batch values is empty");
@@ -122,5 +115,6 @@ public class BatchInsertUtils {
 
     public void clean() {
         placeHolderEntries.clear();
+        placeHolderEntriesCSV.clear();
     }
 }

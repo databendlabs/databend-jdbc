@@ -198,7 +198,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         if (routeHint == null || routeHint.isEmpty()) {
             return null;
         }
-        URI target;
         try {
             if (routeHint.charAt(routeHint.length() - 1) != SPECIAL_CHAR) {
                 return null;
@@ -225,14 +224,6 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
         }
         if (resultSetConcurrency != ResultSet.CONCUR_READ_ONLY) {
             throw new SQLFeatureNotSupportedException("Result set concurrency must be CONCUR_READ_ONLY");
-        }
-    }
-
-    // Databend DOES NOT support transaction now
-    private static void checkHoldability(int resultSetHoldability)
-            throws SQLFeatureNotSupportedException {
-        if (resultSetHoldability != ResultSet.HOLD_CURSORS_OVER_COMMIT) {
-            throw new SQLFeatureNotSupportedException("Result set holdability must be HOLD_CURSORS_OVER_COMMIT");
         }
     }
 
@@ -297,7 +288,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     public PreparedStatement prepareStatement(String s)
             throws SQLException {
 
-        return this.prepareStatement(s, 0, 0);
+        return this.prepareStatement(s, ResultSet.TYPE_FORWARD_ONLY, ResultSet.CONCUR_READ_ONLY);
     }
 
     @Override
@@ -435,7 +426,7 @@ public class DatabendConnection implements Connection, FileTransferAPI, Consumer
     @Override
     public PreparedStatement prepareStatement(String s, int i, int i1)
             throws SQLException {
-        DatabendPreparedStatement statement = new DatabendPreparedStatement(this, this::unregisterStatement, "test", s);
+        DatabendPreparedStatement statement = new DatabendPreparedStatement(this, this::unregisterStatement, s);
         registerStatement(statement);
         return statement;
     }

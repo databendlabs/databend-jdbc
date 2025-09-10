@@ -12,7 +12,6 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
 import java.util.List;
-import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -110,7 +109,6 @@ public class DatabendStatement implements Statement {
     @Override
     public void setQueryTimeout(int i)
             throws SQLException {
-
     }
 
     @Override
@@ -208,7 +206,7 @@ public class DatabendStatement implements Statement {
                         if (updateCount instanceof Number) {
                             currentUpdateCount = ((Number) updateCount).intValue();
                         } else {
-                            // if can't find, use writeProgress.rows
+                            // if not found, use writeProgress.rows
                             currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                         }
                     } else {
@@ -332,7 +330,7 @@ public class DatabendStatement implements Statement {
             return false;
         }
 
-        if (i != KEEP_CURRENT_RESULT && i != CLOSE_CURRENT_RESULT) {
+        if (i != KEEP_CURRENT_RESULT) {
             throw new SQLException("Invalid value for getMoreResults: " + i);
         }
         throw new SQLFeatureNotSupportedException("Multiple results not supported");
@@ -459,9 +457,5 @@ public class DatabendStatement implements Statement {
             return r.getLiveness();
         }
         return null;
-    }
-
-    protected final Optional<DatabendConnection> optionalConnection() {
-        return Optional.ofNullable(connection.get());
     }
 }
