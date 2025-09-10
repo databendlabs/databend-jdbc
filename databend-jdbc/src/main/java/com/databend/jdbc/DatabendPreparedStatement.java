@@ -2,12 +2,9 @@ package com.databend.jdbc;
 
 import com.databend.client.StageAttachment;
 import com.databend.client.data.DatabendRawType;
-import com.databend.jdbc.cloud.DatabendCopyParams;
-import com.databend.jdbc.cloud.DatabendStage;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import lombok.NonNull;
 import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
@@ -54,10 +51,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
+import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 import static com.databend.jdbc.ObjectCasts.*;
@@ -84,22 +81,21 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             .append(ISO_LOCAL_TIME)
             .appendOffset("+HH:mm", "+00:00")
             .toFormatter();
-    private final String originalSql;
     private final List<String[]> batchValues;
-    private final Optional<BatchInsertUtils> batchInsertUtils;
-    private final String statementName;
-    private int batchSize = 0;
+    private final List<String[]> batchValuesCSV;
+    private final BatchInsertUtils batchInsertUtils;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String statementName,
-            String sql) {
+    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
         super(connection, onClose);
-        this.statementName = requireNonNull(statementName, "statementName is null");
-        this.originalSql = requireNonNull(sql, "sql is null");
         this.batchValues = new ArrayList<>();
-        this.batchInsertUtils = BatchInsertUtils.tryParseInsertSql(sql);
+        this.batchValuesCSV = new ArrayList<>();
+        this.batchInsertUtils = new BatchInsertUtils(sql);
         this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
+        if(this.rawStatement.getSubStatements().size() > 1) {
+            throw new SQLException("Databend do not support multi statement for now");
+        }
         Map<Integer, String> params = StatementUtil.extractColumnTypes(sql);
         List<DatabendColumnInfo> list = params.entrySet().stream().map(entry -> {
             String type = entry.getValue();
@@ -160,55 +156,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         super.close();
     }
 
-    private DatabendCopyParams uploadBatchesForCopyInto() throws SQLException {
-        if (this.batchValues == null || this.batchValues.size() == 0) {
-            return null;
-        }
-        File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
-        try (FileInputStream fis = new FileInputStream(saved);) {
-            DatabendConnection c = (DatabendConnection) getConnection();
-            String uuid = UUID.randomUUID().toString().replace("-", "");
-            // format %Y/%m/%d/%H/%M/%S/fileName.csv
-            String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
-                    LocalDateTime.now().getYear(),
-                    LocalDateTime.now().getMonthValue(),
-                    LocalDateTime.now().getDayOfMonth(),
-                    LocalDateTime.now().getHour(),
-                    LocalDateTime.now().getMinute(),
-                    LocalDateTime.now().getSecond(),
-                    uuid);
-            String fileName = saved.getName();
-            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
-            String stageName = "~";
-            Map<String, String> copyOptions = new HashMap<>();
-            copyOptions.put("PURGE", String.valueOf(c.copyPurge()));
-            copyOptions.put("NULL_DISPLAY", String.valueOf(c.nullDisplay()));
-            DatabendStage databendStage = DatabendStage.builder().stageName(stageName).path(stagePrefix).build();
-            List<String> files = new ArrayList<>();
-            files.add(fileName);
-            DatabendCopyParams databendCopyParams = DatabendCopyParams.builder().setFiles(files)
-                    .setCopyOptions(copyOptions).setDatabaseTableName(batchInsertUtils.get().getDatabaseTableName())
-                    .setDatabendStage(databendStage).build();
-            return databendCopyParams;
-        } catch (Exception e) {
-            throw new SQLException(e);
-        } finally {
-            try {
-                if (saved != null) {
-                    saved.delete();
-                }
-            } catch (Exception e) {
-                // ignore
-            }
-        }
-    }
-
     private StageAttachment uploadBatches() throws SQLException {
-        if (this.batchValues == null || this.batchValues.size() == 0) {
+        if (this.batchValuesCSV == null || this.batchValuesCSV.size() == 0) {
             return null;
         }
-        File saved = batchInsertUtils.get().saveBatchToCSV(batchValues);
-        try (FileInputStream fis = new FileInputStream(saved);) {
+        File saved = batchInsertUtils.saveBatchToCSV(batchValuesCSV);
+        try (FileInputStream fis = new FileInputStream(saved)) {
             DatabendConnection c = (DatabendConnection) getConnection();
             String uuid = UUID.randomUUID().toString().replace("-", "");
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
@@ -224,8 +177,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             // upload to stage
             c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            StageAttachment attachment = buildStateAttachment(c, stagePath);
-            return attachment;
+            return buildStateAttachment(c, stagePath);
         } catch (Exception e) {
             throw new SQLException(e);
         } finally {
@@ -277,7 +229,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     /**
      * delete stage file on stage attachment
      *
-     * @param attachment
      * @return true if delete success or resource not found
      */
     private boolean dropStageAttachment(StageAttachment attachment) {
@@ -289,274 +240,171 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             execute(sql);
             return true;
         } catch (SQLException e) {
-            if (e.getErrorCode() == 1003) {
-                return true;
-            }
-            return false;
+            return e.getErrorCode() == 1003;
         }
     }
 
     public int[] executeBatchByAttachment() throws SQLException {
         int[] batchUpdateCounts = new int[batchValues.size()];
-        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-            // super.execute(this.originalSql);
+        if (batchValues.isEmpty()) {
             return batchUpdateCounts;
         }
         StageAttachment attachment = uploadBatches();
-        ResultSet r = null;
         if (attachment == null) {
-            // logger.fine("use normal execute instead of batch insert");
-            // super.execute(batchInsertUtils.get().getSql());
             return batchUpdateCounts;
         }
         try {
             logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment,
-                    batchInsertUtils.get().getSql()));
-            super.internalExecute(batchInsertUtils.get().getSql(), attachment);
-            r = getResultSet();
-            while (r.next()) {
-            }
-            Arrays.fill(batchUpdateCounts, 1);
-            return batchUpdateCounts;
-        } catch (RuntimeException e) {
-            throw new SQLException(e);
-        } finally {
-            clearBatch();
-            dropStageAttachment(attachment);
-        }
-    }
-
-    public int[] executeBatchByCopyInto() throws SQLException {
-        int[] batchUpdateCounts = new int[batchValues.size()];
-        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-            super.execute(this.originalSql);
-            return batchUpdateCounts;
-        }
-        DatabendCopyParams databendCopyParams = uploadBatchesForCopyInto();
-        ResultSet r = null;
-        if (databendCopyParams == null) {
-            logger.fine("use normal execute instead of batch insert");
-            super.execute(batchInsertUtils.get().getSql());
-            return batchUpdateCounts;
-        }
-        try {
-            String sql = DatabendConnection.getCopyIntoSql(null, databendCopyParams);
-            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s", sql));
-            super.internalExecute(sql, null);
-            r = getResultSet();
-            while (r.next()) {
-
-            }
-            Arrays.fill(batchUpdateCounts, 1);
-            return batchUpdateCounts;
-        } catch (RuntimeException e) {
-            throw new SQLException(e);
-        }
-    }
-
-    public int[] executeBatchDelete() throws SQLException {
-        if (!batchInsertUtils.isPresent() || batchValues == null || batchValues.isEmpty()) {
-            return new int[] {};
-        }
-        int[] batchUpdateCounts = new int[batchValues.size()];
-        try {
-            String sql = convertSQLWithBatchValues(this.originalSql, this.batchValues);
-            logger.fine(String.format("use copy into instead of normal insert, copy into SQL: %s", sql));
-            super.internalExecute(sql, null);
-            ResultSet r = getResultSet();
-            while (r.next()) {
-
-            }
-            return batchUpdateCounts;
-        } catch (RuntimeException e) {
-            throw new SQLException(e);
-        }
-    }
-
-    public static String convertSQLWithBatchValues(String baseSql, List<String[]> batchValues) {
-        StringBuilder convertedSqlBuilder = new StringBuilder();
-
-        if (batchValues != null && !batchValues.isEmpty()) {
-            for (String[] values : batchValues) {
-                if (values != null && values.length > 0) {
-                    String convertedSql = baseSql;
-                    for (int i = 0; i < values.length; i++) {
-                        convertedSql = convertedSql.replaceFirst("\\?", values[i]);
-                    }
-                    convertedSqlBuilder.append(convertedSql).append(";\n");
+                    batchInsertUtils.getSql()));
+            super.internalExecute(batchInsertUtils.getSql(), attachment);
+            try (ResultSet r = getResultSet()) {
+                while (r.next()) {
                 }
             }
+            Arrays.fill(batchUpdateCounts, 1);
+            return batchUpdateCounts;
+        } finally {
+            dropStageAttachment(attachment);
+            clearBatch();
         }
-
-        return convertedSqlBuilder.toString();
-    }
-
-    @Override
-    public int[] executeBatch() throws SQLException {
-        if (originalSql.toLowerCase().contains("delete from")) {
-            return executeBatchDelete();
-        }
-        return executeBatchByAttachment();
     }
 
     @Override
     public ResultSet executeQuery()
             throws SQLException {
-        String sql = replaceParameterMarksWithValues(batchInsertUtils.get().getProvideParams(), this.originalSql)
-                .get(0)
-                .getSql();
-        internalExecute(sql, null);
+        execute();
         return getResultSet();
     }
 
-    private List<StatementInfoWrapper> prepareSQL(@NonNull Map<Integer, String> params) {
-        return replaceParameterMarksWithValues(params, this.rawStatement);
+
+    @Override
+    public int executeUpdate() throws SQLException {
+        execute();
+        return getUpdateCount();
     }
 
     @Override
     public boolean execute()
             throws SQLException {
-        boolean r;
-        try {
-            r = this.execute(prepareSQL(batchInsertUtils.get().getProvideParams()));
-        } catch (Exception e) {
-            throw new SQLException(e);
-        } finally {
-            clearBatch();
-        }
-        return r;
-    }
-
-    protected boolean execute(List<StatementInfoWrapper> statements) throws SQLException {
-        try {
-            for (int i = 0; i < statements.size(); i++) {
-                String sql = statements.get(i).getSql();
-                if (isBatchInsert(sql)) {
-                    handleBatchInsert();
-                } else {
-                    execute(sql);
-                }
-                return true;
-            }
-        } catch (Exception e) {
-            throw new SQLException(e);
-        } finally {
-        }
-        return true;
-    }
-
-    private boolean isBatchInsert(String sql) {
-        return sql.toLowerCase().contains(DATABEND_KEYWORDS_INSERT_INTO) && !sql.toLowerCase().contains(DATABEND_KEYWORDS_SELECT);
-    }
-    protected void handleBatchInsert() throws SQLException {
-        try {
-            addBatch();
-            executeBatch();
-        } catch (Exception e) {
-            throw new SQLException(e);
-        }
+        String sql = replaceParameterMarksWithValues(batchInsertUtils.getProvideParams(), this.rawStatement).get(0).getSql();
+        return execute(sql);
     }
 
     @Override
-    public int executeUpdate() throws SQLException {
-        this.execute(prepareSQL(batchInsertUtils.get().getProvideParams()));
-        return getUpdateCount();
+    public int[] executeBatch() throws SQLException {
+        if (isBatchInsert(batchInsertUtils.getSql())) {
+            return executeBatchByAttachment();
+        } else {
+            int[] batchUpdateCounts = new int[batchValues.size()];
+            for (int i = 0; i < batchValues.size(); i++) {
+                String [] values = batchValues.get(i);
+                Map<Integer, String> m = new HashMap<>();
+                for (int j = 0; j< values.length; j++){
+                    m.put(j + 1, values[j]);
+                }
+                String sql = replaceParameterMarksWithValues(m, this.rawStatement).get(0).getSql();
+                this.execute(sql);
+                batchUpdateCounts[i]= getUpdateCount();
+            }
+            return batchUpdateCounts;
+        }
+    }
+
+    private static boolean isBatchInsert(String sql) {
+        sql = sql.toLowerCase();
+        Matcher matcher = INSERT_INTO_PATTERN.matcher(sql);
+        return matcher.find() && !sql.contains(DATABEND_KEYWORDS_SELECT);
+    }
+
+    private void setValueSimple(int index, String value) {
+        batchInsertUtils.setPlaceHolderValue(index, value, value);
+    }
+
+    private void setValue(int index, String value, String csvValue) {
+        batchInsertUtils.setPlaceHolderValue(index, value, csvValue);
     }
 
     @Override
     public void setNull(int i, int i1)
             throws SQLException {
         checkOpen();
-        if (this.originalSql.toLowerCase().contains("insert") ||
-                this.originalSql.toLowerCase().contains("replace")) {
-            // Databend uses \N as default null representation for csv and tsv format
-            // https://github.com/datafuselabs/databend/pull/6453
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, "\\N"));
-        } else {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, "null"));
-        }
+        setValue(i, "null", "\\N");
     }
 
     @Override
     public void setBoolean(int i, boolean b)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBooleanLiteral(b)));
+        setValueSimple(i, formatBooleanLiteral(b));
     }
 
     @Override
     public void setByte(int i, byte b)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatByteLiteral(b)));
+        setValueSimple(i, formatByteLiteral(b));
     }
 
     @Override
     public void setShort(int i, short i1)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatShortLiteral(i1)));
+        setValueSimple(i, formatShortLiteral(i1));
     }
 
     @Override
     public void setInt(int i, int i1)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatIntLiteral(i1)));
+        setValueSimple(i, formatIntLiteral(i1));
     }
 
     @Override
     public void setLong(int i, long l)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatLongLiteral(l)));
+        setValueSimple(i, formatLongLiteral(l));
     }
 
     @Override
     public void setFloat(int i, float v)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatFloatLiteral(v)));
+        setValueSimple(i, formatFloatLiteral(v));
     }
 
     @Override
     public void setDouble(int i, double v)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatDoubleLiteral(v)));
+        setValueSimple(i, formatDoubleLiteral(v));
     }
 
     @Override
-    public void setBigDecimal(int i, BigDecimal bigDecimal)
+    public void setBigDecimal(int i, BigDecimal v)
             throws SQLException {
         checkOpen();
-        batchInsertUtils
-                .ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBigDecimalLiteral(bigDecimal)));
+        setValueSimple(i, formatBigDecimalLiteral(v));
     }
 
     @Override
     public void setString(int i, String s)
             throws SQLException {
         checkOpen();
-        if ((originalSql.toLowerCase().startsWith("insert") ||
-                originalSql.toLowerCase().startsWith("replace")) && !originalSql.toLowerCase().contains("select"))  {
-            String finalS1 = s;
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, finalS1));
-        } else {
-            if (s.contains("'")) {
-                s = s.replace("'", "\\\'");
-            }
-            String finalS = s;
-            batchInsertUtils.ifPresent(
-                    insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", finalS, "'")));
+        String quoted = s;
+        if (s.contains("'")) {
+            quoted = s.replace("'", "\\'");
         }
+        quoted = String.format("'%s'", quoted);
+
+        setValue(i, quoted, s);
     }
 
     @Override
-    public void setBytes(int i, byte[] bytes)
+    public void setBytes(int i, byte[] v)
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, formatBytesLiteral(bytes)));
+        setValueSimple(i, formatBytesLiteral(v));
     }
 
     @Override
@@ -564,47 +412,31 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (date == null) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
+            setValueSimple(i, null);
         } else {
-            if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(
-                        insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", date, "'")));
-            } else {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toDateLiteral(date)));
-            }
+            setValue(i, String.format("'%s'", date), toDateLiteral(date));
         }
     }
 
     @Override
-    public void setTime(int i, Time time)
+    public void setTime(int i, Time v)
             throws SQLException {
         checkOpen();
-        if (time == null) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
+        if (v == null) {
+            setValueSimple(i, null);
         } else {
-            if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(
-                        insertUtils -> insertUtils.setPlaceHolderValue(i, String.format("%s%s%s", "'", time, "'")));
-            } else {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimeLiteral(time)));
-            }
+            setValue(i, String.format("'%s'", v), toTimeLiteral(v));
         }
     }
 
     @Override
-    public void setTimestamp(int i, Timestamp timestamp)
+    public void setTimestamp(int i, Timestamp v)
             throws SQLException {
         checkOpen();
-        if (timestamp == null) {
-            batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, null));
+        if (v == null) {
+            setValueSimple(i, null);
         } else {
-            if (originalSql.toLowerCase().startsWith("select")) {
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i,
-                        String.format("%s%s%s", "'", timestamp, "'")));
-            } else {
-                batchInsertUtils
-                        .ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, toTimestampLiteral(timestamp)));
-            }
+            setValue(i, String.format("'%s'", v), toTimestampLiteral(v));
         }
     }
 
@@ -630,7 +462,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void clearParameters()
             throws SQLException {
         checkOpen();
-        batchInsertUtils.ifPresent(BatchInsertUtils::clean);
+        batchInsertUtils.clean();
     }
 
     @Override
@@ -783,20 +615,22 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void addBatch()
             throws SQLException {
         checkOpen();
-        if (batchInsertUtils.isPresent()) {
-            String[] val = batchInsertUtils.get().getValues();
-            batchValues.add(val);
-            batchInsertUtils.get().clean();
-            batchSize++;
-        }
+
+        String[] val = batchInsertUtils.getValues();
+        batchValues.add(val);
+
+        val = batchInsertUtils.getValuesCSV();
+        batchValuesCSV.add(val);
+
+        batchInsertUtils.clean();
     }
 
     @Override
     public void clearBatch() throws SQLException {
         checkOpen();
         batchValues.clear();
-        batchSize = 0;
-        batchInsertUtils.ifPresent(BatchInsertUtils::clean);
+        batchValuesCSV.clear();
+        batchInsertUtils.clean();
     }
 
     @Override
@@ -974,10 +808,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             byte[] bytes = buffer.toByteArray();
             if (BASE64_STR.equalsIgnoreCase(connection().binaryFormat())) {
                 String base64String = bytesToBase64(bytes);
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, base64String));
+                setValueSimple(i, base64String);
             } else {
                 String hexString = bytesToHex(bytes);
-                batchInsertUtils.ifPresent(insertUtils -> insertUtils.setPlaceHolderValue(i, hexString));
+                setValueSimple(i, hexString);
             }
         } catch (IOException e) {
             throw new SQLException("Error reading InputStream", e);

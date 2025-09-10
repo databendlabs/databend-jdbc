@@ -1,10 +1,6 @@
 package com.databend.jdbc;
 
-import com.vdurmont.semver4j.Semver;
-
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.Properties;
 
 public class Utils {
@@ -45,6 +41,12 @@ public class Utils {
     public static Connection createConnectionWithPresignedUrlDisable() throws SQLException {
         String url = baseURL() + "?presigned_url_disabled=true";
         return DriverManager.getConnection(url, "databend", "databend");
+    }
+
+    public static int countTable(Statement statement, String table) throws SQLException {
+        ResultSet r = statement.executeQuery(String.format("select count(*) from %s", table));
+        r.next();
+        return r.getInt(1);
     }
 }
 

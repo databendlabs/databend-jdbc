@@ -15,9 +15,11 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Arrays;
 import java.util.Properties;
+
+import static com.databend.jdbc.Utils.countTable;
+import static org.testng.Assert.*;
 
 
 public class TestPrepareStatement {
@@ -110,34 +112,12 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "UNIT")
-    public void TestConvertSQLWithBatchValues() {
-        List<String[]> batchValues = new ArrayList<>();
-        // Add string arrays to batchValues
-        String[] values1 = { "1" };
-        String[] values2 = { "2" };
-        batchValues.add(values1);
-        batchValues.add(values2);
-
-        String originalSql = "delete from table where id = ?";
-        String expectedSql = "delete from table where id = 1;\ndelete from table where id = 2;\n";
-        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql, batchValues), expectedSql);
-
-        List<String[]> batchValues1 = new ArrayList<>();
-        // Add string arrays to batchValues
-        String[] values3 = { "1", "2" };
-        String[] values4 = { "3", "4" };
-        batchValues1.add(values3);
-        batchValues1.add(values4);
-
-        String originalSql1 = "delete from table where id = ? and uuid = ?";
-        String expectedSql1 = "delete from table where id = 1 and uuid = 2;\ndelete from table where id = 3 and uuid = 4;\n";
-        Assert.assertEquals(DatabendPreparedStatement.convertSQLWithBatchValues(originalSql1, batchValues1),
-                expectedSql1);
-    }
 
     @Test(groups = "IT")
     public void TestBatchDelete() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.1")) {
+            return;
+        }
         try (Connection c = getConn();
              Statement s = c.createStatement()) {
             c.createStatement().execute("create or replace table t1(a int, b string)");
@@ -165,10 +145,10 @@ public class TestPrepareStatement {
             PreparedStatement deletePs = c.prepareStatement("delete from t1 where a = ?");
             deletePs.setInt(1, 1);
             deletePs.addBatch();
-            int[] ansDel = deletePs.executeBatch();
-            Assert.assertEquals(ansDel.length, 1);
-            // todo: fix this, currently == 0
-            // Assert.assertEquals(ansDel[0], 1);
+            deletePs.setInt(1, 2);
+            deletePs.addBatch();
+            int[] counts = deletePs.executeBatch();
+            Assert.assertEquals(counts, new int[] {1, 0}, Arrays.toString(counts));
 
             s.execute("SELECT * from t1");
             ResultSet r1 = s.getResultSet();
@@ -296,7 +276,7 @@ public class TestPrepareStatement {
     @Test(groups = "IT")
     public void testPrepareStatementExecute() throws SQLException {
         try (Connection c = getConn();
-            Statement s = c.createStatement()) {
+             Statement s = c.createStatement()) {
             s.execute("create or replace table t1 (a int, b string)");
             String insertSql = "insert into t1 values (?,?)";
             try (PreparedStatement ps = c.prepareStatement(insertSql)) {
@@ -342,8 +322,7 @@ public class TestPrepareStatement {
                 statement.setString(2, "b");
                 statement.addBatch();
                 int[] result = statement.executeBatch();
-                System.out.println(result);
-                Assert.assertEquals(1, result.length);
+                Assert.assertEquals(result, new int[]{1});
             }
             String updateSQL = "update t1 set b = ? where a = ?";
             try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
@@ -380,16 +359,14 @@ public class TestPrepareStatement {
                 statement.setString(2, "b");
                 statement.addBatch();
                 int[] result = statement.executeBatch();
-                System.out.println(result);
-                Assert.assertEquals(1, result.length);
+                Assert.assertEquals(result, new int[]{1});
             }
             String updateSQL = "update t1 set b = ? where a = ?";
             try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
                 statement.setInt(2, 1);
                 statement.setObject(1, "c'c");
                 int result = statement.executeUpdate();
-                System.out.println(result);
-                Assert.assertEquals(1, result);
+                Assert.assertEquals(result, 1);
             }
             try (PreparedStatement statement = conn
                     .prepareStatement("select a, regexp_replace(b, '\\d', '*') from t1 where a = ?")) {
@@ -411,75 +388,77 @@ public class TestPrepareStatement {
             String sql = "insert into t1 values (?,?)";
             try (PreparedStatement statement = conn.prepareStatement(sql)) {
                 statement.setInt(1, 1);
-                statement.setString(2, "b");
+                statement.setString(2, "r1");
                 statement.addBatch();
                 statement.setInt(1, 2);
-                statement.setString(2, "z");
+                statement.setString(2, "r2");
                 statement.addBatch();
                 statement.setInt(1, 3);
-                statement.setString(2, "x");
+                statement.setString(2, "r3");
                 statement.addBatch();
                 statement.setInt(1, 4);
-                statement.setString(2, "dd");
+                statement.setString(2, "r3");
                 statement.addBatch();
                 statement.setInt(1, 5);
-                statement.setString(2, "ddd");
+                statement.setString(2, "r5");
                 statement.addBatch();
                 int[] result = statement.executeBatch();
-                System.out.println(result);
-                Assert.assertEquals(5, result.length);
+                Assert.assertEquals(result, new int[] {1, 1, 1, 1, 1});
             }
             String updateSQL = "update t1 set b = ? where b = ?";
             try (PreparedStatement statement = conn.prepareStatement(updateSQL)) {
-                statement.setString(1, "c");
-                statement.setString(2, "b");
+                statement.setString(1, "r1_new");
+                statement.setString(2, "r1");
                 int result = statement.executeUpdate();
                 Assert.assertEquals(1, result);
             }
             try (PreparedStatement statement = conn
-                    .prepareStatement("select a, regexp_replace(b, '\\d', '*') from t1 where b = ?")) {
-                statement.setString(1, "c");
+                    .prepareStatement("select a, b from t1 where b = ?")) {
+                statement.setString(1, "r1_new");
                 ResultSet r = statement.executeQuery();
                 while (r.next()) {
                     Assert.assertEquals(1, r.getInt(1));
-                    Assert.assertEquals("c", r.getString(2));
+                    Assert.assertEquals("r1_new", r.getString(2));
                 }
             }
             String replaceIntoSQL = "replace into t1 on(a) values (?,?)";
             try (PreparedStatement statement = conn.prepareStatement(replaceIntoSQL)) {
                 statement.setInt(1, 1);
-                statement.setString(2, "d");
+                statement.setString(2, "r1_new2");
                 statement.addBatch();
                 Assert.assertEquals(statement.executeBatch(), new int[]{1});
 
             }
             ResultSet r2 = conn.createStatement().executeQuery("select * from t1");
+            int n = 0;
             while (r2.next()) {
-                System.out.println(r2.getInt(1));
-                System.out.println(r2.getString(2));
+                n +=1;
             }
+            Assert.assertEquals(n, 5);
 
             String deleteSQL = "delete from t1 where a = ?";
             try (PreparedStatement statement = conn.prepareStatement(deleteSQL)) {
                 statement.setInt(1, 1);
                 boolean result = statement.execute();
+                // TODO: fix this
+                // Assert.assertFalse(result);
                 System.out.println(result);
+                Assert.assertEquals(statement.getUpdateCount(), 1);
             }
 
             String deleteSQLVarchar = "delete from t1 where b = ?";
             try (PreparedStatement statement = conn.prepareStatement(deleteSQLVarchar)) {
-                statement.setString(1, "1");
+                statement.setString(1, "not exists");
                 int result = statement.executeUpdate();
-                System.out.println(result);
+                Assert.assertEquals(result, 0);
             }
 
             ResultSet r3 = conn.createStatement().executeQuery("select * from t1");
-            Assert.assertEquals(0, r3.getRow());
+            n = 0;
             while (r3.next()) {
-                // noting print
-                System.out.println(r3.getInt(1));
-                System.out.println(r3.getString(2));
+                n +=1;
             }
+            Assert.assertEquals(n, 4);
         }
     }
 
@@ -510,8 +489,7 @@ public class TestPrepareStatement {
                 statement.setString(2, "c");
                 statement.addBatch();
                 int[] result = statement.executeBatch();
-                System.out.println(result);
-                Assert.assertEquals(2, result.length);
+                Assert.assertEquals(result, new int[] {1, 1});
             }
             conn.createStatement().execute("alter table t1 cluster by (a)");
             String selectSQL = String.format("select * from clustering_information('%s','t1')", DB_NAME.get());
@@ -529,15 +507,15 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testEncodePass() throws SQLException {
-        try (Connection conn = Utils.createConnection();
-             Connection conn2 = Utils.createConnection()) {
+        try (Connection conn = Utils.createConnection()) {
             conn.createStatement().execute("create user if not exists 'u01' identified by 'mS%aFRZW*GW';");
             conn.createStatement().execute("GRANT ALL PRIVILEGES ON default.* TO 'u01'@'%'");
             Properties p = new Properties();
             p.setProperty("user", "u01");
             p.setProperty("password", "mS%aFRZW*GW");
-
-            conn2.createStatement().execute("select 1");
+            try(Connection conn2 = Utils.createConnection("default", p)) {
+                conn2.createStatement().execute("select 1");
+            }
             conn.createStatement().execute("drop user if exists 'u01'");
         }
     }
@@ -634,17 +612,20 @@ public class TestPrepareStatement {
                 ps.setInt(1, 1);
                 ps.setString(2, "a");
                 int insertedRows = ps.executeUpdate();
-                // TODO: fix this
-                // Assert.assertEquals(1, insertedRows, "should insert 1 rows");
-                System.out.println(insertedRows);
+
+                // else 0
+                if (!Compatibility.skipDriverBugLowerThen("0.4.1")) {
+                    Assert.assertEquals(1, insertedRows, "should insert 1 rows");
+                }
 
                 ps.setInt(1, 2);
                 ps.setString(2, "b");
                 insertedRows = ps.executeUpdate();
-                // TODO: fix this
-                // Assert.assertEquals(1, insertedRows, "should insert 1 rows");
-                System.out.println(insertedRows);
+                if (!Compatibility.skipDriverBugLowerThen("0.4.1")) {
+                    Assert.assertEquals(1, insertedRows, "should insert 1 rows");
+                }
             }
+            Assert.assertEquals(countTable(s, "t1"), 2);
 
             // Now try to insert again with select
             try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
@@ -652,13 +633,63 @@ public class TestPrepareStatement {
                 int insertedRows = ps.executeUpdate();
                 Assert.assertEquals(1, insertedRows, "should insert 1 row from the select");
             }
+            Assert.assertEquals(countTable(s, "t1"), 3);
+        }
+    }
 
-            ResultSet rs = conn.createStatement().executeQuery("select * from t1 order by a");
-            int count = 0;
-            while (rs.next()) {
-                count++;
+    @Test(groups = "IT")
+    public void testMultiStatement() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.1")) {
+            return;
+        }
+        try (Connection conn = getConn()) {
+            assertThrows(SQLException.class, () -> conn.prepareStatement("select 1; select 1"));
+        }
+    }
+
+    @Test(groups = "IT")
+    public void testBatchAndNoBatch() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.1")) {
+            return;
+        }
+        try (Connection conn = getConn();
+             Statement s = conn.createStatement()) {
+            s.execute("create or replace table t1(a int, b string)");
+            String insertSql = "insert into t1 values (?, ?)";
+            try (PreparedStatement ps = conn.prepareStatement(insertSql)) {
+                ps.setInt(1, 1);
+                ps.setString(2, "v1");
+                ps.addBatch();
+
+                ps.setInt(1, 2);
+                ps.setString(2, "v2");
+                int insertedRows = ps.executeUpdate();
+                Assert.assertEquals(1, insertedRows);
+
+                insertedRows = ps.executeUpdate();
+                Assert.assertEquals(1, insertedRows);
+
+                try(ResultSet rs = s.executeQuery("select * from t1")) {
+                    for (int i = 0; i < 2; i++) {
+                        assertTrue(rs.next());
+                        assertEquals(rs.getInt(1) ,2);
+                        assertEquals(rs.getString(2) ,"v2");
+                    }
+                    assertFalse(rs.next());
+                }
+                s.execute("truncate table t1");
+                assertEquals(countTable(s, "t1"), 0);
+
+                int[] counts = ps.executeBatch();
+                Assert.assertEquals(counts, new int[] {1});
+
+                try(ResultSet rs = s.executeQuery("select * from t1")) {
+                    assertTrue(rs.next());
+                    assertEquals(rs.getInt(1) ,1);
+                    assertEquals(rs.getString(2) ,"v1");
+                    assertFalse(rs.next());
+                }
             }
-            Assert.assertEquals(3, count, "should have 3 rows in the table after insert with select");
         }
     }
 }
