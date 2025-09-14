@@ -241,7 +241,7 @@ public class TestDatabendDriverUri {
 
     @Test(groups = "IT")
     public void TestSetSchema() throws SQLException {
-        try (DatabendConnectionImpl connection = (DatabendConnectionImpl) Utils.createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("create or replace database test2");
             connection.createStatement().execute("create or replace table test2.test2(id int)");
             connection.setSchema("test2");

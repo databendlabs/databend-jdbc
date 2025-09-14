@@ -2,6 +2,10 @@ package com.databend.jdbc;
 
 import com.vdurmont.semver4j.Semver;
 
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
+import java.sql.Connection;
+
 public class Compatibility {
     public static class Capability {
         boolean streamingLoad;
@@ -64,5 +68,26 @@ public class Compatibility {
             return true;
         }
         return false;
+    }
+
+    boolean isNewInterface() {
+        return driverVersion == null || driverVersion.isGreaterThanOrEqualTo(new Semver("4.0.1"));
+    }
+
+    static Object invokeMethod(Object target, String methodName,
+                                      Class<?>[] parameterTypes, Object[] args) {
+        Class<?> targetClass = target.getClass();
+        Method method = null;
+        try {
+            method = targetClass.getDeclaredMethod(methodName, parameterTypes);
+            method.setAccessible(true);
+            return method.invoke(target, args);
+        } catch (NoSuchMethodException | IllegalAccessException | InvocationTargetException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    static Object invokeMethodNoArg(Object target, String methodName) {
+        return invokeMethod(target, methodName, new Class<?>[0], new Object[0]);
     }
 }

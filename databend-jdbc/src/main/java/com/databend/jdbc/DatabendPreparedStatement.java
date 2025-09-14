@@ -9,57 +9,23 @@ import org.joda.time.format.DateTimeFormat;
 import org.joda.time.format.DateTimeFormatter;
 import org.joda.time.format.ISODateTimeFormat;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
-import java.io.File;
-import java.io.FileInputStream;
-import java.io.IOException;
-import java.io.InputStream;
-import java.io.Reader;
+import java.io.*;
 import java.math.BigDecimal;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
 import java.sql.Date;
-import java.sql.NClob;
-import java.sql.ParameterMetaData;
-import java.sql.PreparedStatement;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLXML;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.sql.Types;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.LocalTime;
-import java.time.OffsetDateTime;
-import java.time.OffsetTime;
+import java.sql.*;
+import java.time.*;
 import java.time.format.DateTimeFormatterBuilder;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Base64;
-import java.util.Calendar;
-import java.util.Collections;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Objects;
-import java.util.UUID;
+import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
+import static com.databend.jdbc.DatabendConstant.*;
 import static com.databend.jdbc.ObjectCasts.*;
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
-import static com.databend.jdbc.DatabendConstant.*;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -162,7 +128,7 @@ class DatabendPreparedStatement extends DatabendStatement implements PreparedSta
         }
         File saved = batchInsertUtils.saveBatchToCSV(batchValuesCSV);
         try (FileInputStream fis = new FileInputStream(saved)) {
-            DatabendConnectionImpl c = (DatabendConnectionImpl) getConnection();
+            Connection c = getConnection();
             String uuid = UUID.randomUUID().toString().replace("-", "");
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
             String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
@@ -175,9 +141,9 @@ class DatabendPreparedStatement extends DatabendStatement implements PreparedSta
                     uuid);
             String fileName = saved.getName();
             // upload to stage
-            c.uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
+            c.unwrap(DatabendConnection.class).uploadStream(null, stagePrefix, fis, fileName, saved.length(), false);
             String stagePath = "@~/" + stagePrefix + fileName;
-            return buildStateAttachment(c, stagePath);
+            return buildStateAttachment((DatabendConnection) c, stagePath);
         } catch (Exception e) {
             throw new SQLException(e);
         } finally {
@@ -191,18 +157,25 @@ class DatabendPreparedStatement extends DatabendStatement implements PreparedSta
         }
     }
 
+    // only for compat test
+    static StageAttachment buildStateAttachment(DatabendConnection conn, String stagePath) {
+        return buildStateAttachment((Connection) conn, stagePath);
+    }
+
     /**
      * This method is used to build a StageAttachment object which represents a
      * stage in Databend.
      * A stage in Databend is a temporary storage area where data files are stored
      * before being loaded into the Databend database.
      *
-     * @param connection The DatabendConnection object which contains the connection
+     * @param conn The DatabendConnection object which contains the connection
      *                   details to the Databend database.
      * @param stagePath  The path of the stage in the Databend database.
      * @return A StageAttachment object which contains the details of the stage.
      */
-    static StageAttachment buildStateAttachment(DatabendConnectionImpl connection, String stagePath) {
+    static StageAttachment buildStateAttachment(Connection conn, String stagePath) {
+        DatabendConnectionImpl connection = (DatabendConnectionImpl) conn;
+
         Map<String, String> fileFormatOptions = new HashMap<>();
         if (!Objects.equals(connection.binaryFormat(), "")) {
             fileFormatOptions.put("binary_format", String.valueOf(connection.binaryFormat()));

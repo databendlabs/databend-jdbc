@@ -3,6 +3,7 @@
     <groups>
       <run>
         <exclude name="FLAKY"/>
+        <include name="IT"/>
       </run>
     </groups>
     <classes>

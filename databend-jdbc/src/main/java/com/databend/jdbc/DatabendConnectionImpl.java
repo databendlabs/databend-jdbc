@@ -967,7 +967,7 @@ public class DatabendConnectionImpl implements Connection, DatabendConnection, F
             } else {
 //                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
                 long presignStartTime = System.nanoTime();
-                PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
+                PresignContext ctx = PresignContext.newPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
                 long presignEndTime = System.nanoTime();
                 if (this.debug()) {
                     logger.info("presign cost time: " + (presignEndTime - presignStartTime) / 1000000.0 + "ms");
@@ -994,7 +994,7 @@ public class DatabendConnectionImpl implements Connection, DatabendConnection, F
         String s = stageName.replaceAll("/$", "");
         DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
         try {
-            PresignContext ctx = PresignContext.getPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, path);
+            PresignContext ctx = PresignContext.newPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, path);
             Headers h = ctx.getHeaders();
             String presignUrl = ctx.getUrl();
             return cli.presignDownloadStream(h, presignUrl);

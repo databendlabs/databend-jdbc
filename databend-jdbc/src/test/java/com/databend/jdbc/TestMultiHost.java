@@ -122,15 +122,14 @@ public class TestMultiHost {
 
     @Test(groups = {"IT", "MULTI_HOST"})
     public void testUnSupportedAutoDiscovery()
-            throws SQLException {
+            throws Exception {
         try (Connection connection = createConnection(UNSUPPORT_AUTO_DISCOVERY_JDBC_URL)) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("select value from system.configs where name = 'http_handler_port';");
             ResultSet r = statement.getResultSet();
             r.next();
-            DatabendConnectionImpl dbc = (DatabendConnectionImpl) connection;
-            // automatically
-            Assert.assertFalse(dbc.isAutoDiscovery());
+
+            Assert.assertFalse((boolean) Compatibility.invokeMethodNoArg(connection, "isAutoDiscovery"));
         }
     }
 

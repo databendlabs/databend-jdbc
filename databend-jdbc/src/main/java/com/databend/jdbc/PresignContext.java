@@ -28,19 +28,18 @@ final class PresignContext {
         this.url = url;
     }
 
-    public static void createStageIfNotExists(Connection connection, String stageName) throws SQLException {
+    static void createStageIfNotExists(Connection connection, String stageName) throws SQLException {
         String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
         Statement statement = connection.createStatement();
         statement.execute(sql);
     }
 
-    public static void dropStageIfExists(DatabendConnectionImpl connection, String stageName) throws SQLException {
-        String sql = String.format("DROP STAGE IF EXISTS %s", stageName);
-        Statement statement = connection.createStatement();
-        statement.execute(sql);
+    // only for compat test
+    static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
+            throws SQLException {
+       return newPresignContext((Connection) connection, method, stageName, fileName);
     }
-
-    public static PresignContext getPresignContext(DatabendConnectionImpl connection, PresignMethod method, String stageName, String fileName)
+    static PresignContext newPresignContext(Connection connection, PresignMethod method, String stageName, String fileName)
             throws SQLException {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");

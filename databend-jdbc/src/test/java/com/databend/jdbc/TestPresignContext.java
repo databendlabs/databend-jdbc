@@ -3,7 +3,9 @@ package com.databend.jdbc;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
 import java.sql.SQLException;
+import java.sql.Statement;
 
 public class TestPresignContext {
     @Test(groups = {"UNIT"})
@@ -18,8 +20,8 @@ public class TestPresignContext {
 
     @Test(groups = {"IT"})
     public void TestGetPresignUrl() throws SQLException {
-        try (DatabendConnectionImpl connection = (DatabendConnectionImpl) Utils.createConnection()) {
-            PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
+        try (Connection connection =  Utils.createConnection()) {
+            PresignContext ctx = PresignContext.getPresignContext((DatabendConnection) connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
             Assert.assertNotNull(ctx);
             Assert.assertNotNull(ctx.getUrl());
             Assert.assertNotNull(ctx.getHeaders());
@@ -28,10 +30,14 @@ public class TestPresignContext {
 
     @Test(groups = {"IT"})
     public void TestGetPresignUrlCase2() throws SQLException {
-        try (DatabendConnectionImpl connection = (DatabendConnectionImpl) Utils.createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             String stageName = "test_stage";
-            PresignContext.createStageIfNotExists(connection, stageName);
-            PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, stageName, "a/b/d/test.csv");
+
+            String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
+
+            PresignContext ctx = PresignContext.getPresignContext((DatabendConnection) connection, PresignContext.PresignMethod.UPLOAD, stageName, "a/b/d/test.csv");
             Assert.assertNotNull(ctx);
             Assert.assertNotNull(ctx.getUrl());
             Assert.assertNotNull(ctx.getHeaders());

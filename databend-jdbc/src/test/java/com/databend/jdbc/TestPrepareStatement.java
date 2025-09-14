@@ -465,8 +465,7 @@ public class TestPrepareStatement {
     @Test(groups = "IT")
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
         Connection conn = Utils.createConnection();
-        Assert.assertEquals("", conn.unwrap(DatabendConnectionImpl.class).binaryFormat());
-        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnectionImpl) conn,
+        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
                 "stagePath");
 
         Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));

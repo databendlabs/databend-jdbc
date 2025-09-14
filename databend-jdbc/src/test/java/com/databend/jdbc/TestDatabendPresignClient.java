@@ -1,11 +1,14 @@
 package com.databend.jdbc;
 
+import com.databend.client.PaginationOptions;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
 import java.io.*;
+import java.net.URI;
+import java.sql.Connection;
 import java.sql.SQLException;
 
 public class TestDatabendPresignClient {
@@ -28,9 +31,10 @@ public class TestDatabendPresignClient {
     @Test(groups = {"LOCAL"})
     public void uploadFileAPI() throws IOException, SQLException {
         String filePath = null;
-        try (DatabendConnectionImpl connection = Utils.createConnection().unwrap(DatabendConnectionImpl.class)) {
-            OkHttpClient client = connection.getHttpClient();
-            DatabendPresignClient presignClient = new DatabendPresignClientV1(client, connection.getURI().toString());
+        try (Connection connection = Utils.createConnection()) {
+            URI uri = (URI)  Compatibility.invokeMethodNoArg(connection, "getURI");
+            OkHttpClient client  = (OkHttpClient)  Compatibility.invokeMethodNoArg(connection, "getHttpClient");
+            DatabendPresignClient presignClient = new DatabendPresignClientV1(client,uri.toString());
             filePath = generateRandomCSV(10);
             File file = new File(filePath);
             InputStream inputStream = new FileInputStream(file);

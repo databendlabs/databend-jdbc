@@ -1,11 +1,13 @@
 package com.databend.jdbc;
 
+import com.vdurmont.semver4j.Semver;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.net.URI;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
@@ -117,11 +119,11 @@ public class TestDatabendDatabaseMetaData {
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
 
             if (Compatibility.serverCapability.streamingLoad && Compatibility.driverCapability.streamingLoad) {
-                DatabendConnectionImpl conn = connection.unwrap(DatabendConnectionImpl.class);
-                if (conn.getServerVersion() != null) {
-                    String semver = "v" + conn.getServerVersion().toString();
+                Semver ver = (Semver)  Compatibility.invokeMethodNoArg(connection, "getServerVersion");
+                if (ver != null) {
+                    String semver = "v" + ver.toString();
                     Assert.assertTrue(semver.startsWith(checkVersion), semver);
-                    Assert.assertNotNull(conn.getServerCapability());
+                    Assert.assertNotNull(Compatibility.invokeMethodNoArg(connection, "getServerCapability"));
                 }
             }
         }
