@@ -1,7 +1,7 @@
-package com.databend.jdbc.cloud;
+package com.databend.jdbc;
 
-import com.databend.jdbc.DatabendConnection;
-import com.databend.jdbc.Utils;
+import com.databend.jdbc.cloud.DatabendPresignClient;
+import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import okhttp3.OkHttpClient;
 import org.testng.annotations.Test;
 
@@ -28,7 +28,7 @@ public class TestDatabendPresignClient {
     @Test(groups = {"LOCAL"})
     public void uploadFileAPI() throws IOException, SQLException {
         String filePath = null;
-        try (DatabendConnection connection = Utils.createConnection().unwrap(DatabendConnection.class)) {
+        try (DatabendConnectionImpl connection = Utils.createConnection().unwrap(DatabendConnectionImpl.class)) {
             OkHttpClient client = connection.getHttpClient();
             DatabendPresignClient presignClient = new DatabendPresignClientV1(client, connection.getURI().toString());
             filePath = generateRandomCSV(10);

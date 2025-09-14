@@ -128,7 +128,7 @@ public class TestMultiHost {
             statement.execute("select value from system.configs where name = 'http_handler_port';");
             ResultSet r = statement.getResultSet();
             r.next();
-            DatabendConnection dbc = (DatabendConnection) connection;
+            DatabendConnectionImpl dbc = (DatabendConnectionImpl) connection;
             // automatically
             Assert.assertFalse(dbc.isAutoDiscovery());
         }

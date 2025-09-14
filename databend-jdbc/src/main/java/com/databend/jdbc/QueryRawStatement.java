@@ -15,7 +15,7 @@ import static com.databend.jdbc.StatementType.QUERY;
  */
 @Getter
 @EqualsAndHashCode(callSuper = true)
-public class QueryRawStatement extends RawStatement {
+class QueryRawStatement extends RawStatement {
 
     private final String database;
 

@@ -7,11 +7,11 @@ import java.io.IOException;
 import java.io.InputStream;
 
 public interface DatabendPresignClient {
-    public void presignUpload(File srcFile, InputStream inputStream, Headers headers, String presignedUrl, long fileSize, boolean uploadFromStream) throws IOException;
+    void presignUpload(File srcFile, InputStream inputStream, Headers headers, String presignedUrl, long fileSize, boolean uploadFromStream) throws IOException;
 
-    public void presignDownload(String destFileName, Headers headers, String presignedUrl);
+    void presignDownload(String destFileName, Headers headers, String presignedUrl);
 
-    public InputStream presignDownloadStream(Headers headers, String presignedUrl);
+    InputStream presignDownloadStream(Headers headers, String presignedUrl);
 
     /**
      * presignUpload file through databend api instead of presigned url, it should only be adopted if presigned url is not available
@@ -21,5 +21,5 @@ public interface DatabendPresignClient {
      * @param uploadFromStream whether the upload is from stream
      * @throws IOException
      */
-    public void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath, String fileName, long fileSize, boolean uploadFromStream) throws IOException;
+    void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath, String fileName, long fileSize, boolean uploadFromStream) throws IOException;
 }

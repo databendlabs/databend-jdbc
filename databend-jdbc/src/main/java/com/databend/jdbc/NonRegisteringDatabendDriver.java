@@ -16,7 +16,7 @@ import java.util.logging.Logger;
 import static com.databend.client.OkHttpUtils.userAgentInterceptor;
 import static com.databend.jdbc.DriverInfo.*;
 
-public class NonRegisteringDatabendDriver implements Driver, Closeable {
+class NonRegisteringDatabendDriver implements Driver, Closeable {
     private final OkHttpClient httpClient = newHttpClient();
 
     private static Properties urlProperties(String url, Properties info) {
@@ -62,11 +62,11 @@ public class NonRegisteringDatabendDriver implements Driver, Closeable {
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
-        DatabendConnection connection = new DatabendConnection(uri, builder.build());
+        DatabendConnectionImpl connection = new DatabendConnectionImpl(uri, builder.build());
         // ping the server host
         if (connection.useVerify()) {
             try {
-                connection.PingDatabendClientV1();
+                connection.pingDatabendClientV1();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }

@@ -18,16 +18,17 @@ public class TestPresignContext {
 
     @Test(groups = {"IT"})
     public void TestGetPresignUrl() throws SQLException {
-        DatabendConnection connection = (DatabendConnection) Utils.createConnection();
-        PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
-        Assert.assertNotNull(ctx);
-        Assert.assertNotNull(ctx.getUrl());
-        Assert.assertNotNull(ctx.getHeaders());
+        try (DatabendConnectionImpl connection = (DatabendConnectionImpl) Utils.createConnection()) {
+            PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, null, "test.csv");
+            Assert.assertNotNull(ctx);
+            Assert.assertNotNull(ctx.getUrl());
+            Assert.assertNotNull(ctx.getHeaders());
+        }
     }
 
     @Test(groups = {"IT"})
     public void TestGetPresignUrlCase2() throws SQLException {
-        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection()) {
+        try (DatabendConnectionImpl connection = (DatabendConnectionImpl) Utils.createConnection()) {
             String stageName = "test_stage";
             PresignContext.createStageIfNotExists(connection, stageName);
             PresignContext ctx = PresignContext.getPresignContext(connection, PresignContext.PresignMethod.UPLOAD, stageName, "a/b/d/test.csv");

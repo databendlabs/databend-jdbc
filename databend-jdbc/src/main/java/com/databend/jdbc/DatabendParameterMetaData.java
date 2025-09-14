@@ -9,7 +9,7 @@ import java.util.Locale;
 import static com.databend.jdbc.DatabendResultSetMetaData.getTypeClassName;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData {
+class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData {
     protected final List<DatabendColumnInfo> params;
     protected final JdbcTypeMapping mapper;
 

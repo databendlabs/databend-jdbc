@@ -16,7 +16,7 @@ import static com.databend.jdbc.StatementType.PARAM_SETTING;
  */
 @Data
 @AllArgsConstructor
-public class StatementInfoWrapper {
+class StatementInfoWrapper {
     private String sql;
     private String id;
     private StatementType type;

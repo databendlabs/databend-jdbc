@@ -5,7 +5,7 @@ import lombok.Value;
 
 @AllArgsConstructor
 @Value
-public class ParamMarker {
+class ParamMarker {
     // Id / index of the param marker in the SQL statement
     int id;
     // Position in the SQL subStatement

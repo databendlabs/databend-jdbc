@@ -2,7 +2,7 @@ package com.databend.jdbc;
 
 import com.vdurmont.semver4j.Semver;
 
-public class Capability {
+class Capability {
     private final boolean streamingLoad;
     private final boolean heartbeat;
     public Capability(Semver ver) {

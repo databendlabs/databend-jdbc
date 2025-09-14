@@ -1,6 +1,6 @@
 package com.databend.jdbc.examples;
 
-import com.databend.jdbc.DatabendConnection;
+import com.databend.jdbc.DatabendConnectionImpl;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -10,7 +10,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-public class DatabendConnectionFactory implements PooledObjectFactory<DatabendConnection> {
+public class DatabendConnectionFactory implements PooledObjectFactory<DatabendConnectionImpl> {
 
     private String url;
     private Properties properties;
@@ -25,18 +25,18 @@ public class DatabendConnectionFactory implements PooledObjectFactory<DatabendCo
     }
 
     @Override
-    public PooledObject<DatabendConnection> makeObject() throws Exception {
-        DatabendConnection connection = (DatabendConnection) createConnection(url, properties);
+    public PooledObject<DatabendConnectionImpl> makeObject() throws Exception {
+        DatabendConnectionImpl connection = (DatabendConnectionImpl) createConnection(url, properties);
         return new DefaultPooledObject<>(connection);
     }
 
     @Override
-    public void destroyObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void destroyObject(PooledObject<DatabendConnectionImpl> p) throws Exception {
         p.getObject().close();
     }
 
     @Override
-    public boolean validateObject(PooledObject<DatabendConnection> p) {
+    public boolean validateObject(PooledObject<DatabendConnectionImpl> p) {
         try {
             return !p.getObject().isClosed();
         } catch (SQLException e) {
@@ -45,11 +45,11 @@ public class DatabendConnectionFactory implements PooledObjectFactory<DatabendCo
     }
 
     @Override
-    public void activateObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void activateObject(PooledObject<DatabendConnectionImpl> p) throws Exception {
     }
 
     @Override
-    public void passivateObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void passivateObject(PooledObject<DatabendConnectionImpl> p) throws Exception {
     }
 }
 

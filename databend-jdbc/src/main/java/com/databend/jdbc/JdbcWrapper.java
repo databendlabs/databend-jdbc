@@ -3,7 +3,7 @@ package com.databend.jdbc;
 import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 
-public abstract class JdbcWrapper {
+abstract class JdbcWrapper {
     public <T> T unwrap(Class<T> iface) throws SQLException {
         if (iface.isAssignableFrom(getClass())) {
             return iface.cast(this);

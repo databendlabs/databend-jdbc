@@ -59,13 +59,13 @@ import java.util.stream.Collectors;
 
 import static com.databend.jdbc.ObjectCasts.*;
 import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
-import static com.databend.jdbc.constant.DatabendConstant.*;
+import static com.databend.jdbc.DatabendConstant.*;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
+class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     private final RawStatementWrapper rawStatement;
@@ -87,7 +87,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
+    DatabendPreparedStatement(DatabendConnectionImpl connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
         super(connection, onClose);
         this.batchValues = new ArrayList<>();
         this.batchValuesCSV = new ArrayList<>();
@@ -162,7 +162,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
         File saved = batchInsertUtils.saveBatchToCSV(batchValuesCSV);
         try (FileInputStream fis = new FileInputStream(saved)) {
-            DatabendConnection c = (DatabendConnection) getConnection();
+            DatabendConnectionImpl c = (DatabendConnectionImpl) getConnection();
             String uuid = UUID.randomUUID().toString().replace("-", "");
             // format %Y/%m/%d/%H/%M/%S/fileName.csv
             String stagePrefix = String.format("%s/%s/%s/%s/%s/%s/%s/",
@@ -202,7 +202,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
      * @param stagePath  The path of the stage in the Databend database.
      * @return A StageAttachment object which contains the details of the stage.
      */
-    public static StageAttachment buildStateAttachment(DatabendConnection connection, String stagePath) {
+    static StageAttachment buildStateAttachment(DatabendConnectionImpl connection, String stagePath) {
         Map<String, String> fileFormatOptions = new HashMap<>();
         if (!Objects.equals(connection.binaryFormat(), "")) {
             fileFormatOptions.put("binary_format", String.valueOf(connection.binaryFormat()));
@@ -231,7 +231,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
      *
      * @return true if delete success or resource not found
      */
-    private boolean dropStageAttachment(StageAttachment attachment) {
+    boolean dropStageAttachment(StageAttachment attachment) {
         if (attachment == null) {
             return true;
         }
@@ -244,7 +244,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
     }
 
-    public int[] executeBatchByAttachment() throws SQLException {
+    int[] executeBatchByAttachment() throws SQLException {
         int[] batchUpdateCounts = new int[batchValues.size()];
         if (batchValues.isEmpty()) {
             return batchUpdateCounts;

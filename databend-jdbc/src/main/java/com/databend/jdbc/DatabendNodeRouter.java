@@ -9,7 +9,7 @@ import java.util.List;
 /**
  * Node manager manage a list of hosts
  */
-public interface DatabendNodeRouter {
+interface DatabendNodeRouter {
     /**
      * Gets a copy of all possible query uris
      *

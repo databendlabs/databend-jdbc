@@ -9,7 +9,7 @@ import java.util.List;
 
 @CustomLog
 @Value
-public class RawStatementWrapper {
+class RawStatementWrapper {
 
     List<RawStatement> subStatements;
 

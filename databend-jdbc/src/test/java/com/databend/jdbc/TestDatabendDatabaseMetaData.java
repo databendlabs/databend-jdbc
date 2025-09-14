@@ -117,7 +117,7 @@ public class TestDatabendDatabaseMetaData {
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
 
             if (Compatibility.serverCapability.streamingLoad && Compatibility.driverCapability.streamingLoad) {
-                DatabendConnection conn = connection.unwrap(DatabendConnection.class);
+                DatabendConnectionImpl conn = connection.unwrap(DatabendConnectionImpl.class);
                 if (conn.getServerVersion() != null) {
                     String semver = "v" + conn.getServerVersion().toString();
                     Assert.assertTrue(semver.startsWith(checkVersion), semver);

@@ -1,4 +1,4 @@
-package com.databend.jdbc.constant;
+package com.databend.jdbc;
 
 import java.util.regex.Pattern;
 

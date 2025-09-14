@@ -21,8 +21,8 @@ import static com.databend.jdbc.AbstractDatabendResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendStatement implements Statement {
-    private final AtomicReference<DatabendConnection> connection;
+class DatabendStatement implements Statement {
+    private final AtomicReference<DatabendConnectionImpl> connection;
     private final Consumer<DatabendStatement> onClose;
     private int currentUpdateCount = -1;
     private final AtomicReference<DatabendResultSet> currentResult = new AtomicReference<>();
@@ -30,7 +30,7 @@ public class DatabendStatement implements Statement {
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
 
-    DatabendStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose) {
+    DatabendStatement(DatabendConnectionImpl connection, Consumer<DatabendStatement> onClose) {
         this.connection = new AtomicReference<>(requireNonNull(connection, "connection is null"));
         this.onClose = requireNonNull(onClose, "onClose is null");
     }
@@ -51,7 +51,7 @@ public class DatabendStatement implements Statement {
     @Override
     public void close()
             throws SQLException {
-        DatabendConnection connection = this.connection.getAndSet(null);
+        DatabendConnectionImpl connection = this.connection.getAndSet(null);
         if (connection == null) {
             return;
         }
@@ -438,9 +438,9 @@ public class DatabendStatement implements Statement {
         connection();
     }
 
-    protected final DatabendConnection connection()
+    protected final DatabendConnectionImpl connection()
             throws SQLException {
-        DatabendConnection connection = this.connection.get();
+        DatabendConnectionImpl connection = this.connection.get();
         if (connection == null) {
             throw new SQLException("Statement is closed");
         }
@@ -450,7 +450,7 @@ public class DatabendStatement implements Statement {
         return connection;
     }
 
-    public QueryLiveness queryLiveness() {
+    QueryLiveness queryLiveness() {
         DatabendResultSet r = currentResult.get();
 
         if (r != null) {

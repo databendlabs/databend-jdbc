@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 @UtilityClass
 @CustomLog
-public class StatementUtil {
+class StatementUtil {
 
     private static final String SET_PREFIX = "set";
     private static final Pattern SET_WITH_SPACE_REGEX = Pattern.compile(SET_PREFIX + " ", Pattern.CASE_INSENSITIVE);
