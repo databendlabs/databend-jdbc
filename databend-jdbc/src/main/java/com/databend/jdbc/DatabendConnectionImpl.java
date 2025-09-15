@@ -69,7 +69,7 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 
-public class DatabendConnectionImpl implements Connection, DatabendConnection, FileTransferAPI, Consumer<DatabendSession> {
+class DatabendConnectionImpl implements Connection, DatabendConnection, FileTransferAPI, Consumer<DatabendSession> {
     private static final Logger logger = Logger.getLogger(DatabendConnectionImpl.class.getPackage().getName());
     private static final String STREAMING_LOAD_PATH = "/v1/streaming_load";
     private static final String LOGIN_PATH = "/v1/session/login";
@@ -88,7 +88,7 @@ public class DatabendConnectionImpl implements Connection, DatabendConnection, F
     private boolean autoDiscovery;
     private final AtomicReference<DatabendSession> session = new AtomicReference<>();
 
-    private String routeHint = "";
+    private String routeHint;
     private final AtomicReference<String> lastNodeID = new AtomicReference<>();
     private Semver serverVersion = null;
     private Capability serverCapability = null;
@@ -259,7 +259,7 @@ public class DatabendConnectionImpl implements Connection, DatabendConnection, F
         this.session.set(session);
     }
 
-    public OkHttpClient getHttpClient() {
+    private OkHttpClient getHttpClient() {
         return httpClient;
     }
 
