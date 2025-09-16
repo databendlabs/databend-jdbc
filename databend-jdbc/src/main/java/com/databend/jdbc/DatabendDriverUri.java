@@ -26,7 +26,7 @@ import java.util.concurrent.TimeUnit;
 
 import static com.databend.client.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
-import static com.databend.jdbc.constant.DatabendConstant.ENABLE_STR;
+import static com.databend.jdbc.DatabendConstant.ENABLE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -35,7 +35,7 @@ import static java.util.Objects.requireNonNull;
 /**
  * Parses and extracts parameters from a databend JDBC URL
  */
-public final class DatabendDriverUri {
+final class DatabendDriverUri {
     private static final String JDBC_URL_PREFIX = "jdbc:";
     private static final String JDBC_URL_START = JDBC_URL_PREFIX + "databend://";
     private static final Splitter QUERY_SPLITTER = Splitter.on('&').omitEmptyStrings();

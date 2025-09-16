@@ -2,6 +2,7 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
+import com.vdurmont.semver4j.Semver;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -39,7 +40,7 @@ public class TestBasicDriver {
     public void testBasic()
             throws SQLException {
         try (Connection connection = Utils.createConnection()) {
-            PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
+            PaginationOptions p = (PaginationOptions)  Compatibility.invokeMethodNoArg(connection, "getPaginationOptions");
             Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
             Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
             Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
@@ -67,10 +68,6 @@ public class TestBasicDriver {
     @Test(groups = {"IT"})
     public void testSchema() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
-            PaginationOptions p = connection.unwrap(DatabendConnection.class).getPaginationOptions();
-            Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
-            Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
-            Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("set global timezone='Asia/Shanghai';");
             statement.execute("SELEcT schema_name as TABLE_SCHEM, catalog_name as TABLE_CATALOG FROM information_schema.schemata where schema_name = 'default' order by catalog_name, schema_name");
@@ -226,7 +223,7 @@ public class TestBasicDriver {
 
         //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
         try (Connection connection = Utils.createConnection("test_basic_driver", p)) {
-            PaginationOptions options = connection.unwrap(DatabendConnection.class).getPaginationOptions();
+            PaginationOptions options = (PaginationOptions)  Compatibility.invokeMethodNoArg(connection, "getPaginationOptions");
             Assert.assertEquals(options.getWaitTimeSecs(), 10);
             Assert.assertEquals(options.getMaxRowsInBuffer(), 100);
             Assert.assertEquals(options.getMaxRowsPerPage(), 100);
@@ -279,7 +276,7 @@ public class TestBasicDriver {
         try (Connection connection = Utils.createConnection("test_basic_driver")) {
             connection.createStatement().execute("set max_threads=1");
             connection.createStatement().execute("use test_basic_driver_2");
-            DatabendSession session = connection.unwrap(DatabendConnection.class).getSession();
+            DatabendSession session = (DatabendSession)  Compatibility.invokeMethodNoArg(connection, "getSession");
             Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
             Assert.assertEquals(session.getSettings().get("max_threads"), "1");
         }

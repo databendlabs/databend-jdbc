@@ -12,7 +12,7 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.List;
 
-public class DatabendResultSetMetaData implements ResultSetMetaData {
+class DatabendResultSetMetaData implements ResultSetMetaData {
     private final List<DatabendColumnInfo> databendColumnInfo;
 
     DatabendResultSetMetaData(List<DatabendColumnInfo> databendColumnInfo) {

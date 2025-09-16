@@ -16,7 +16,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.logging.Logger;
 
-public class DatabendNodes implements DatabendNodeRouter {
+class DatabendNodes implements DatabendNodeRouter {
 
     private AtomicReference<List<URI>> query_nodes_uris;
     protected final AtomicInteger index;
@@ -110,7 +110,7 @@ public class DatabendNodes implements DatabendNodeRouter {
     }
 
     public List<URI> parseURI(List<com.databend.client.DiscoveryNode> nodes) throws RuntimeException {
-        String host = null;
+        String host;
         List<URI> uris = new ArrayList<>();
         try {
             for (DiscoveryNode node : nodes) {

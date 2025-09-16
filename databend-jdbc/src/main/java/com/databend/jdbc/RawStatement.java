@@ -8,7 +8,7 @@ import java.util.List;
 import java.util.Optional;
 
 @Data
-public abstract class RawStatement {
+abstract class RawStatement {
 
     private final String sql;
     private final String cleanSql;

@@ -111,8 +111,11 @@ public class TestFileTransfer {
         try (FileInputStream fileInputStream = new FileInputStream(f);
              Connection connection = Utils.createConnection()) {
             String stageName = "test_stage";
-            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
-            PresignContext.createStageIfNotExists(databendConnection, stageName);
+            // use FileTransferAPI for compat test
+            FileTransferAPI databendConnection = connection.unwrap(FileTransferAPI.class);
+            String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
@@ -134,8 +137,11 @@ public class TestFileTransfer {
 
 
             String stageName = "test_stage_np";
-            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
-            PresignContext.createStageIfNotExists(databendConnection, stageName);
+            // use FileTransferAPI for compat test
+            FileTransferAPI databendConnection = connection.unwrap(FileTransferAPI.class);
+            String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
             databendConnection.uploadStream(stageName, "jdbc/test/", fileInputStream, "test.csv", f.length(), false);
             InputStream downloaded = databendConnection.downloadStream(stageName, "jdbc/test/test.csv", false);
             byte[] arr = streamToByteArray(downloaded);
@@ -152,8 +158,11 @@ public class TestFileTransfer {
         try (FileInputStream fileInputStream = new FileInputStream(f)) {
             Connection connection = Utils.createConnection();
             String stageName = "test_stage";
-            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
-            PresignContext.createStageIfNotExists(databendConnection, stageName);
+            // use FileTransferAPI for compat test
+            FileTransferAPI databendConnection = connection.unwrap(FileTransferAPI.class);
+            String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
+            Statement statement = connection.createStatement();
+            statement.execute(sql);
             databendConnection.uploadStream(stageName, "jdbc/c2/", fileInputStream, "complex.csv", f.length(), false);
             fileInputStream.close();
             DatabendStage s = DatabendStage.builder().stageName(stageName).path("jdbc/c2/").build();
@@ -170,8 +179,8 @@ public class TestFileTransfer {
     @DataProvider(name = "streamingLoad")
     private Object[][] provideTestData() {
         return new Object[][] {
-                {"streaming"},
-                {"stage"}
+                {"STREAMING"},
+                {"STAGE"}
         };
     }
 
@@ -197,7 +206,7 @@ public class TestFileTransfer {
             statement.execute("create or replace table test_load(i int, a Variant, b string)");
             DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
             String sql = "insert into test_load from @_databend_load file_format=(type=csv)";
-            int nUpdate = databendConnection.loadStreamToTable(sql, fileInputStream, f.length(), method);
+            int nUpdate = databendConnection.loadStreamToTable(sql, fileInputStream, f.length(), DatabendConnection.LoadMethod.valueOf(method));
             Assert.assertEquals(nUpdate, 10);
             fileInputStream.close();
             ResultSet r = statement.executeQuery("SELECT * FROM test_load");

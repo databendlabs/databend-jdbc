@@ -27,7 +27,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-public class DatabendResultSet extends AbstractDatabendResultSet {
+class DatabendResultSet extends AbstractDatabendResultSet {
     private final Statement statement;
     private final DatabendClient client;
     @GuardedBy("this")
@@ -65,7 +65,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
     }
 
 
-    public QueryLiveness getLiveness() {
+    QueryLiveness getLiveness() {
         if (closed) {
 	        return null;
         }

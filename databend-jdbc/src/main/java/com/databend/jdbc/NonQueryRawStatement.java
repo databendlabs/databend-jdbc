@@ -11,7 +11,7 @@ import static com.databend.jdbc.StatementType.NON_QUERY;
  * INSERT)
  */
 @EqualsAndHashCode(callSuper = true)
-public class NonQueryRawStatement extends RawStatement {
+class NonQueryRawStatement extends RawStatement {
 
     public NonQueryRawStatement(String sql, String cleanSql, List<ParamMarker> paramPositions) {
         super(sql, cleanSql, paramPositions);

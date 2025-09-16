@@ -4,7 +4,7 @@ import com.databend.client.data.DatabendDataType;
 
 import java.sql.Types;
 
-public class JdbcTypeMapping {
+class JdbcTypeMapping {
     /**
      * Converts {@link DatabendColumnInfo} to generic SQL type defined in JDBC.
      *

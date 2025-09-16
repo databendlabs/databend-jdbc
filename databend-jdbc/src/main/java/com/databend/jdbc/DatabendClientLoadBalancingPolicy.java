@@ -3,7 +3,7 @@ package com.databend.jdbc;
 import java.net.URI;
 import java.util.List;
 
-public class DatabendClientLoadBalancingPolicy {
+class DatabendClientLoadBalancingPolicy {
     static class DisabledPolicy extends DatabendClientLoadBalancingPolicy {
         @Override
         public String toString() {

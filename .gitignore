@@ -9,3 +9,4 @@ target/
 tests/data
 tests/compatibility/*.jar
 test-output
+.DS_Store

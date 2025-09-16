@@ -14,7 +14,7 @@ import static com.databend.jdbc.StatementType.PARAM_SETTING;
  */
 @Getter
 @EqualsAndHashCode(callSuper = true)
-public class SetParamRawStatement extends RawStatement {
+class SetParamRawStatement extends RawStatement {
 
     private final Pair<String, String> additionalProperty;
 

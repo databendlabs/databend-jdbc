@@ -1,6 +1,5 @@
 package com.databend.jdbc.examples;
 
-import com.databend.jdbc.DatabendConnection;
 import org.apache.commons.pool2.PooledObject;
 import org.apache.commons.pool2.PooledObjectFactory;
 import org.apache.commons.pool2.impl.DefaultPooledObject;
@@ -10,10 +9,10 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.util.Properties;
 
-public class DatabendConnectionFactory implements PooledObjectFactory<DatabendConnection> {
+public class DatabendConnectionFactory implements PooledObjectFactory<Connection> {
 
-    private String url;
-    private Properties properties;
+    final private String url;
+    final private Properties properties;
 
     public DatabendConnectionFactory(String url, Properties properties) {
         this.url = url;
@@ -25,18 +24,18 @@ public class DatabendConnectionFactory implements PooledObjectFactory<DatabendCo
     }
 
     @Override
-    public PooledObject<DatabendConnection> makeObject() throws Exception {
-        DatabendConnection connection = (DatabendConnection) createConnection(url, properties);
+    public PooledObject<Connection> makeObject() throws Exception {
+        Connection connection = createConnection(url, properties);
         return new DefaultPooledObject<>(connection);
     }
 
     @Override
-    public void destroyObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void destroyObject(PooledObject<Connection> p) throws Exception {
         p.getObject().close();
     }
 
     @Override
-    public boolean validateObject(PooledObject<DatabendConnection> p) {
+    public boolean validateObject(PooledObject<Connection> p) {
         try {
             return !p.getObject().isClosed();
         } catch (SQLException e) {
@@ -45,11 +44,11 @@ public class DatabendConnectionFactory implements PooledObjectFactory<DatabendCo
     }
 
     @Override
-    public void activateObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void activateObject(PooledObject<Connection> p) throws Exception {
     }
 
     @Override
-    public void passivateObject(PooledObject<DatabendConnection> p) throws Exception {
+    public void passivateObject(PooledObject<Connection> p) throws Exception {
     }
 }
 

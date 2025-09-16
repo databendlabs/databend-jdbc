@@ -48,7 +48,7 @@ public class TestHeartbeat {
             statement.close();
             Thread.sleep(5000);
 
-            Assert.assertTrue(c1.unwrap(DatabendConnection.class).isHeartbeatStopped());
+            Assert.assertTrue((boolean) Compatibility.invokeMethodNoArg(c1, "isHeartbeatStopped"));
         }
     }
 }

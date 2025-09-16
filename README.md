@@ -159,7 +159,7 @@ The following example demonstrates how to upload data and load it into a table:
 ```java
 // 1. Upload a file to the internal stage
 Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000");
-FileTransferAPI api = conn.unwrap(DatabendConnection.class);
+DatabendConnection api = conn.unwrap(DatabendConnection.class);
 
 FileInputStream fileStream = new FileInputStream("data.csv");
 api.uploadStream(

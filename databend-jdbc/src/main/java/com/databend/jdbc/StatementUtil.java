@@ -21,7 +21,7 @@ import java.util.stream.Collectors;
 
 @UtilityClass
 @CustomLog
-public class StatementUtil {
+class StatementUtil {
 
     private static final String SET_PREFIX = "set";
     private static final Pattern SET_WITH_SPACE_REGEX = Pattern.compile(SET_PREFIX + " ", Pattern.CASE_INSENSITIVE);
@@ -81,16 +81,6 @@ public class StatementUtil {
         return columnTypes;
     }
 
-    /**
-     * Parse the sql statement to a list of {@link StatementInfoWrapper}
-     *
-     * @param sql the sql statement
-     * @return a list of {@link StatementInfoWrapper}
-     */
-    public List<StatementInfoWrapper> parseToStatementInfoWrappers(String sql) {
-        return parseToRawStatementWrapper(sql).getSubStatements().stream().map(StatementInfoWrapper::of)
-                .collect(Collectors.toList());
-    }
 
     /**
      * Parse sql statement to a {@link RawStatementWrapper}. The method construct
@@ -250,6 +240,12 @@ public class StatementUtil {
      */
     public List<StatementInfoWrapper> replaceParameterMarksWithValues(@NonNull Map<Integer, String> params,
                                                                       @NonNull RawStatementWrapper rawStatement) {
+        if (params.size() != rawStatement.getTotalParams()) {
+            throw new IllegalArgumentException(String.format(
+                    "The number of parameters passed does not equal the number of parameter markers in the SQL query. Provided: %d, Parameter markers in the SQL query: %d",
+                    params.size(), rawStatement.getTotalParams()));
+        }
+
         List<StatementInfoWrapper> subQueries = new ArrayList<>();
         for (int subqueryIndex = 0; subqueryIndex < rawStatement.getSubStatements().size(); subqueryIndex++) {
             int currentPos;
@@ -260,12 +256,6 @@ public class StatementUtil {
             int offset = 0;
             RawStatement subQuery = rawStatement.getSubStatements().get(subqueryIndex);
             String subQueryWithParams = subQuery.getSql();
-
-            if (params.size() != rawStatement.getTotalParams()) {
-                throw new IllegalArgumentException(String.format(
-                        "The number of parameters passed does not equal the number of parameter markers in the SQL query. Provided: %d, Parameter markers in the SQL query: %d",
-                        params.size(), rawStatement.getTotalParams()));
-            }
             for (ParamMarker param : subQuery.getParamMarkers()) {
                 String value = params.get(param.getId());
                 if (value == null) {
@@ -333,4 +323,6 @@ public class StatementUtil {
                     "Cannot parse the additional properties provided in the statement: " + sql);
         }
     }
+
+
 }

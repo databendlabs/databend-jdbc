@@ -4,6 +4,7 @@ import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -176,9 +177,9 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), PaginationOptions.getDefaultMaxRowsPerPage());
         Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
-        Assert.assertEquals("\\N", uri.nullDisplay().toString());
-        Assert.assertEquals("base64", uri.binaryFormat().toString());
-        Assert.assertEquals("enable", uri.getSslmode().toString());
+        Assert.assertEquals("\\N", uri.nullDisplay());
+        Assert.assertEquals("base64", uri.binaryFormat());
+        Assert.assertEquals("enable", uri.getSslmode());
     }
 
     @Test(groups = {"UNIT"})
@@ -235,12 +236,12 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 7);
         Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertEquals("null", uri.nullDisplay().toString());
-        Assert.assertEquals(false, uri.getStrNullAsNull());
+        Assert.assertFalse(uri.getStrNullAsNull());
     }
 
     @Test(groups = "IT")
     public void TestSetSchema() throws SQLException {
-        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection()) {
+        try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("create or replace database test2");
             connection.createStatement().execute("create or replace table test2.test2(id int)");
             connection.setSchema("test2");
@@ -256,7 +257,7 @@ public class TestDatabendDriverUri {
         props.setProperty("session_settings", "max_threads=1,query_tag=tag1");
         props.setProperty("user", "databend");
         props.setProperty("password", "databend");
-        try (DatabendConnection connection = (DatabendConnection) Utils.createConnection("default", props)) {
+        try (Connection connection = Utils.createConnection("default", props)) {
             Statement statement = connection.createStatement();
             statement.execute("show settings");
             ResultSet r = statement.getResultSet();

@@ -16,7 +16,7 @@ import java.util.Optional;
  * so that we need to make some modifications to the types, values, etc. after the returned results.
  * The actual returned datas from the interface is a new ResultSet.
  */
-public class DatabendUnboundQueryResultSet extends AbstractDatabendResultSet {
+class DatabendUnboundQueryResultSet extends AbstractDatabendResultSet {
 
     private boolean closed = false;
 

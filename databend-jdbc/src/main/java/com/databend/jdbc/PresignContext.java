@@ -4,6 +4,7 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import okhttp3.Headers;
 
+import java.sql.Connection;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.HashMap;
@@ -12,7 +13,7 @@ import java.util.Map;
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.util.Objects.requireNonNull;
 
-public final class PresignContext {
+final class PresignContext {
     private final PresignMethod method;
     private final String stageName;
     private final String fileName;
@@ -27,19 +28,18 @@ public final class PresignContext {
         this.url = url;
     }
 
-    public static void createStageIfNotExists(DatabendConnection connection, String stageName) throws SQLException {
+    static void createStageIfNotExists(Connection connection, String stageName) throws SQLException {
         String sql = String.format("CREATE STAGE IF NOT EXISTS %s", stageName);
         Statement statement = connection.createStatement();
         statement.execute(sql);
     }
 
-    public static void dropStageIfExists(DatabendConnection connection, String stageName) throws SQLException {
-        String sql = String.format("DROP STAGE IF EXISTS %s", stageName);
-        Statement statement = connection.createStatement();
-        statement.execute(sql);
+    // only for compat test
+    static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
+            throws SQLException {
+       return newPresignContext((Connection) connection, method, stageName, fileName);
     }
-
-    public static PresignContext getPresignContext(DatabendConnection connection, PresignMethod method, String stageName, String fileName)
+    static PresignContext newPresignContext(Connection connection, PresignMethod method, String stageName, String fileName)
             throws SQLException {
         requireNonNull(connection, "connection is null");
         requireNonNull(method, "method is null");

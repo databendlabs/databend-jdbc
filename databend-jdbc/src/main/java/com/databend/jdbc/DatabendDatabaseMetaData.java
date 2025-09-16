@@ -21,11 +21,11 @@ import java.util.regex.Pattern;
 import static com.databend.jdbc.DriverInfo.*;
 import static java.util.Objects.requireNonNull;
 
-public class DatabendDatabaseMetaData implements DatabaseMetaData {
+class DatabendDatabaseMetaData implements DatabaseMetaData {
     private static final String SEARCH_STRING_ESCAPE = "\\";
-    private final DatabendConnection connection;
+    private final DatabendConnectionImpl connection;
 
-    public DatabendDatabaseMetaData(DatabendConnection connection)
+    public DatabendDatabaseMetaData(DatabendConnectionImpl connection)
             throws SQLException {
         requireNonNull(connection, "connection is null");
         this.connection = connection;

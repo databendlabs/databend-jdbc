@@ -2,7 +2,7 @@ package com.databend.jdbc;
 
 import java.util.concurrent.atomic.AtomicLong;
 
-public class QueryLiveness {
+class QueryLiveness {
     String queryID;
     String nodeID;
     boolean serverSupportHeartBeat;
