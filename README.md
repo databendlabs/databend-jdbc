@@ -148,9 +148,9 @@ try(Connection conn = DriverManager.getConnection("jdbc:databend://localhost:800
         DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
         
         // use special stage `_databend_load`
-        String sql="insert into my_table from @_databend_load file_format=(type=csv)";
+        String sql = "insert into my_table from @_databend_load file_format=(type=csv)";
         
-        databendConnection.loadStreamToTable(sql,file_stream,Files.size(Paths.get("data.csv")),DatabendConnection.LoadMethod.STAGE);
+        databendConnection.loadStreamToTable(sql, fileStream, Files.size(Paths.get("data.csv")), DatabendConnection.LoadMethod.STAGE);
     }
 }
 
