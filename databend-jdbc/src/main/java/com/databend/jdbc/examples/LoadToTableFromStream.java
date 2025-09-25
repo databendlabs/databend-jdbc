@@ -32,11 +32,11 @@ public class LoadToTableFromStream {
             DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
             databendConnection.uploadStream(inputStream, stageName, prefix, fileName, fileSize, false);
 
-            // optional list
+            // https://docs.databend.com/sql/sql-functions/table-functions/list-stage
             String sql = String.format("list %s", path);
             try(ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
-                    System.out.println(rs.getString(1));
+                    rs.getString(1);
                 }
             }
 
@@ -45,9 +45,7 @@ public class LoadToTableFromStream {
             sql = String.format("copy into table1 from %s file_format =(type=csv) purge=true", path);
             try(ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
-                    System.out.println( rs.getString("FILE") + ", " +
-                            rs.getInt("ROWS_LOADED") + ", " +
-                            rs.getInt("ERRORS_SEEN"));
+                    rs.getString("File");
                 }
             }
         } catch (IOException e) {
