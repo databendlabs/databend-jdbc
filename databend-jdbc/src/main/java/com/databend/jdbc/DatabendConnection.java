@@ -34,6 +34,9 @@ public interface DatabendConnection {
         STREAMING
     }
 
+
+    void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData) throws SQLException;
+
     /**
      * Upload inputStream to the databend internal stage, the data would be uploaded as one file with no split.
      * Caller should close the input stream after the upload is done.
@@ -46,7 +49,7 @@ public interface DatabendConnection {
      * @param compressData whether to compress the data
      * @throws SQLException failed to upload input stream
      */
-    void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData) throws SQLException;
+    void uploadStream(InputStream inputStream, String stageName, String destPrefix, String destFileName, long fileSize, boolean compressData) throws SQLException;
 
     /**
      * Download a file from the databend internal stage, the data would be downloaded as one file with no split.

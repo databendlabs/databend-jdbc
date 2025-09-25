@@ -909,6 +909,11 @@ class DatabendConnectionImpl implements Connection, DatabendConnection, FileTran
         return additionalHeaders;
     }
 
+    @Override
+    public void uploadStream(InputStream inputStream, String stageName, String destPrefix, String destFileName, long fileSize, boolean compressData)
+            throws SQLException {
+        uploadStream(stageName, destPrefix, inputStream, destFileName, fileSize, compressData);
+    }
 
     /**
      * Method to put data from a stream at a stage location. The data will be uploaded as one file. No
