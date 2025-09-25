@@ -131,10 +131,9 @@ Available with databend-jdbc >= 0.4.1 AND databend-query >= 1.2.791.
 - `inputStream`: The input stream of the file data to load
 - `fileSize`: The size of the file being loaded
 - `loadMethod`: LoadMethod.STREAMING or LoadMethod.STAGE
-  - `STAGE`: first upload file to a special path in user stage, then load the file in stage in to table,
-        - limited by the max object size of storage of the stage.
-  - `STREAMING` load data to while transforming data in one http request.
-        - limited by server memory when load large Parquet/Orc file, whose meta is at the file end.
+  - `STAGE`: first upload file to a special path in user stage, then load the file in stage in to table, Limited by the max object size of storage of the stage.
+    - the upload method is determined by connection parameter `presigned_url_disabled`.
+  - `STREAMING` load data to while transforming data in one http request. Limited by server memory when load large Parquet/Orc file, whose meta is at the file end.
 
 **Returns:** Number of rows successfully loaded
 
@@ -161,6 +160,8 @@ try(Connection conn = DriverManager.getConnection("jdbc:databend://localhost:800
 
 Upload a `InputStream` as a single file in the stage.
 
+the upload method is determined by connection parameter `presigned_url_disabled`.
+
 ```java
 void uploadStream(InputStream inputStream, String stageName, String destPrefix, String destFileName, long fileSize, boolean compressData) throws SQLException;
 ```
@@ -170,3 +171,4 @@ Download a single file in the stage as `InputStream`
 ```
 InputStream downloadStream(String stageName, String filePathInStage) throws SQLException;
 ```
+
