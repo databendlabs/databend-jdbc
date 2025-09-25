@@ -104,82 +104,69 @@ For detailed references, please take a look at the following Links:
    jdbc connection
 
 
-# FileTransfer API
+# Unwrapping to Databend-specific interfaces 
 
-The `FileTransferAPI` interface provides a high-performance, Java-based mechanism for streaming data directly between your application and Databend's internal stage, eliminating the need for intermediate local files. It is designed for efficient bulk data operations.
+## interface DatabendConnection
 
-## Key Features
+The following code shows how to unwrap a JDBC Connection object to expose the methods of the DatabendConnection interface.
 
-* **Streaming Upload/Download:** Directly transfer data using `InputStream`, supporting large files without excessive memory consumption
-* **Direct Table Loading:** Ingest data from streams or staged files directly into Databend tables using the `COPY INTO` command
-* **Compression:** Supports on-the-fly compression and decompression during transfer to optimize network traffic
-* **Flexible Data Ingestion:** Offers both stage-based and streaming-based methods for loading data into tables
+```java
+import com.databend.jdbc.DatabendConnection;
+Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000");
+DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
+```
 
-## Core Methods
+### method `loadStreamToTable` 
 
-### `uploadStream`
-Uploads a data stream as a single file to the specified internal stage.
+```java
+int loadStreamToTable(String sql, InputStream inputStream, long fileSize, LoadMethod loadMethod) throws SQLException;
+```
 
-**Parameters:**
-- `stageName`: The stage which will receive the uploaded file
-- `destPrefix`: The prefix of the file name in the stage
-- `inputStream`: The input stream of the file data
-- `destFileName`: The destination file name in the stage
-- `fileSize`: The size of the file being uploaded
-- `compressData`: Whether to compress the data during transfer
+Load data from a stream directly into a table, using either a staging or streaming approach.
 
-### `downloadStream`
-Downloads a file from the internal stage and returns it as an `InputStream`.
+Available with databend-jdbc >= 0.4.1 AND databend-query >= 1.2.791.
 
 **Parameters:**
-- `stageName`: The stage which contains the file to download
-- `sourceFileName`: The name of the file in the stage
-- `decompress`: Whether to decompress the data during download
-
-**Returns:** `InputStream` of the downloaded file content
-
-
-### `loadStreamToTable` 
-A versatile method to load data from a stream directly into a table, using either a staging or streaming approach.
-
-Available with databend-jdbc >= 0.4 AND databend-query >= 1.2.791.
-
-**Parameters:**
-- `sql`: SQL statement with specific syntax for data loading
+- `sql`: SQL statement with specific syntax for data loading, use special stage `_databend_load`
 - `inputStream`: The input stream of the file data to load
 - `fileSize`: The size of the file being loaded
-- `loadMethod`: The loading method - "stage" or "streaming". `stage` method first upload file to a special path in user stage, while `steaming` method load data to while transforming data.
+- `loadMethod`: LoadMethod.STREAMING or LoadMethod.STAGE
+  - `STAGE`: first upload file to a special path in user stage, then load the file in stage in to table,
+        - limited by the max object size of storage of the stage.
+  - `STREAMING` load data to while transforming data in one http request.
+        - limited by server memory when load large Parquet/Orc file, whose meta is at the file end.
 
 **Returns:** Number of rows successfully loaded
 
-## Quick Start
+example:
 
-The following example demonstrates how to upload data and load it into a table:
 
 ```java
-// 1. Upload a file to the internal stage
-Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000");
-DatabendConnection api = conn.unwrap(DatabendConnection.class);
-
-FileInputStream fileStream = new FileInputStream("data.csv");
-api.uploadStream(
-    "my_stage",
-    "uploads/",
-    fileStream,
-    "data.csv",
-    Files.size(Paths.get("data.csv")),
-    true // Compress the data during upload
-);
-fileStream.close();
-
-// 2. Load the staged file into a table
-FileInputStream fileStream = new FileInputStream("data.csv");
-String sql = "insert into my_table from @_databend_load file_format=(type=csv)"; // use special stage `_databend_load
-api.loadStreamToTable(sql, file_stream, Files.size(Paths.get("data.csv")), "stage");
-fileStream.close();
-conn.close())
-
+import com.databend.jdbc.DatabendConnection;
+try(Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000")) {
+    try(FileInputStream fileStream = new FileInputStream("data.csv")) {
+        // unwrap 
+        DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
+        
+        // use special stage `_databend_load`
+        String sql="insert into my_table from @_databend_load file_format=(type=csv)";
+        
+        databendConnection.loadStreamToTable(sql,file_stream,Files.size(Paths.get("data.csv")),DatabendConnection.LoadMethod.STAGE);
+    }
+}
 
 ```
 
-> **Important:** Callers are responsible for properly closing the provided `InputStream` objects after operations are complete.
+### method `uploadStream` and `downloadStream`
+
+Upload a `InputStream` as a single file in the stage.
+
+```java
+void uploadStream(InputStream inputStream, String stageName, String destPrefix, String destFileName, long fileSize, boolean compressData) throws SQLException;
+```
+
+Download a single file in the stage as `InputStream`
+
+```
+InputStream downloadStream(String stageName, String filePathInStage) throws SQLException;
+```
