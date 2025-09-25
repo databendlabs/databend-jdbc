@@ -45,7 +45,7 @@ public class LoadToTableFromStream {
             sql = String.format("copy into table1 from %s file_format =(type=csv) purge=true", path);
             try(ResultSet rs = stmt.executeQuery(sql)) {
                 while (rs.next()) {
-                    System.out.println( rs.getString("ROWS_LOADED") + ", " +
+                    System.out.println( rs.getString("FILE") + ", " +
                             rs.getInt("ROWS_LOADED") + ", " +
                             rs.getInt("ERRORS_SEEN"));
                 }
