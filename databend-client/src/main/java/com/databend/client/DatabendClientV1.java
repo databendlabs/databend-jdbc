@@ -24,7 +24,6 @@ import java.net.URI;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
-import java.util.OptionalLong;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.logging.Level;
@@ -52,7 +51,7 @@ public class DatabendClientV1
 
     public static final String QUERY_PATH = "/v1/query";
     public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
-    private static final long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024;
+    private static final Long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024L;
     private final OkHttpClient httpClient;
     private final String query;
     private final String host;
@@ -103,7 +102,7 @@ public class DatabendClientV1
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");
         Request request = buildDiscoveryRequest(settings);
-        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request, OptionalLong.empty(), settings.getQueryTimeoutSecs());
+        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request, null, settings.getQueryTimeoutSecs());
         return response.getNodes();
     }
 
@@ -159,7 +158,7 @@ public class DatabendClientV1
         return query;
     }
 
-    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, OptionalLong materializedJsonSizeLimit, int requestTimeoutSecs) {
+    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, Long materializedJsonSizeLimit, int requestTimeoutSecs) {
         requireNonNull(request, "request is null");
 
         long start = System.nanoTime();
@@ -227,7 +226,7 @@ public class DatabendClientV1
         }
     }
 
-    private boolean executeInternal(Request request, OptionalLong materializedJsonSizeLimit) {
+    private boolean executeInternal(Request request, Long materializedJsonSizeLimit) {
         requireNonNull(request, "request is null");
 
         long start = System.nanoTime();
@@ -305,7 +304,7 @@ public class DatabendClientV1
 
     @Override
     public boolean execute(Request request) {
-        return executeInternal(request, OptionalLong.empty());
+        return executeInternal(request, null);
     }
 
     private void processResponse(Headers headers, QueryResults results) {
@@ -348,7 +347,7 @@ public class DatabendClientV1
         Request.Builder builder = prepareRequest(url, this.additionalHeaders);
         builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
-        return executeInternal(request, OptionalLong.of(MAX_MATERIALIZED_JSON_RESPONSE_SIZE));
+        return executeInternal(request, MAX_MATERIALIZED_JSON_RESPONSE_SIZE);
     }
 
     @Override
