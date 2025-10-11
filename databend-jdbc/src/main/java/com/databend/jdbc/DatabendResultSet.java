@@ -27,7 +27,7 @@ import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
-class DatabendResultSet extends AbstractDatabendResultSet {
+public class DatabendResultSet extends AbstractDatabendResultSet {
     private final Statement statement;
     private final DatabendClient client;
     @GuardedBy("this")

@@ -31,7 +31,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
-class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
+public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     private final RawStatementWrapper rawStatement;
@@ -53,7 +53,7 @@ class DatabendPreparedStatement extends DatabendStatement implements PreparedSta
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    DatabendPreparedStatement(DatabendConnectionImpl connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
+    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
         super(connection, onClose);
         this.batchValues = new ArrayList<>();
         this.batchValuesCSV = new ArrayList<>();
@@ -174,7 +174,7 @@ class DatabendPreparedStatement extends DatabendStatement implements PreparedSta
      * @return A StageAttachment object which contains the details of the stage.
      */
     static StageAttachment buildStateAttachment(Connection conn, String stagePath) {
-        DatabendConnectionImpl connection = (DatabendConnectionImpl) conn;
+        DatabendConnection connection = (DatabendConnection) conn;
 
         Map<String, String> fileFormatOptions = new HashMap<>();
         if (!Objects.equals(connection.binaryFormat(), "")) {

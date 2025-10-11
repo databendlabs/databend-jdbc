@@ -62,7 +62,7 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
-        DatabendConnectionImpl connection = new DatabendConnectionImpl(uri, builder.build());
+        DatabendConnection connection = new DatabendConnection(uri, builder.build());
         // ping the server host
         if (connection.useVerify()) {
             try {
