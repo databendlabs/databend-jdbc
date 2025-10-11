@@ -53,7 +53,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
-    DatabendPreparedStatement(DatabendConnectionImpl connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
+    DatabendPreparedStatement(DatabendConnection connection, Consumer<DatabendStatement> onClose, String sql) throws SQLException {
         super(connection, onClose);
         this.batchValues = new ArrayList<>();
         this.batchValuesCSV = new ArrayList<>();
@@ -174,7 +174,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
      * @return A StageAttachment object which contains the details of the stage.
      */
     static StageAttachment buildStateAttachment(Connection conn, String stagePath) {
-        DatabendConnectionImpl connection = (DatabendConnectionImpl) conn;
+        DatabendConnection connection = (DatabendConnection) conn;
 
         Map<String, String> fileFormatOptions = new HashMap<>();
         if (!Objects.equals(connection.binaryFormat(), "")) {

@@ -23,9 +23,9 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendDatabaseMetaData implements DatabaseMetaData {
     private static final String SEARCH_STRING_ESCAPE = "\\";
-    private final DatabendConnectionImpl connection;
+    private final DatabendConnection connection;
 
-    public DatabendDatabaseMetaData(DatabendConnectionImpl connection)
+    public DatabendDatabaseMetaData(DatabendConnection connection)
             throws SQLException {
         requireNonNull(connection, "connection is null");
         this.connection = connection;
