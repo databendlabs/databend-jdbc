@@ -21,7 +21,7 @@ import static com.databend.jdbc.AbstractDatabendResultSet.resultsException;
 import static java.lang.Math.toIntExact;
 import static java.util.Objects.requireNonNull;
 
-class DatabendStatement implements Statement {
+public class DatabendStatement implements Statement {
     private final AtomicReference<DatabendConnectionImpl> connection;
     private final Consumer<DatabendStatement> onClose;
     private int currentUpdateCount = -1;

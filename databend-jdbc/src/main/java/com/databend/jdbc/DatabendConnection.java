@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import java.io.InputStream;
+import java.sql.Connection;
 import java.sql.SQLException;
 
 /**
@@ -13,7 +14,7 @@ import java.sql.SQLException;
  * data streams in Databend.
  * </p>
  */
-public interface DatabendConnection {
+public interface DatabendConnection extends Connection {
 
     /**
      * Enumeration of available loading strategies for streaming data into tables.
@@ -56,7 +57,6 @@ public interface DatabendConnection {
      *
      * @param stageName the stage which contains the file
      * @param sourceFileName the file name in the stage
-     * @param decompress whether to decompress the data
      * @return the input stream of the file
      * @throws SQLException failed to download input stream
      */

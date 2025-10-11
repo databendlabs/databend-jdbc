@@ -93,7 +93,7 @@ class DatabendConnectionImpl implements Connection, DatabendConnection, FileTran
     private Semver serverVersion = null;
     private Capability serverCapability = null;
 
-    static volatile ExecutorService heartbeatScheduler = null;
+    private static volatile ExecutorService heartbeatScheduler = null;
     private final HeartbeatManager heartbeatManager = new HeartbeatManager();
 
     private void initializeFileHandler() {
@@ -1331,8 +1331,8 @@ class DatabendConnectionImpl implements Connection, DatabendConnection, FileTran
     }
 
     static class RetryPolicy {
-        boolean ignore404;
-        boolean retry503;
+        private boolean ignore404;
+        private boolean retry503;
         RetryPolicy(boolean ignore404, boolean retry503) {
             this.ignore404 = ignore404;
             this.retry503 = retry503;
@@ -1352,7 +1352,7 @@ class DatabendConnectionImpl implements Connection, DatabendConnection, FileTran
     }
 
     static class ResponseWithBody {
-        public  Response response;
+        public Response response;
         public String body;
 
         ResponseWithBody(Response response, String body) {

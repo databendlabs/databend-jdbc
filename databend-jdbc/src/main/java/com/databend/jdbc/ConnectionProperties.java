@@ -9,7 +9,7 @@ import java.util.Optional;
 import java.util.Set;
 
 // all possible JDBC properties options currently supported by databend driver
-final class ConnectionProperties {
+public final class ConnectionProperties {
     public static final ConnectionProperty<String> USER = new User();
     public static final ConnectionProperty<String> PASSWORD = new Password();
     public static final ConnectionProperty<Boolean> SSL = new Ssl();

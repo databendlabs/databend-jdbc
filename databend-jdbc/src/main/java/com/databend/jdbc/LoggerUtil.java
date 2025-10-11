@@ -16,7 +16,7 @@ import java.util.stream.Collectors;
 
 @UtilityClass
 @CustomLog
-class LoggerUtil {
+public class LoggerUtil {
 
     private static Boolean slf4jAvailable;
 

@@ -31,7 +31,7 @@ import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
 import static java.util.Objects.requireNonNull;
 
-class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
+public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
     static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
     private final RawStatementWrapper rawStatement;

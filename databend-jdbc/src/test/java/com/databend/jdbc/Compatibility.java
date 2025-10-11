@@ -4,7 +4,6 @@ import com.vdurmont.semver4j.Semver;
 
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.sql.Connection;
 
 public class Compatibility {
     public static class Capability {
@@ -87,7 +86,7 @@ public class Compatibility {
         }
     }
 
-    static Object invokeMethodNoArg(Object target, String methodName) {
+    public static Object invokeMethodNoArg(Object target, String methodName) {
         return invokeMethod(target, methodName, new Class<?>[0], new Object[0]);
     }
 }
