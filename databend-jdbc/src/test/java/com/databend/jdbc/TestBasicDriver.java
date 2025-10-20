@@ -131,7 +131,6 @@ public class TestBasicDriver {
                     "    (1, 'David', 27, 'Calgary'),\n" +
                     "    (2, 'Emma', 29, 'Ottawa'),\n" +
                     "    (4, 'Frank', 32, 'Edmonton');");
-            statement.execute("set enable_experimental_merge_into = 1");
             statement.execute("MERGE INTO test_basic_driver.target_table AS T\n" +
                     "    USING (SELECT * FROM test_basic_driver.source_table) AS S\n" +
                     "    ON T.ID = S.ID\n" +
