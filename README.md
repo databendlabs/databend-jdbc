@@ -54,7 +54,7 @@ public class Main {
               Statement statement = conn.createStatement()
             ) {
             statement.execute("SELECT number from numbers(200000) order by number");
-            try(ResultSet r = statement.getResultSet()){
+            try(ResultSet rs = statement.getResultSet()){
                 // ** We must call `rs.next()` otherwise the query may be canceled **
                 while (rs.next()) {
                     System.out.println(r.getInt(1));
