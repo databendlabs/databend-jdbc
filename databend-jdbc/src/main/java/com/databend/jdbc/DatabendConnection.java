@@ -790,6 +790,12 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             return true;
         }
 
+        if (e instanceof IOException) {
+            return (e.getMessage().contains("unexpected end of stream") ||
+                    e.getMessage().contains("timeout") ||
+                    e.getMessage().contains("connection refused"));
+        }
+
         if (e instanceof RuntimeException) {
             String message = e.getMessage();
             return message != null && (
