@@ -506,16 +506,29 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testEncodePass() throws SQLException {
-        try (Connection conn = Utils.createConnection()) {
-            conn.createStatement().execute("create user if not exists 'u01' identified by 'mS%aFRZW*GW';");
-            conn.createStatement().execute("GRANT ALL PRIVILEGES ON default.* TO 'u01'@'%'");
+        try (Connection conn = Utils.createConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("drop user if exists u01");
+            stmt.execute("drop role if exists test_role");
+            stmt.execute("create role test_role");
+            stmt.execute("grant all PRIVILEGES ON default.* to role test_role");
+            stmt.execute("create user u01 identified by 'mS%aFRZW*GW' with default_role='test_role'");
+            stmt.execute("grant role test_role to u01");
             Properties p = new Properties();
             p.setProperty("user", "u01");
             p.setProperty("password", "mS%aFRZW*GW");
-            try(Connection conn2 = Utils.createConnection("default", p)) {
-                conn2.createStatement().execute("select 1");
+            try (Connection conn2 = Utils.createConnection("default", p);
+                 Statement stmt2 = conn2.createStatement()) {
+                stmt2.execute("select 1");
             }
-            conn.createStatement().execute("drop user if exists 'u01'");
+        } finally {
+            try (Connection cleanupConn = Utils.createConnection();
+                 Statement cleanupStmt = cleanupConn.createStatement()) {
+                cleanupStmt.execute("drop user if exists u01");
+                cleanupStmt.execute("drop role if exists test_role");
+            } catch (SQLException ignore) {
+                // ignore cleanup failure
+            }
         }
     }
 
