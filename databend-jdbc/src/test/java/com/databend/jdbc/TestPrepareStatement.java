@@ -511,7 +511,7 @@ public class TestPrepareStatement {
             stmt.execute("drop user if exists u01");
             stmt.execute("drop role if exists test_role");
             stmt.execute("create role test_role");
-            stmt.execute("grant all PRIVILEGES ON default.* role test_role");
+            stmt.execute("grant all PRIVILEGES ON default.* to role test_role");
             stmt.execute("create user u01 identified by 'mS%aFRZW*GW' with default_role='test_role'");
             stmt.execute("grant role test_role to u01");
             Properties p = new Properties();
