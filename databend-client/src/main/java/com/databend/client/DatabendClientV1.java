@@ -14,29 +14,24 @@
 
 package com.databend.client;
 
-import com.databend.client.errors.CloudErrors;
+import com.databend.client.errors.QueryErrors;
 import okhttp3.*;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
-import java.net.ConnectException;
 import java.net.URI;
-import java.time.Duration;
+import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 
 import static com.databend.client.JsonCodec.jsonCodec;
 import static com.databend.client.constant.DatabendConstant.BOOLEAN_TRUE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.lang.String.format;
 import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 @ThreadSafe
 public class DatabendClientV1
@@ -51,27 +46,20 @@ public class DatabendClientV1
 
     public static final String QUERY_PATH = "/v1/query";
     public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
-    private static final Long MAX_MATERIALIZED_JSON_RESPONSE_SIZE = 128 * 1024L;
     private final OkHttpClient httpClient;
     private final String query;
     private final String host;
 
-    private final int maxRetryAttempts;
-    private final PaginationOptions paginationOptions;
-    // request with retry timeout
-    private final Integer requestTimeoutSecs;
     private final Map<String, String> additionalHeaders;
     // client session
     private final AtomicReference<DatabendSession> databendSession;
     private String nodeID;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
-    private static final Logger logger = Logger.getLogger(DatabendClientV1.class.getPackage().getName());
-
     private final Consumer<DatabendSession> on_session_state_update;
 
     public DatabendClientV1(OkHttpClient httpClient, String sql, ClientSettings settings,
-            Consumer<DatabendSession> on_session_state_update,
-            AtomicReference<String> last_node_id) {
+                            Consumer<DatabendSession> on_session_state_update,
+                            AtomicReference<String> last_node_id) {
         requireNonNull(httpClient, "httpClient is null");
         requireNonNull(sql, "sql is null");
         requireNonNull(settings, "settings is null");
@@ -80,10 +68,7 @@ public class DatabendClientV1
         this.query = sql;
         this.on_session_state_update = on_session_state_update;
         this.host = settings.getHost();
-        this.paginationOptions = settings.getPaginationOptions();
-        this.requestTimeoutSecs = settings.getQueryTimeoutSecs();
         this.additionalHeaders = settings.getAdditionalHeaders();
-        this.maxRetryAttempts = settings.getRetryAttempts();
         this.databendSession = new AtomicReference<>(settings.getSession());
         this.nodeID = last_node_id.get();
 
@@ -102,7 +87,7 @@ public class DatabendClientV1
         requireNonNull(settings, "settings is null");
         requireNonNull(settings.getHost(), "settings.host is null");
         Request request = buildDiscoveryRequest(settings);
-        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request, null, settings.getQueryTimeoutSecs());
+        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request);
         return response.getNodes();
     }
 
@@ -158,153 +143,59 @@ public class DatabendClientV1
         return query;
     }
 
-    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request, Long materializedJsonSizeLimit, int requestTimeoutSecs) {
+    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request) {
         requireNonNull(request, "request is null");
+        JsonResponse<DiscoveryResponseCodec.DiscoveryResponse> response;
 
-        long start = System.nanoTime();
-        int attempts = 0;
-        Exception lastException = null;
-
-        while (true) {
-            if (attempts > 0) {
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
-                    throw new RuntimeException(format("Error fetching discovery nodes (attempts: %s, duration: %s)", attempts, sinceStart.getSeconds()), lastException);
-                }
-
-                try {
-                    // Exponential backoff
-                    MILLISECONDS.sleep(attempts * 100L);
-                } catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("Interrupted while fetching discovery nodes", e);
-                }
-            }
-            attempts++;
-
-            JsonResponse<DiscoveryResponseCodec.DiscoveryResponse> response;
-            try {
-                response = JsonResponse.execute(
-                        DISCOVERY_RESULT_CODEC,
-                        httpClient,
-                        request,
-                        materializedJsonSizeLimit);
-            } catch (RuntimeException e) {
-                lastException = e;
-                if (e.getCause() instanceof ConnectException) {
-                    // Retry on connection refused errors
-                    continue;
-                }
-                throw new RuntimeException("Failed to fetch discovery nodes: " + e.getMessage(), e);
-            }
-
-            if (response.getStatusCode() == HTTP_OK && response.hasValue()) {
+        try {
+            RetryPolicy retryPolicy = new RetryPolicy(true, true);
+            RetryPolicy.ResponseWithBody resp = retryPolicy.sendRequestWithRetry(httpClient, request);
+            long code = resp.response.code();
+            if (code == HTTP_OK) {
+                response = JsonResponse.decode(DISCOVERY_RESULT_CODEC, resp);
                 DiscoveryResponseCodec.DiscoveryResponse discoveryResponse = response.getValue();
-                if (discoveryResponse.getError() == null) {
-                    // Successful response
+                QueryErrors  errors = discoveryResponse.getError();
+                if (errors  == null) {
                     return discoveryResponse;
+                } else {
+                    throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
                 }
-                if (discoveryResponse.getError().notFound()) {
-                    throw new UnsupportedOperationException("Discovery request feature not supported: " + discoveryResponse.getError());
-                }
-                throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
-            } else if (response.getStatusCode() == HTTP_NOT_FOUND) {
+            } else if (code == HTTP_NOT_FOUND) {
                 throw new UnsupportedOperationException("Discovery request feature not supported");
             }
-
-            // Handle other HTTP error codes and response body parsing for errors
-            if (response.getResponseBody().isPresent()) {
-                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
-                if (errors != null && errors.tryGetErrorKind().canRetry()) {
-                    continue;
-                }
-            }
-
-            if (response.getStatusCode() != 520) {
-                throw new RuntimeException("Discovery request failed with status code: " + response.getStatusCode());
-            }
+            throw new RuntimeException("Discovery request failed, code = " + code + " :" + resp.body);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    private boolean executeInternal(Request request, Long materializedJsonSizeLimit) {
+    private boolean executeInternal(Request request) {
         requireNonNull(request, "request is null");
+        JsonResponse<QueryResults> response;
 
-        long start = System.nanoTime();
-        int attempts = 0;
-//        Exception cause = null;
-
-        while (true) {
-            if (attempts > 0) {
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.compareTo(Duration.ofSeconds(requestTimeoutSecs)) > 0) {
-                    throw new RuntimeException(format("Error fetching next (attempts: %s, duration: %s)",
-                            attempts, sinceStart.getSeconds()), null);
-                }
-
-                try {
-                    logger.log(Level.FINE, "Executing query attempt #" + attempts);
-                    // Apply exponential backoff with a cap
-                    // Max 5 seconds
-                    long sleepTime = Math.min(100 * (1 << Math.min(attempts - 1, 10)), 5000);
-                    MILLISECONDS.sleep(sleepTime);
-                } catch (InterruptedException e) {
-                    try {
-                        close();
-                    } finally {
-                        Thread.currentThread().interrupt();
-                    }
-                    throw new RuntimeException("StatementClient thread was interrupted");
-                }
-            }
-
-            attempts++;
-            JsonResponse<QueryResults> response;
-
-            try {
-                response = JsonResponse.execute(QUERY_RESULTS_CODEC, httpClient, request, materializedJsonSizeLimit);
-            } catch (RuntimeException e) {
-                if (e.getCause() instanceof ConnectException) {
-                    // Log the connection exception but rethrow it to match original behavior
-                    logger.log(Level.WARNING, "Connection exception on attempt " + attempts + ": " + e.getMessage());
-                    // This will be caught by the caller's retry mechanism
-                    throw e;
-                }
-                throw new RuntimeException("Query failed: " + e.getMessage(), e);
-            }
-
-            // Success case
-            if ((response.getStatusCode() == HTTP_OK) &&
-                    response.hasValue() &&
-                    (response.getValue().getError() == null)) {
-                processResponse(response.getHeaders(), response.getValue());
-                return true;
-            }
-
-            // Try to parse error response
-            if (response.getResponseBody().isPresent()) {
-                CloudErrors errors = CloudErrors.tryParse(response.getResponseBody().get());
-                if (errors != null) {
-                    if (errors.tryGetErrorKind().canRetry()) {
-                        logger.log(Level.WARNING, "Retryable error on attempt " + attempts + ": " + errors.getMessage());
-                        continue;
-                    } else {
-                        throw new RuntimeException(String.valueOf(response.getValue().getError()));
-                    }
-                }
-            }
-
-            // Handle status code 520
-            if (response.getStatusCode() == 520) {
-                return false;
-            }
-
-            throw new RuntimeException("Query failed: " + response.getValue().getError());
+        try {
+            RetryPolicy retryPolicy = new RetryPolicy(false, true);
+            RetryPolicy.ResponseWithBody resp = retryPolicy.sendRequestWithRetry(httpClient, request);
+            response = JsonResponse.decode(QUERY_RESULTS_CODEC, resp);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
+
+        if ((response.getStatusCode() == HTTP_OK) && response.hasValue() ) {
+            QueryErrors e = response.getValue().getError();
+            if (e == null) {
+                processResponse(response.getHeaders(), response.getValue());
+            } else {
+                throw new RuntimeException("Query Failed: " + e);
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override
     public boolean execute(Request request) {
-        return executeInternal(request, null);
+        return executeInternal(request);
     }
 
     private void processResponse(Headers headers, QueryResults results) {
@@ -347,7 +238,7 @@ public class DatabendClientV1
         Request.Builder builder = prepareRequest(url, this.additionalHeaders);
         builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
-        return executeInternal(request, MAX_MATERIALIZED_JSON_RESPONSE_SIZE);
+        return executeInternal(request);
     }
 
     @Override

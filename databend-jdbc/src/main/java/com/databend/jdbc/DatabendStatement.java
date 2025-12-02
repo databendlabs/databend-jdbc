@@ -220,7 +220,7 @@ public class DatabendStatement implements Statement {
             return true;
         } catch (RuntimeException e) {
             throw new SQLException(
-                    "Error executing query: " + "SQL: " + sql + " " + e.getMessage() + " cause: " + e.getCause(), e);
+                    "Error executing query: " + "SQL: " + sql + ", error = " + e.getMessage() + ", cause: " + e.getCause(), e);
         } finally {
             executingClient.set(null);
             if (currentResult.get() == null) {

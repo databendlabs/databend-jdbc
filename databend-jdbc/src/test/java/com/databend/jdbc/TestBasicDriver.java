@@ -55,6 +55,31 @@ public class TestBasicDriver {
         }
     }
 
+//    @Test(groups = {"IT"})
+//    public void testRetry()
+//            throws SQLException {
+//        try (Connection connection = Utils.createConnection();
+//             Statement statement = connection.createStatement()) {
+//            statement.execute("select * from numbers(1000000)");
+//            ResultSet r = statement.getResultSet();
+//            for (int b = 1; b < 100; b++) {
+//                for (int i = 1; i < 10000; i++) {
+//                    if (r.next()) {
+//                        r.getInt(1);
+//                    } else {
+//                        System.out.println("stop");
+//                        return;
+//                    }
+//                }
+//                System.out.println("sleep");
+//                // restart nginx manually
+//                Thread.sleep(1000);
+//            }
+//        } catch (InterruptedException e) {
+//            throw new RuntimeException(e);
+//        }
+//    }
+
     @Test(groups = {"IT"})
     public void testExecuteInvalidSql() {
         assertThrows(SQLException.class, () -> {
