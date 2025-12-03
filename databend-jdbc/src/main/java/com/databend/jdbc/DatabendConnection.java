@@ -161,7 +161,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             String bodyString = objectMapper.writeValueAsString(req);
             RequestBody requestBody= RequestBody.create(MEDIA_TYPE_JSON, bodyString);
 
-            ResponseWithBody response = requestHelper(LOGIN_PATH, "post", requestBody, headers, retryPolicy);
+            RetryPolicy.ResponseWithBody response = requestHelper(LOGIN_PATH, "post", requestBody, headers, retryPolicy);
             // old server do not support this API
             if (response.response.code() != 400) {
                 String version = objectMapper.readTree(response.body).get("version").asText();
@@ -723,6 +723,17 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         setSession(session);
     }
 
+    private DatabendClient startQueryInternal(String sql, StageAttachment attach) throws SQLException {
+        String queryId = UUID.randomUUID().toString().replace("-", "");
+        String candidateHost = selectHostForQuery(queryId);
+        // configure the client settings
+        ClientSettings.Builder sb = this.makeClientSettings(queryId, candidateHost);
+        if (attach != null) {
+            sb.setStageAttachment(attach);
+        }
+        ClientSettings settings = sb.build();
+        return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
+    }
     /**
      * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
      * It will find next target host based on configured Load balancing Policy.
@@ -734,13 +745,21 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
      * @see DatabendClientLoadBalancingPolicy
      */
     DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
+        if (this.driverUri.getNodes().getUris().size() == 1 && !this.autoDiscovery) {
+            return this.startQueryInternal(sql, attach);
+        }
         int maxRetries = getMaxFailoverRetries();
         SQLException lastException = null;
+        String lastHost = null;
 
         for (int attempt = 0; attempt <= maxRetries; attempt++) {
             try {
                 String queryId = UUID.randomUUID().toString().replace("-", "");
                 String candidateHost = selectHostForQuery(queryId);
+                if (candidateHost.equals(lastHost)) {
+                    continue;
+                }
+                lastHost = candidateHost;
 
                 // configure the client settings
                 ClientSettings.Builder sb = this.makeClientSettings(queryId, candidateHost);
@@ -1104,7 +1123,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             headers.put(DatabendSQLHeader, sql);
             headers.put("Accept", "application/json");
             RequestBody requestBody = buildMultiPart(inputStream, fileSize);
-            ResponseWithBody response = requestHelper(STREAMING_LOAD_PATH, "put", requestBody, headers, retryPolicy);
+            RetryPolicy.ResponseWithBody response = requestHelper(STREAMING_LOAD_PATH, "put", requestBody, headers, retryPolicy);
             JsonNode json = objectMapper.readTree(response.body);
             JsonNode error = json.get("error");
             if (error != null) {
@@ -1153,46 +1172,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return url.newBuilder().encodedPath(path).build();
     }
 
-    ResponseWithBody sendRequestWithRetry(Request request, RetryPolicy retryPolicy, String path) throws SQLException {
-        String failReason = null;
-
-        for (int j = 1; j <= 3; j++) {
-            try (Response response = httpClient.newCall(request).execute()) {
-                int code = response.code();
-                if (code != 200) {
-                    if (retryPolicy.shouldIgnore(code)) {
-                        return new ResponseWithBody(response, "");
-                    } else {
-                        failReason = "status code =" + response.code() + ", body = " + response.body().string();
-                        if (!retryPolicy.shouldRetry(code))
-                            break;
-                    }
-                } else {
-                    String body = response.body().string();
-                    return new ResponseWithBody(response, body);
-                }
-            } catch (IOException e) {
-                if (retryPolicy.shouldRetry(e)) {
-                    if (failReason == null) {
-                        failReason = e.getMessage();
-                    }
-                } else {
-                    break;
-                }
-            }
-            if (j < 3) {
-                try {
-                    MILLISECONDS.sleep(j * 100);
-                } catch (InterruptedException e2) {
-                    Thread.currentThread().interrupt();
-                    return null;
-                }
-            }
-        }
-        throw new SQLException("Error accessing " + path  + ": " + failReason);
-    }
-
-    ResponseWithBody requestHelper(String path, String method, RequestBody body, Map<String, String> headers, RetryPolicy retryPolicy) throws SQLException {
+    RetryPolicy.ResponseWithBody requestHelper(String path, String method, RequestBody body, Map<String, String> headers, RetryPolicy retryPolicy) throws SQLException {
         DatabendSession session = this.session.get();
         HttpUrl url = getUrl(path);
 
@@ -1216,7 +1196,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             builder = builder.get();
         }
         Request request = builder.build();
-        return sendRequestWithRetry(request, retryPolicy, path);
+        return retryPolicy.sendRequestWithRetry(this.httpClient, request);
     }
 
     class HeartbeatManager implements Runnable {
@@ -1335,36 +1315,5 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
 
     boolean isHeartbeatStopped() {
         return heartbeatManager.heartbeatFuture == null;
-    }
-
-    static class RetryPolicy {
-        private boolean ignore404;
-        private boolean retry503;
-        RetryPolicy(boolean ignore404, boolean retry503) {
-            this.ignore404 = ignore404;
-            this.retry503 = retry503;
-        }
-
-        boolean shouldIgnore(int code) {
-            return ignore404 && code == 404;
-        }
-
-        boolean shouldRetry(int code) {
-            return retry503 && (code == 502 || code == 503);
-        }
-
-        boolean shouldRetry(IOException e) {
-            return  e.getCause() instanceof ConnectException;
-        }
-    }
-
-    static class ResponseWithBody {
-        public Response response;
-        public String body;
-
-        ResponseWithBody(Response response, String body) {
-            this.response = response;
-            this.body = body;
-        }
     }
 }

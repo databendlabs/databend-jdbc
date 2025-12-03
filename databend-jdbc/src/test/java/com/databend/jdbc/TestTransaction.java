@@ -114,6 +114,7 @@ public class TestTransaction {
             // Bug: Transaction timeout: last_query_id 9b619dc70fd64d6b8de7490aaf486f5c not found on this server
             if (!Compatibility.skipBugLowerThenOrEqualTo("1.2.790", "0.3.9")) {
                 // e.g. Unresolvable conflict detected for table 2249
+                System.out.println(exception);
                 Assert.assertTrue(exception.getMessage().toLowerCase().contains("conflict"), exception.getMessage());
             }
 

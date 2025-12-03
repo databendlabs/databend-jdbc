@@ -66,7 +66,7 @@ public class TestClientIT {
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
             Assert.assertTrue(
-                    e instanceof ConnectException || e.getCause() instanceof ConnectException, "Exception should be ConnectionException or contain ConnectionException as cause");
+                    e.getCause().getCause() instanceof ConnectException, "Exception should be ConnectionException or contain ConnectionException as cause");
 
         }
     }
@@ -122,6 +122,7 @@ public class TestClientIT {
             DatabendClientV1.discoverNodes(client, settings);
             Assert.fail("Expected exception was not thrown");
         } catch (Exception e) {
+            System.out.println(e);
             Assert.assertTrue(e instanceof UnsupportedOperationException, "Exception should be UnsupportedOperationException");
         }
     }

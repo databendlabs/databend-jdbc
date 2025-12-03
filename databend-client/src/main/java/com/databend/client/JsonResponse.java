@@ -18,13 +18,8 @@ import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.*;
 
 import javax.annotation.Nullable;
-import java.io.IOException;
-import java.io.UncheckedIOException;
-import java.util.Objects;
-import java.util.Optional;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
-import static com.google.common.net.HttpHeaders.LOCATION;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 
@@ -59,32 +54,14 @@ public final class JsonResponse<T> {
         this.hasValue = (exception == null);
     }
 
-    public static <T> JsonResponse<T> execute(JsonCodec<T> codec, OkHttpClient client, Request request, Long materializedJsonSizeLimit) throws RuntimeException {
-        try (Response response = client.newCall(request).execute()) {
-            // TODO: fix in OkHttp: https://github.com/square/okhttp/issues/3111
-            if ((response.code() == 307) || (response.code() == 308)) {
-                String location = response.header(LOCATION);
-                if (location != null) {
-                    request = request.newBuilder().url(location).build();
-                    return execute(codec, client, request, materializedJsonSizeLimit);
-                }
-            }
-
-            ResponseBody responseBody = requireNonNull(response.body());
-            if (isJson(responseBody.contentType())) {
-                String body = null;
-                T value = null;
-                IllegalArgumentException exception = null;
+    public static <T> JsonResponse<T> decode(JsonCodec<T> codec, RetryPolicy.ResponseWithBody responseWithBody) throws RuntimeException {
+            Response response  = responseWithBody.response;
+            String body = responseWithBody.body;
+            if (isJson(response.body().contentType())) {
+                T value;
+                IllegalArgumentException exception;
                 try {
-                    if (!Objects.isNull(materializedJsonSizeLimit) && (responseBody.contentLength() < 0 || responseBody.contentLength() > materializedJsonSizeLimit)) {
-                        // Parse from input stream, response is either of unknown size or too large to materialize. Raw response body
-                        // will not be available if parsing fails
-                        value = codec.fromJson(responseBody.byteStream());
-                    } else {
-                        // parse from materialized response body string
-                        body = responseBody.string();
-                        value = codec.fromJson(body);
-                    }
+                    value = codec.fromJson(body);
                 } catch (JsonProcessingException e) {
                     String message;
                     if (body != null) {
@@ -95,12 +72,9 @@ public final class JsonResponse<T> {
                     exception = new IllegalArgumentException(message, e);
                     throw exception;
                 }
-                return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, exception);
+                return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, null);
             }
-            return new JsonResponse<>(response.code(), response.message(), response.headers(), responseBody.string());
-        } catch (IOException e) {
-            throw new UncheckedIOException(e);
-        }
+            return new JsonResponse<>(response.code(), response.message(), response.headers(), body);
     }
 
     private static boolean isJson(MediaType type) {
@@ -109,10 +83,6 @@ public final class JsonResponse<T> {
 
     public int getStatusCode() {
         return statusCode;
-    }
-
-    public String getStatusMessage() {
-        return statusMessage;
     }
 
     public Headers getHeaders() {
@@ -130,9 +100,6 @@ public final class JsonResponse<T> {
         return value;
     }
 
-    public Optional<String> getResponseBody() {
-        return Optional.ofNullable(responseBody);
-    }
 
     @Nullable
     public IllegalArgumentException getException() {
