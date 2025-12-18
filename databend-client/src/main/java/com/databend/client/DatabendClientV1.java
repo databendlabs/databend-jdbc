@@ -46,7 +46,6 @@ public class DatabendClientV1
 
     public static final String QUERY_PATH = "/v1/query";
     public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
-    private static final int MAX_QUERY_ERROR_RETRY = 3;
     private final OkHttpClient httpClient;
     private final String query;
     private final String host;
@@ -172,34 +171,26 @@ public class DatabendClientV1
 
     private boolean executeInternal(Request request) {
         requireNonNull(request, "request is null");
-        QueryErrors lastQueryError = null;
+        JsonResponse<QueryResults> response;
 
-        for (int attempt = 1; attempt <= MAX_QUERY_ERROR_RETRY; attempt++) {
-            JsonResponse<QueryResults> response;
-            try {
-                RetryPolicy retryPolicy = new RetryPolicy(false, true);
-                RetryPolicy.ResponseWithBody resp = retryPolicy.sendRequestWithRetry(httpClient, request);
-                response = JsonResponse.decode(QUERY_RESULTS_CODEC, resp);
-            } catch (SQLException e) {
-                throw new RuntimeException(e);
-            }
-
-            if ((response.getStatusCode() == HTTP_OK) && response.hasValue()) {
-                QueryResults value = response.getValue();
-                QueryErrors queryError = value.getError();
-                if (queryError == null) {
-                    processResponse(response.getHeaders(), value);
-                    return true;
-                }
-                lastQueryError = queryError;
-                if (attempt == MAX_QUERY_ERROR_RETRY) {
-                    throw new RuntimeException("Query Failed: " + queryError);
-                }
-                continue;
-            }
-            return false;
+        try {
+            RetryPolicy retryPolicy = new RetryPolicy(false, true);
+            RetryPolicy.ResponseWithBody resp = retryPolicy.sendRequestWithRetry(httpClient, request);
+            response = JsonResponse.decode(QUERY_RESULTS_CODEC, resp);
+        } catch (SQLException e) {
+            throw new RuntimeException(e);
         }
-        throw new RuntimeException("Query Failed: " + lastQueryError);
+
+        if ((response.getStatusCode() == HTTP_OK) && response.hasValue() ) {
+            QueryErrors e = response.getValue().getError();
+            if (e == null) {
+                processResponse(response.getHeaders(), response.getValue());
+            } else {
+                throw new RuntimeException("Query Failed: " + e);
+            }
+            return true;
+        }
+        return false;
     }
 
     @Override

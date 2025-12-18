@@ -46,7 +46,7 @@ public class RetryPolicy {
     private final boolean retry503;
 
     private static final Random RANDOM = new Random();
-    private static final int MAX_ATTEMPTS = 3;
+    private static final int MAX_ATTEMPTS = 5;
     private static final long INITIAL_INTERVAL = 1000; // 1s
     private static final double MULTIPLIER = 4.0;
     private static final long MAX_INTERVAL = 30000; // 20s
@@ -60,7 +60,7 @@ public class RetryPolicy {
     }
 
     public boolean shouldRetry(int code, String body) {
-        if (retry503 && (code == 502 || code == 503))
+        if (retry503 && (code == 500 || code == 502 || code == 503))
             return  true;
 
         CloudErrors errors = CloudErrors.tryParse(body);
