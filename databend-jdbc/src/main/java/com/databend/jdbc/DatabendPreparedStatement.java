@@ -409,7 +409,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (v == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%s'", v), toTimestampLiteral(v));
+            setValue(i, String.format("'%sZ'", v), toTimestampLiteral(v));
         }
     }
 
@@ -872,7 +872,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private String toTimestampLiteral(Object value)
             throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime()) + "Z";
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
