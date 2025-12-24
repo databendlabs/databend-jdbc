@@ -174,9 +174,9 @@ public class TestTypes {
 
     @Test(groups = "IT", dataProvider = "timezone")
     public void TestSetDate(String tz) throws SQLException {
-        if (Compatibility.skipServerBugLowerThen("1.2.844")) {
-            return;
-        }
+//        if (Compatibility.skipServerBugLowerThen("1.2.844")) {
+//            return;
+//        }
 
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
