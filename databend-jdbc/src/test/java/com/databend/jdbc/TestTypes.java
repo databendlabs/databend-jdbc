@@ -26,7 +26,7 @@ public class TestTypes {
         };
     }
 
-    @Test(groups = {"IT"}, dataProvider = "timezones")
+    @Test(groups = {"IT"}, dataProvider = "flag")
     public void testGetTimestamp(boolean sameTZ)
             throws SQLException {
         String calTz;

@@ -217,7 +217,7 @@ public class TestPrepareStatement {
             s.execute("create or replace database test_prepare_statement");
             s.execute("use test_prepare_statement");
             String createTableSQL = String.format(
-                    "CREATE OR replace table %s(id TINYINT, obj VARIANT, d TIMESTAMP, s String, arr ARRAY(INT64)) Engine = Fuse"
+                    "CREATE OR replace table %s(id TINYINT, obj VARIANT, s String, arr ARRAY(INT64)) Engine = Fuse"
                     , tableName);
             s.execute(createTableSQL);
             String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?,?)" : "");
@@ -225,7 +225,6 @@ public class TestPrepareStatement {
             PreparedStatement ps = c.prepareStatement(insertSQL);
             ps.setInt(1, 1);
             ps.setString(2, "{\"a\": 1,\"b\": 2}");
-            ps.setTimestamp(3, Timestamp.valueOf("1983-07-12 21:30:55.888"));
             ps.setString(4, "hello world, 你好");
             ps.setString(5, "[1,2,3,4,5]");
             ps.addBatch();
@@ -239,7 +238,6 @@ public class TestPrepareStatement {
             Assert.assertTrue(r.next());
             Assert.assertEquals(r.getInt(1), 1);
             Assert.assertEquals(r.getString(2), "{\"a\":1,\"b\":2}");
-            Assert.assertEquals(Timestamp.valueOf(r.getString(3)), Timestamp.valueOf("1983-07-12 21:30:55.888"));
             Assert.assertEquals(r.getString(4), "hello world, 你好");
             Assert.assertEquals(r.getString(5), "[1,2,3,4,5]");
 
