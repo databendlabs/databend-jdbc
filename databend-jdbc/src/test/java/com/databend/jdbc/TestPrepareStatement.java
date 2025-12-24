@@ -3,6 +3,7 @@ package com.databend.jdbc;
 import com.databend.client.StageAttachment;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -17,12 +18,18 @@ import java.sql.Timestamp;
 import java.sql.Types;
 import java.util.Arrays;
 import java.util.Properties;
+import java.util.TimeZone;
 
 import static com.databend.jdbc.Utils.countTable;
 import static org.testng.Assert.*;
 
 
 public class TestPrepareStatement {
+    @BeforeSuite
+    public void setTimeZone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        System.out.println("=== setup timezone to AsiaShanghai ===");
+    }
 
     private static final ThreadLocal<String> METHOD_NAME = new ThreadLocal<>();
     private static final ThreadLocal<String> DB_NAME = new ThreadLocal<>();
@@ -702,6 +709,23 @@ public class TestPrepareStatement {
                     assertFalse(rs.next());
                 }
             }
+        }
+    }
+
+
+    @Test(groups = {"IT"})
+    public void testSelectWithPreparedStatement()
+            throws SQLException {
+        try (Connection connection = Utils.createConnection()) {
+            connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp, d date, ts timestamp)");
+            connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00', '2021-01-01', '2021-01-01 00:00:00')");
+            PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ? and d < ? and ts < ?");
+            statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
+            statement.setDate(2, new Date(System.currentTimeMillis()));
+            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
+            ResultSet r = statement.executeQuery();
+            r.next();
+            Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
         }
     }
 }

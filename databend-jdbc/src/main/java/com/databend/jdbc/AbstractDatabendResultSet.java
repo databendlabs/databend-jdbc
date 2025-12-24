@@ -110,7 +110,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
-        DateTimeZone timeZone = null;
+        DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
         boolean timeZoneFromServer = false;
         if (resultSetting != null) {
             String tz = resultSetting.get("timezone");

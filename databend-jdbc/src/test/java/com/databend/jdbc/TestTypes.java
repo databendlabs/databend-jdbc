@@ -1,113 +1,106 @@
 package com.databend.jdbc;
 
 import org.testng.Assert;
+import org.testng.annotations.BeforeSuite;
+import org.testng.annotations.BeforeTest;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.*;
-import java.time.OffsetDateTime;
+import java.time.Instant;
 import java.util.Calendar;
 import java.util.TimeZone;
 
 public class TestTypes {
+    @BeforeSuite
+    public void setTimeZone() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        System.out.println("=== setup timezone to AsiaShanghai ===");
+    }
 
-    @Test(groups = {"IT"})
-    public void testTypeTimestampSameTimezone()
+    @DataProvider(name = "flag")
+    public Object[][] provideFlag() {
+        return new Object[][]{
+                {true,},
+                {false,},
+        };
+    }
+
+    @Test(groups = {"IT"}, dataProvider = "timezones")
+    public void testGetTimestamp(boolean sameTZ)
             throws SQLException {
+        String calTz;
+        String sessionTz;
+        if (sameTZ) {
+            calTz = "Asia/Shanghai";
+            sessionTz = "Asia/Shanghai";
+        } else {
+            if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
+                return;
+            }
+            calTz = "Asia/Shanghai";
+            sessionTz = "Europe/Moscow"; // +3
+        }
+        TimeZone targetZone = TimeZone.getTimeZone(calTz);
+        Calendar cal = Calendar.getInstance(targetZone);
+
+
         try (Connection connection = Utils.createConnectionWithPresignedUrlDisable();
              Statement statement = connection.createStatement()) {
 
-            statement.execute("set timezone='Asia/Shanghai'");
-            TimeZone targetZone = TimeZone.getTimeZone("Asia/Shanghai'");
-            TimeZone.setDefault(targetZone);
-            Calendar cal = Calendar.getInstance(targetZone);
-
+            statement.execute(String.format("set timezone='%s'", sessionTz));
             ResultSet r;
-            Timestamp exp;
+            Instant exp;
 
-            Object[][] cases  = new Object[][] {
+            Object[][] cases = new Object[][]{
                     // use tz in string, ignore session timezone
-                    {"2021-07-12T21:30:55+0700", "2021-07-12 14:30:55.000"},
+                    {"2021-07-12T21:30:55+0700", "2021-07-12T14:30:55.000Z"},
                     // use tz in string, ignore session timezone
-                    {"2022-07-12 14:30:55Z", "2022-07-12 14:30:55.000"},
-                    {"2023-07-12 14:30:55", "2023-07-12 06:30:55.000"},
+                    {"2022-07-12 14:30:55Z", "2022-07-12T14:30:55.000Z"},
+                    {"2023-07-12 14:30:55", "2023-07-12T06:30:55.000Z"},
             };
 
-            for (int i=0;i< cases.length; i++) {
+            for (int i = 0; i < cases.length; i++) {
                 String sql = String.format("SELECT '%s'::timestamp", cases[i][0]);
-                exp = Timestamp.valueOf((String) cases[i][1]);
                 r = statement.executeQuery(sql);
                 r.next();
-                Assert.assertEquals(exp.toInstant(), r.getTimestamp(1).toInstant());
-                Assert.assertEquals(exp, r.getTimestamp(1, cal));
+                exp = Instant.parse((String) cases[i][1]);
+                Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
+                Assert.assertEquals(exp, r.getTimestamp(1, cal).toInstant());
                 r.close();
             }
-
-            Timestamp ts = Timestamp.valueOf("2021-01-12 14:30:55.123");
-            statement.execute("create or replace table test_ts (a timestamp)");
-            PreparedStatement ps = connection.prepareStatement("insert into test_ts values (?)");
-
-            // without batch
-            ps.setTimestamp(1, ts);
-            ps.execute();
-            r = statement.executeQuery("select * from test_ts");
-            r.next();
-            Assert.assertEquals(ts, r.getTimestamp(1));
-
-            // with batch
-            statement.execute("create or replace table test_ts (a timestamp)");
-            ps.setTimestamp(1, ts);
-            ps.addBatch();
-            ps.executeBatch();
-            r = statement.executeQuery("select * from test_ts");
-            r.next();
-            Assert.assertEquals(ts, r.getTimestamp(1));
-
-            r.close();
         }
     }
 
-    @Test(groups = {"IT"})
-    public void testTypeTimestamp()
-            throws SQLException {
-        if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
+
+
+    @Test(groups = {"IT"}, dataProvider = "flag")
+    public void testSetTimestampSameTimeZone(boolean sameTZ)
+            throws SQLException
+    {
+        if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
             return;
         }
+        if (!sameTZ && Compatibility.skipServerBugLowerThen("1.2.844")) {
+           return;
+        }
+
         try (Connection connection = Utils.createConnectionWithPresignedUrlDisable();
              Statement statement = connection.createStatement()) {
-            statement.execute("set timezone='America/Los_Angeles'");
-
-            TimeZone tz = TimeZone.getTimeZone("Europe/Moscow"); // +0300
-            Calendar cal = Calendar.getInstance(tz);
-
-            ResultSet r;
-            Timestamp exp;
-
-            Object[][] cases  = new Object[][] {
-                // use tz in string, ignore session timezone
-                {"2021-07-12T21:30:55+0700", "2021-07-12 14:30:55.000"},
-                // use tz in string, ignore session timezone
-                {"2022-07-12 14:30:55Z", "2022-07-12 14:30:55.000"},
-                // use session timezone: PDT，Pacific Daylight Time：UTC-07:00
-                {"2023-07-12 14:30:55", "2023-07-12 21:30:55.000"},
-                // use session timezone:PST，Pacific Standard Time：UTC-08:00
-                {"2024-01-12 14:30:55", "2024-01-12 22:30:55.000"}
-            };
-
-            for (int i=0;i< cases.length; i++) {
-                String sql = String.format("SELECT '%s'::timestamp", cases[i][0]);
-                exp = Timestamp.valueOf((String) cases[i][1]);
-                r = statement.executeQuery(sql);
-                r.next();
-                Assert.assertEquals(exp, r.getTimestamp(1));
-                // ignore the cal
-                Assert.assertEquals(exp, r.getTimestamp(1, cal));
-                r.close();
+            if (sameTZ) {
+                statement.execute("set timezone='Asia/Shanghai'");
+            } else {
+                statement.execute("set timezone='America/Los_Angeles'");
             }
 
-            Timestamp ts = Timestamp.valueOf("2021-01-12 14:30:55.123");
+            Instant instant=  Instant.parse("2021-07-12T14:30:55.123Z");
+            Timestamp ts = Timestamp.from(instant);
+            Assert.assertEquals(ts, Timestamp.valueOf("2021-07-12 22:30:55.123"));
+
             statement.execute("create or replace table test_ts (a timestamp)");
             PreparedStatement ps = connection.prepareStatement("insert into test_ts values (?)");
 
+            ResultSet r;
             // without batch
             ps.setTimestamp(1, ts);
             ps.execute();
@@ -127,6 +120,7 @@ public class TestTypes {
             r.close();
         }
     }
+
 
     @Test(groups = {"IT"})
     public void testTypeTimestampTz()
@@ -141,7 +135,8 @@ public class TestTypes {
 
             r = statement.executeQuery("SELECT '1983-07-12 21:30:55 +0700'::timestamp_tz");
             r.next();
-            Assert.assertEquals(r.getTimestamp(1), Timestamp.valueOf("1983-07-12 14:30:55.000"));
+            Instant exp =  Instant.parse("1983-07-12 14:30:55.000Z");
+            Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
             r.close();
 
             statement.execute("create or replace table test_ts_tz (a timestamp_tz)");
@@ -149,11 +144,11 @@ public class TestTypes {
             // without batch
             ps.setObject(1, "2021-01-12T14:30:55.123+03:00");
             ps.execute();
-            Timestamp exp = Timestamp.valueOf("2021-01-12 11:30:55.123");
+            exp = Instant.parse("2021-01-12T11:30:55.123Z");
             r = statement.executeQuery("select * from test_ts_tz");
             r.next();
 
-            Assert.assertEquals(exp, r.getTimestamp(1));
+            Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
         }
     }
 }

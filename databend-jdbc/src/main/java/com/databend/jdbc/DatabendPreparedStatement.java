@@ -409,7 +409,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (v == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%sZ'", v), toTimestampLiteral(v));
+            String s = v.toInstant().toString();
+            setValue(i, String.format("'%s'", s), s);
         }
     }
 

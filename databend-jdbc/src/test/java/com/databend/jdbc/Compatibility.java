@@ -56,6 +56,17 @@ public class Compatibility {
         }
         return false;
     }
+
+    public static boolean skipServerBugLowerThen(String version) {
+        if (serverVersion != null && serverVersion.isLowerThan(new Semver(version))) {
+            StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
+            String callerName = stackTrace[2].getMethodName();
+            System.out.println("SkipServer version=" + version + ", method=" +  callerName);
+            return true;
+        }
+        return false;
+    }
+
     public static boolean skipBugLowerThenOrEqualTo(String serverVersionBug, String driverVersionBug) {
         if (driverVersion != null && driverVersion.isLowerThanOrEqualTo(new Semver(serverVersionBug))
                 || serverVersion != null && serverVersion.isLowerThanOrEqualTo(serverVersionBug)
