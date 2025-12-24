@@ -94,7 +94,7 @@ public class TestBasicDriver {
     public void testSchema() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.execute("set global timezone='Asia/Shanghai';");
+            statement.execute("set timezone='Asia/Shanghai';");
             statement.execute("SELEcT schema_name as TABLE_SCHEM, catalog_name as TABLE_CATALOG FROM information_schema.schemata where schema_name = 'default' order by catalog_name, schema_name");
             ResultSet r = statement.getResultSet();
 

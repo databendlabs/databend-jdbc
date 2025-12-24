@@ -87,7 +87,7 @@ public class TestTypes {
 
             Object[][] cases  = new Object[][] {
                 // use tz in string, ignore session timezone
-                {"1983-07-12 21:30:55 +0700", "1983-07-12 14:30:55.000"},
+                {"1983-07-12T21:30:55+0700", "1983-07-12 14:30:55.000"},
                 // use tz in string, ignore session timezone
                 {"1983-07-12 14:30:55Z", "1983-07-12 14:30:55.000"},
                 // use session timezone: PDT，Pacific Daylight Time：UTC-07:00
