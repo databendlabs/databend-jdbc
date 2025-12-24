@@ -43,6 +43,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -264,7 +265,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         ParsedTimestamp parsed = parseTimestamp(value);
         return toTimestamp(value, parsed, timezone -> {
             if (timezone.isPresent()) {
-                throw new IllegalArgumentException("Invalid timestamp: " + value);
+                return ZoneOffset.of(timezone.get());
             }
             return localTimeZone;
         });
