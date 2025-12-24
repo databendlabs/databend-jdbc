@@ -387,7 +387,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (date == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%s'", date), toDateLiteral(date));
+            String s = date.toString();
+            setValue(i, String.format("'%s'", s), s);
         }
     }
 

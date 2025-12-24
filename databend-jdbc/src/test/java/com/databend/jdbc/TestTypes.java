@@ -8,6 +8,8 @@ import org.testng.annotations.Test;
 
 import java.sql.*;
 import java.time.Instant;
+import java.time.LocalDate;
+import java.time.ZoneId;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -178,9 +180,9 @@ public class TestTypes {
 
             s.execute("create or replace table t1(a DATE)");
             s.execute(String.format("set timezone='%s'", tz));
-            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("America/Los_Angeles"));
 
-            Date date = Date.valueOf("2020-01-10");
+            String dateStr = "2020-01-10";
+            Date date = Date.valueOf(dateStr);
             PreparedStatement ps = c.prepareStatement("insert into t1 values (?)");
             ps.setDate(1, date);
             ps.addBatch();
@@ -190,11 +192,16 @@ public class TestTypes {
             ResultSet r = s.getResultSet();
 
             Assert.assertTrue(r.next());
-            Assert.assertEquals(r.getDate(1).toString(), date.toString());
-            Assert.assertEquals(r.getDate(1).getTime(), date.getTime());
             Assert.assertEquals(r.getDate(1), date);
+            Assert.assertEquals(r.getString(1), dateStr);
 
+            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("America/Los_Angeles"));
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), date.toLocalDate());
+
+            // 2020-01-10 00:00 in tokyo is 2020-01-09 23:00 in Shanghai
+            cal = Calendar.getInstance(TimeZone.getTimeZone("Asia/Tokyo"));
+            Assert.assertEquals(r.getDate(1, cal).toLocalDate(), LocalDate.of(2020, 1, 9));
+
             Assert.assertFalse(r.next());
         }
     }
