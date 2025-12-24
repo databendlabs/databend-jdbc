@@ -13,16 +13,10 @@ import java.util.Calendar;
 import java.util.TimeZone;
 
 public class TestTypes {
-    @BeforeSuite
+    @BeforeSuite(alwaysRun = true)
     public void beforeSuite() {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
         System.out.println("=== setup timezone to AsiaShanghai beforeSuite ===");
-    }
-
-    @BeforeTest
-    public void BeforeTest() {
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
-        System.out.println("=== setup timezone to AsiaShanghai BeforeTest ===");
     }
 
     @DataProvider(name = "flag")
