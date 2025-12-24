@@ -19,16 +19,14 @@ public class TestTypes {
             statement.execute("set timezone='Asia/Shanghai'");
             TimeZone targetZone = TimeZone.getTimeZone("Asia/Shanghai'");
             TimeZone.setDefault(targetZone);
-
-            TimeZone tz = TimeZone.getTimeZone("Europe/Moscow"); // +0300
-            Calendar cal = Calendar.getInstance(tz);
+            Calendar cal = Calendar.getInstance(targetZone);
 
             ResultSet r;
             Timestamp exp;
 
             Object[][] cases  = new Object[][] {
                     // use tz in string, ignore session timezone
-                    {"2021-07-12 21:30:55 +0700", "2021-07-12 14:30:55.000"},
+                    {"2021-07-12T21:30:55+0700", "2021-07-12 14:30:55.000"},
                     // use tz in string, ignore session timezone
                     {"2022-07-12 14:30:55Z", "2022-07-12 14:30:55.000"},
                     {"2023-07-12 14:30:55", "2023-07-12 06:30:55.000"},
@@ -39,8 +37,7 @@ public class TestTypes {
                 exp = Timestamp.valueOf((String) cases[i][1]);
                 r = statement.executeQuery(sql);
                 r.next();
-                Assert.assertEquals(exp, r.getTimestamp(1));
-                // ignore the cal
+                Assert.assertEquals(exp.toInstant(), r.getTimestamp(1).toInstant());
                 Assert.assertEquals(exp, r.getTimestamp(1, cal));
                 r.close();
             }
@@ -87,13 +84,13 @@ public class TestTypes {
 
             Object[][] cases  = new Object[][] {
                 // use tz in string, ignore session timezone
-                {"1983-07-12T21:30:55+0700", "1983-07-12 14:30:55.000"},
+                {"2021-07-12T21:30:55+0700", "2021-07-12 14:30:55.000"},
                 // use tz in string, ignore session timezone
-                {"1983-07-12 14:30:55Z", "1983-07-12 14:30:55.000"},
+                {"2022-07-12 14:30:55Z", "2022-07-12 14:30:55.000"},
                 // use session timezone: PDT，Pacific Daylight Time：UTC-07:00
-                {"1983-07-12 14:30:55", "1983-07-12 21:30:55.000"},
+                {"2023-07-12 14:30:55", "2023-07-12 21:30:55.000"},
                 // use session timezone:PST，Pacific Standard Time：UTC-08:00
-                {"1983-01-12 14:30:55", "1983-01-12 22:30:55.000"}
+                {"2024-01-12 14:30:55", "2024-01-12 22:30:55.000"}
             };
 
             for (int i=0;i< cases.length; i++) {

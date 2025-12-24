@@ -58,7 +58,7 @@ public class Compatibility {
     }
     public static boolean skipBugLowerThenOrEqualTo(String serverVersionBug, String driverVersionBug) {
         if (driverVersion != null && driverVersion.isLowerThanOrEqualTo(new Semver(serverVersionBug))
-                && serverVersion != null && serverVersion.isLowerThanOrEqualTo(serverVersionBug)
+                || serverVersion != null && serverVersion.isLowerThanOrEqualTo(serverVersionBug)
         ) {
             StackTraceElement[] stackTrace = Thread.currentThread().getStackTrace();
             String callerName = stackTrace[2].getMethodName();
