@@ -99,15 +99,27 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final DateTimeZone resultTimeZone;
+    private final boolean isResultTimeZoneFromServer;
+
     private final String queryId;
 
-    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, String queryId) {
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, Map<String, String> resultSetting, String queryId) {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
-        this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        DateTimeZone timeZone = null;
+        boolean timeZoneFromServer = false;
+        if (resultSetting != null) {
+            String tz = resultSetting.get("timezone");
+            if (tz != null) {
+                timeZone = DateTimeZone.forID(tz);
+                timeZoneFromServer = true;
+            }
+        }
+        this.resultTimeZone = timeZone;
+        this.isResultTimeZoneFromServer = timeZoneFromServer;
         this.queryId = queryId;
     }
 
@@ -1385,6 +1397,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
             throws SQLException {
+        // uses the given calendar only if the underlying database does not store timezone information.
+        if (isResultTimeZoneFromServer) {
+            return getTimestamp(columnIndex, resultTimeZone);
+        }
         // cal into joda local timezone
         DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
         return getTimestamp(columnIndex, timeZone);

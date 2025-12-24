@@ -13,6 +13,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ArrayBlockingQueue;
 import java.util.concurrent.BlockingQueue;
@@ -37,9 +38,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private final QueryLiveness liveness;
 
-    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, long maxRows, QueryLiveness liveness) {
+    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, Map<String, String> resultSetting, long maxRows, QueryLiveness liveness) {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(client, liveness), maxRows), client), client.getResults().getQueryId());
+                new AsyncIterator<>(flatten(new ResultsPageIterator(client, liveness), maxRows), client), resultSetting, client.getResults().getQueryId());
         this.statement = statement;
         this.client = client;
         this.liveness = liveness;
@@ -49,10 +50,11 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             throws SQLException {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
+        Map<String, String> resultSettings = client.getResults().getSettings();
         AtomicLong lastRequestTime = new AtomicLong(System.currentTimeMillis());
         QueryResults r = client.getResults();
         QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), capability.heartBeat());
-        return new DatabendResultSet(statement, client, s, maxRows, liveness);
+        return new DatabendResultSet(statement, client, s, resultSettings, maxRows, liveness);
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows) {

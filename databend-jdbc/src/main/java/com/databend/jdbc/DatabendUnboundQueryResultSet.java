@@ -21,7 +21,7 @@ class DatabendUnboundQueryResultSet extends AbstractDatabendResultSet {
     private boolean closed = false;
 
     DatabendUnboundQueryResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results) {
-        super(statement, schema, results, "NotQueryResultSet");
+        super(statement, schema, results, null, "NotQueryResultSet");
     }
 
     @Override
