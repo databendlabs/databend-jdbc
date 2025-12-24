@@ -177,6 +177,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     private static Date parseDate(String value, DateTimeZone localTimeZone) {
+        if (localTimeZone == null) {
+            return java.sql.Date.valueOf(value);
+        }
         long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
@@ -562,10 +565,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Date getDate(int columnIndex)
             throws SQLException {
-        return getDate(columnIndex, resultTimeZone);
+        return getDate(columnIndex, (DateTimeZone) null);
     }
 
-    private Date getDate(int columnIndex, DateTimeZone localTimeZone)
+    private Date getDate(int columnIndex, DateTimeZone userTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
@@ -573,7 +576,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         try {
-            return parseDate(String.valueOf(value), localTimeZone);
+            return parseDate(String.valueOf(value), userTimeZone);
         } catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }

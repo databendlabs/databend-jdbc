@@ -38,34 +38,43 @@ public class TestTypes {
             if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
                 return;
             }
-            calTz = "Asia/Shanghai";
+            calTz = "America/Los_Angeles"; // -8/-7
             sessionTz = "Europe/Moscow"; // +3
         }
         TimeZone targetZone = TimeZone.getTimeZone(calTz);
         Calendar cal = Calendar.getInstance(targetZone);
+        System.out.println("testGetTimestamp sameTZ=" + sameTZ);
 
 
         try (Connection connection = Utils.createConnectionWithPresignedUrlDisable();
              Statement statement = connection.createStatement()) {
 
             statement.execute(String.format("set timezone='%s'", sessionTz));
-            ResultSet r;
-            Instant exp;
 
             Object[][] cases = new Object[][]{
                     // use tz in string, ignore session timezone
-                    {"2021-07-12T21:30:55+0700", "2021-07-12T14:30:55.000Z"},
+                    {"2021-07-12T21:30:55+0700", "2021-07-12T14:30:55.000Z", "same"},
                     // use tz in string, ignore session timezone
-                    {"2022-07-12 14:30:55Z", "2022-07-12T14:30:55.000Z"},
-                    {"2023-07-12 14:30:55", "2023-07-12T06:30:55.000Z"},
+                    {"2022-07-12 14:30:55Z", "2022-07-12T14:30:55.000Z", "same"},
+                    {"2023-07-12 14:30:55", "2023-07-12T06:30:55.000Z", "2023-07-12T11:30:55.000Z"},
             };
 
             for (int i = 0; i < cases.length; i++) {
                 String sql = String.format("SELECT '%s'::timestamp", cases[i][0]);
-                r = statement.executeQuery(sql);
+                ResultSet r = statement.executeQuery(sql);
                 r.next();
-                exp = Instant.parse((String) cases[i][1]);
+                String expS;
+                if (sameTZ) {
+                    expS = (String) cases[i][1];
+                } else {
+                    expS = (String) cases[i][2];
+                    if (expS.equals("same")) {
+                        expS = (String) cases[i][1];
+                    }
+                }
+                Instant exp = Instant.parse(expS);
                 Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
+                // ignore cal
                 Assert.assertEquals(exp, r.getTimestamp(1, cal).toInstant());
                 r.close();
             }
@@ -135,7 +144,7 @@ public class TestTypes {
 
             r = statement.executeQuery("SELECT '1983-07-12 21:30:55 +0700'::timestamp_tz");
             r.next();
-            Instant exp =  Instant.parse("1983-07-12 14:30:55.000Z");
+            Instant exp =  Instant.parse("1983-07-12T14:30:55.000Z");
             Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
             r.close();
 
@@ -149,6 +158,44 @@ public class TestTypes {
             r.next();
 
             Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
+        }
+    }
+
+
+    @DataProvider(name = "timezone")
+    public Object[][] provideTimeZone() {
+        return new Object[][]{
+                {"Asia/Shanghai",},
+                {"Asia/Tokyo",},
+                {"America/Los_Angeles",},
+        };
+    }
+
+    @Test(groups = "IT", dataProvider = "timezone")
+    public void TestSetDate(String tz) throws SQLException {
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+
+            s.execute("create or replace table t1(a DATE)");
+            s.execute(String.format("set timezone='%s'", tz));
+            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("America/Los_Angeles"));
+
+            Date date = Date.valueOf("2020-01-10");
+            PreparedStatement ps = c.prepareStatement("insert into t1 values (?)");
+            ps.setDate(1, date);
+            ps.addBatch();
+            Assert.assertEquals(ps.executeBatch(), new int[]{1});
+
+            s.execute("SELECT * from t1");
+            ResultSet r = s.getResultSet();
+
+            Assert.assertTrue(r.next());
+            Assert.assertEquals(r.getDate(1).toString(), date.toString());
+            Assert.assertEquals(r.getDate(1).getTime(), date.getTime());
+            Assert.assertEquals(r.getDate(1), date);
+
+            Assert.assertEquals(r.getDate(1, cal).toLocalDate(), date.toLocalDate());
+            Assert.assertFalse(r.next());
         }
     }
 }

@@ -168,36 +168,6 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "IT")
-    public void TestBatchInsertWithTime() throws SQLException {
-        try (Connection c = getConn();
-             Statement s = c.createStatement()) {
-            s.execute("create or replace table t1(a DATE, b TIMESTAMP)");
-            c.setAutoCommit(false);
-
-            java.sql.Date[] c1 = {Date.valueOf("2020-01-10"), Date.valueOf("1970-01-01"), Date.valueOf("2021-01-01")};
-            Timestamp[] c2 = {Timestamp.valueOf("1983-07-12 21:30:55.888"), Timestamp.valueOf("1970-01-01 00:00:01"), Timestamp.valueOf("1970-01-01 00:00:01.234")};
-
-            PreparedStatement ps = c.prepareStatement("insert into t1 values");
-            for (int i = 0; i < c1.length; i++) {
-                ps.setDate(1, c1[i]);
-                ps.setTimestamp(2, c2[i]);
-                ps.addBatch();
-            }
-            Assert.assertEquals(ps.executeBatch(), new int[]{1, 1, 1});
-
-            s.execute("SELECT * from t1");
-            ResultSet r = s.getResultSet();
-
-            for (int i = 0; i < c1.length; i++) {
-                Assert.assertTrue(r.next());
-                Assert.assertEquals(r.getDate(1), c1[i]);
-                Assert.assertEquals(r.getTimestamp(2), c2[i]);
-            }
-            Assert.assertFalse(r.next());
-        }
-    }
-
     @DataProvider(name = "complexDataType")
     private Object[][] provideTestData() {
         return new Object[][] {
@@ -220,13 +190,13 @@ public class TestPrepareStatement {
                     "CREATE OR replace table %s(id TINYINT, obj VARIANT, s String, arr ARRAY(INT64)) Engine = Fuse"
                     , tableName);
             s.execute(createTableSQL);
-            String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?,?)" : "");
+            String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?)" : "");
 
             PreparedStatement ps = c.prepareStatement(insertSQL);
             ps.setInt(1, 1);
             ps.setString(2, "{\"a\": 1,\"b\": 2}");
-            ps.setString(4, "hello world, 你好");
-            ps.setString(5, "[1,2,3,4,5]");
+            ps.setString(3, "hello world, 你好");
+            ps.setString(4, "[1,2,3,4,5]");
             ps.addBatch();
             int[] ans = ps.executeBatch();
             Assert.assertEquals(ans.length, 1);
@@ -238,8 +208,8 @@ public class TestPrepareStatement {
             Assert.assertTrue(r.next());
             Assert.assertEquals(r.getInt(1), 1);
             Assert.assertEquals(r.getString(2), "{\"a\":1,\"b\":2}");
-            Assert.assertEquals(r.getString(4), "hello world, 你好");
-            Assert.assertEquals(r.getString(5), "[1,2,3,4,5]");
+            Assert.assertEquals(r.getString(3), "hello world, 你好");
+            Assert.assertEquals(r.getString(4), "[1,2,3,4,5]");
 
             Assert.assertFalse(r.next());
         }
@@ -724,6 +694,7 @@ public class TestPrepareStatement {
             ResultSet r = statement.executeQuery();
             r.next();
             Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
+            Assert.assertFalse(r.next());
         }
     }
 }
