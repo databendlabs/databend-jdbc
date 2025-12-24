@@ -25,12 +25,6 @@ import static org.testng.Assert.*;
 
 
 public class TestPrepareStatement {
-    @BeforeSuite
-    public void setTimeZone() {
-        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
-        System.out.println("=== setup timezone to AsiaShanghai ===");
-    }
-
     private static final ThreadLocal<String> METHOD_NAME = new ThreadLocal<>();
     private static final ThreadLocal<String> DB_NAME = new ThreadLocal<>();
 

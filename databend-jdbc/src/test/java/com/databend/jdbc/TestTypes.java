@@ -14,9 +14,15 @@ import java.util.TimeZone;
 
 public class TestTypes {
     @BeforeSuite
-    public void setTimeZone() {
+    public void beforeSuite() {
         TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
-        System.out.println("=== setup timezone to AsiaShanghai ===");
+        System.out.println("=== setup timezone to AsiaShanghai beforeSuite ===");
+    }
+
+    @BeforeTest
+    public void BeforeTest() {
+        TimeZone.setDefault(TimeZone.getTimeZone("Asia/Shanghai"));
+        System.out.println("=== setup timezone to AsiaShanghai BeforeTest ===");
     }
 
     @DataProvider(name = "flag")
@@ -47,7 +53,7 @@ public class TestTypes {
         System.out.println("testGetTimestamp sameTZ=" + sameTZ);
 
 
-        try (Connection connection = Utils.createConnectionWithPresignedUrlDisable();
+        try (Connection connection = Utils.createConnection();
              Statement statement = connection.createStatement()) {
 
             statement.execute(String.format("set timezone='%s'", sessionTz));
@@ -85,7 +91,7 @@ public class TestTypes {
 
 
     @Test(groups = {"IT"}, dataProvider = "flag")
-    public void testSetTimestampSameTimeZone(boolean sameTZ)
+    public void testSetTimestamp(boolean sameTZ)
             throws SQLException
     {
         if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
@@ -174,6 +180,10 @@ public class TestTypes {
 
     @Test(groups = "IT", dataProvider = "timezone")
     public void TestSetDate(String tz) throws SQLException {
+        if (Compatibility.skipServerBugLowerThen("1.2.844")) {
+            return;
+        }
+
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
