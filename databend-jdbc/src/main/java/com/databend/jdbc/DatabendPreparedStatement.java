@@ -5,10 +5,6 @@ import com.databend.client.data.DatabendRawType;
 import com.databend.jdbc.parser.BatchInsertUtils;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import org.joda.time.format.DateTimeFormat;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
-
 import java.io.*;
 import java.math.BigDecimal;
 import java.net.URL;
@@ -33,10 +29,12 @@ import static java.util.Objects.requireNonNull;
 
 public class DatabendPreparedStatement extends DatabendStatement implements PreparedStatement {
     private static final Logger logger = Logger.getLogger(DatabendPreparedStatement.class.getPackage().getName());
-    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    static final java.time.format.DateTimeFormatter DATE_FORMATTER = ISO_LOCAL_DATE;
     private final RawStatementWrapper rawStatement;
-    static final DateTimeFormatter TIME_FORMATTER = DateTimeFormat.forPattern("HH:mm:ss.SSS");
-    static final DateTimeFormatter TIMESTAMP_FORMATTER = DateTimeFormat.forPattern("yyyy-MM-dd HH:mm:ss.SSS");
+    static final java.time.format.DateTimeFormatter TIME_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
+    static final java.time.format.DateTimeFormatter TIMESTAMP_FORMATTER = java.time.format.DateTimeFormatter
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            .withZone(ZoneOffset.UTC);
     private final DatabendParameterMetaData paramMetaData;
     private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
             .append(ISO_LOCAL_DATE)
@@ -838,7 +836,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private String toDateLiteral(Object value) throws IllegalArgumentException {
         requireNonNull(value, "value is null");
         if (value instanceof java.util.Date) {
-            return DATE_FORMATTER.print(((java.util.Date) value).getTime());
+            Instant instant = ((java.util.Date) value).toInstant();
+            LocalDate localDate = instant.atZone(ZoneId.systemDefault()).toLocalDate();
+            return DATE_FORMATTER.format(localDate);
         }
         if (value instanceof LocalDate) {
             return ISO_LOCAL_DATE.format(((LocalDate) value));
@@ -856,7 +856,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private String toTimeLiteral(Object value)
             throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
-            return TIME_FORMATTER.print(((java.util.Date) value).getTime());
+            Instant instant = ((java.util.Date) value).toInstant();
+            LocalTime localTime = instant.atZone(ZoneId.systemDefault()).toLocalTime();
+            return TIME_FORMATTER.format(localTime);
         }
         if (value instanceof LocalTime) {
             return ISO_LOCAL_TIME.format((LocalTime) value);
@@ -874,7 +876,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private String toTimestampLiteral(Object value)
             throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime()) + "Z";
+            // include java.sql.Timestamp
+            return TIMESTAMP_FORMATTER.format(((java.util.Date) value).toInstant()) + "Z";
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));

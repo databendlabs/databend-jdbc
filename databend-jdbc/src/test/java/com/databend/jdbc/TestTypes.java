@@ -103,7 +103,9 @@ public class TestTypes {
                 statement.execute("set timezone='America/Los_Angeles'");
             }
 
-            Instant instant=  Instant.parse("2021-07-12T14:30:55.123Z");
+            System.out.println("get default" + TimeZone.getDefault());
+
+            Instant instant =  Instant.parse("2021-07-12T14:30:55.123Z");
             Timestamp ts = Timestamp.from(instant);
             Assert.assertEquals(ts, Timestamp.valueOf("2021-07-12 22:30:55.123"));
 
@@ -174,10 +176,6 @@ public class TestTypes {
 
     @Test(groups = "IT", dataProvider = "timezone")
     public void TestSetDate(String tz) throws SQLException {
-//        if (Compatibility.skipServerBugLowerThen("1.2.844")) {
-//            return;
-//        }
-
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
@@ -206,6 +204,25 @@ public class TestTypes {
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), LocalDate.of(2020, 1, 9));
 
             Assert.assertFalse(r.next());
+        }
+    }
+    @Test(groups = "IT")
+    public void TestLocalDateObject() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
+            return;
+        }
+        LocalDate expected = LocalDate.of(2020, 1, 10);
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+            s.execute("create or replace table t_local_date_object(a DATE)");
+            try (PreparedStatement ps = c.prepareStatement("insert into t_local_date_object values (?)")) {
+                ps.setObject(1, expected);
+                Assert.assertEquals(ps.executeUpdate(), 1);
+            }
+            try (ResultSet r = s.executeQuery("select * from t_local_date_object")) {
+                Assert.assertTrue(r.next());
+                Assert.assertEquals(r.getObject(1, LocalDate.class), expected);
+            }
         }
     }
 }
