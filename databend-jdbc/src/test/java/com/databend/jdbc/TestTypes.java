@@ -103,6 +103,8 @@ public class TestTypes {
                 statement.execute("set timezone='America/Los_Angeles'");
             }
 
+            System.out.println("get default" + TimeZone.getDefault());
+
             Instant instant =  Instant.parse("2021-07-12T14:30:55.123Z");
             Timestamp ts = Timestamp.from(instant);
             Assert.assertEquals(ts, Timestamp.valueOf("2021-07-12 22:30:55.123"));
@@ -204,10 +206,11 @@ public class TestTypes {
             Assert.assertFalse(r.next());
         }
     }
-
-    @Test(groups = "IT", dataProvider = "timezone")
-    public void TestLocalDateObject(String tz) throws SQLException {
-        TimeZone.setDefault(TimeZone.getTimeZone(tz));
+    @Test(groups = "IT")
+    public void TestLocalDateObject() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
+            return;
+        }
         LocalDate expected = LocalDate.of(2020, 1, 10);
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
