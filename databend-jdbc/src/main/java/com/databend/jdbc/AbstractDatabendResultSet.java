@@ -1309,6 +1309,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         throw new SQLException("Statement not available");
     }
 
+    // it’s legacy, rarely supported
     @Override
     public Object getObject(int columnIndex, Map<String, Class<?>> map)
             throws SQLException {
@@ -1772,15 +1773,22 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (type == null) {
             throw new SQLException("type is null");
         }
-        String columnTypeStr = this.resultSetMetaData.getColumnTypeName(columnIndex);
-        DatabendRawType databendRawType = new DatabendRawType(columnTypeStr);
-        ColumnTypeHandler columnTypeHandler = ColumnTypeHandlerFactory.getTypeHandler(databendRawType);
 
-        Object object = column(columnIndex);
-        if (object == null) {
+        Object value = column(columnIndex);
+        if (value == null) {
             return null;
         }
-        return (T) object;
+
+        if (type == java.time.LocalDate.class) {
+           value = LocalDate.parse((String)value);
+        }
+
+//        String columnTypeStr = this.resultSetMetaData.getColumnTypeName(columnIndex);
+//        DatabendRawType databendRawType = new DatabendRawType(columnTypeStr);
+//        ColumnTypeHandler columnTypeHandler = ColumnTypeHandlerFactory.getTypeHandler(databendRawType);
+
+
+        return (T) value;
     }
 
     @Override

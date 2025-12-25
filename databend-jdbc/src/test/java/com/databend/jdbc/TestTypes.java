@@ -174,10 +174,6 @@ public class TestTypes {
 
     @Test(groups = "IT", dataProvider = "timezone")
     public void TestSetDate(String tz) throws SQLException {
-//        if (Compatibility.skipServerBugLowerThen("1.2.844")) {
-//            return;
-//        }
-
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
@@ -206,6 +202,24 @@ public class TestTypes {
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), LocalDate.of(2020, 1, 9));
 
             Assert.assertFalse(r.next());
+        }
+    }
+
+    @Test(groups = "IT", dataProvider = "timezone")
+    public void TestLocalDateObject(String tz) throws SQLException {
+        TimeZone.setDefault(TimeZone.getTimeZone(tz));
+        LocalDate expected = LocalDate.of(2020, 1, 10);
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+            s.execute("create or replace table t_local_date_object(a DATE)");
+            try (PreparedStatement ps = c.prepareStatement("insert into t_local_date_object values (?)")) {
+                ps.setObject(1, expected);
+                Assert.assertEquals(ps.executeUpdate(), 1);
+            }
+            try (ResultSet r = s.executeQuery("select * from t_local_date_object")) {
+                Assert.assertTrue(r.next());
+                Assert.assertEquals(r.getObject(1, LocalDate.class), expected);
+            }
         }
     }
 }
