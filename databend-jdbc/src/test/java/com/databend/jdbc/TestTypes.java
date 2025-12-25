@@ -103,7 +103,7 @@ public class TestTypes {
                 statement.execute("set timezone='America/Los_Angeles'");
             }
 
-            Instant instant=  Instant.parse("2021-07-12T14:30:55.123Z");
+            Instant instant =  Instant.parse("2021-07-12T14:30:55.123Z");
             Timestamp ts = Timestamp.from(instant);
             Assert.assertEquals(ts, Timestamp.valueOf("2021-07-12 22:30:55.123"));
 

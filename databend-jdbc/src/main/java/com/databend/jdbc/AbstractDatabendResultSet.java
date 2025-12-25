@@ -2,9 +2,6 @@ package com.databend.jdbc;
 
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
-import com.databend.client.data.ColumnTypeHandler;
-import com.databend.client.data.ColumnTypeHandlerFactory;
-import com.databend.client.data.DatabendRawType;
 import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
@@ -12,10 +9,6 @@ import com.databend.jdbc.exception.DatabendWithQueryIdSqlException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.Maps;
-import org.joda.time.DateTimeZone;
-import org.joda.time.LocalDate;
-import org.joda.time.format.DateTimeFormatter;
-import org.joda.time.format.ISODateTimeFormat;
 
 import java.io.ByteArrayInputStream;
 import java.io.InputStream;
@@ -41,11 +34,20 @@ import java.sql.SQLXML;
 import java.sql.Statement;
 import java.sql.Time;
 import java.sql.Timestamp;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
-import java.util.*;
+import java.time.format.DateTimeFormatter;
+import java.util.Calendar;
+import java.util.GregorianCalendar;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
+import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -58,13 +60,13 @@ import static java.lang.Math.toIntExact;
 import static java.lang.String.format;
 import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
-import static org.joda.time.DateTimeConstants.SECONDS_PER_DAY;
 
 abstract class AbstractDatabendResultSet implements ResultSet {
     protected  AtomicLong lastRequestTime = new AtomicLong();
 
-    static final DateTimeFormatter DATE_FORMATTER = ISODateTimeFormat.date();
+    static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final int MAX_DATETIME_PRECISION = 12;
+    private static final long SECONDS_PER_DAY = 86_400L;
     private static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -99,7 +101,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private final Map<String, Integer> fieldMap;
     private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
-    private final DateTimeZone resultTimeZone;
+    private final ZoneId resultTimeZone;
     private final boolean isResultTimeZoneFromServer;
 
     private final String queryId;
@@ -110,12 +112,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
-        DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        ZoneId timeZone = TimeZone.getDefault().toZoneId();
         boolean timeZoneFromServer = false;
         if (resultSetting != null) {
             String tz = resultSetting.get("timezone");
             if (tz != null) {
-                timeZone = DateTimeZone.forID(tz);
+                timeZone = ZoneId.of(tz);
                 timeZoneFromServer = true;
             }
         }
@@ -176,27 +178,11 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return new SQLException(message, String.valueOf(error.getCode()));
     }
 
-    private static Date parseDate(String value, DateTimeZone localTimeZone) {
-        if (localTimeZone == null) {
-            return java.sql.Date.valueOf(value);
-        }
-        long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
-        if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
-            return new Date(millis);
-        }
-
-        // The chronology used by default by Joda is not historically accurate for dates
-        // preceding the introduction of the Gregorian calendar and is not consistent with
-        // java.sql.Date (the same millisecond value represents a different year/month/day)
-        // before the 20th century. For such dates we are falling back to using the more
-        // expensive GregorianCalendar; note that Joda also has a chronology that works for
-        // older dates, but it uses a slightly different algorithm and yields results that
-        // are not compatible with java.sql.Date.
-        LocalDate localDate = DATE_FORMATTER.parseLocalDate(String.valueOf(value));
-        Calendar calendar = new GregorianCalendar(localDate.getYear(), localDate.getMonthOfYear() - 1, localDate.getDayOfMonth());
-        calendar.setTimeZone(TimeZone.getTimeZone(ZoneId.of(localTimeZone.getID())));
-
-        return new Date(calendar.getTimeInMillis());
+    private static Date parseDate(String value, ZoneId localTimeZone) {
+        LocalDate localDate = LocalDate.parse(String.valueOf(value), DATE_FORMATTER);
+        ZoneId zone = localTimeZone == null ? ZoneId.systemDefault() : localTimeZone;
+        long millis = localDate.atStartOfDay(zone).toInstant().toEpochMilli();
+        return new Date(millis);
     }
 
     private static long rescale(long value, int fromPrecision, int toPrecision) {
@@ -565,10 +551,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Date getDate(int columnIndex)
             throws SQLException {
-        return getDate(columnIndex, (DateTimeZone) null);
+        return getDate(columnIndex, (ZoneId) null);
     }
 
-    private Date getDate(int columnIndex, DateTimeZone userTimeZone)
+    private Date getDate(int columnIndex, ZoneId userTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
@@ -588,7 +574,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return getTime(columnIndex, resultTimeZone);
     }
 
-    private Time getTime(int columnIndex, DateTimeZone localTimeZone)
+    private Time getTime(int columnIndex, ZoneId localTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
@@ -596,7 +582,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         try {
-            return parseTime((String) value, ZoneId.of(localTimeZone.getID()));
+            return parseTime((String) value, localTimeZone);
         } catch (IllegalArgumentException e) {
             throw new SQLException("Invalid time from server: " + value, e);
         }
@@ -608,7 +594,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return getTimestamp(columnIndex, resultTimeZone);
     }
 
-    private Timestamp getTimestamp(int columnIndex, DateTimeZone localTimeZone)
+    private Timestamp getTimestamp(int columnIndex, ZoneId localTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
 
@@ -616,11 +602,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             return null;
         }
 
-        if (localTimeZone == null || localTimeZone.getID() == null) {
-             return parseTimestampAsSqlTimestamp((String) value, ZoneId.systemDefault());
-        }
-
-        return parseTimestampAsSqlTimestamp((String) value, ZoneId.of(localTimeZone.getID()));
+        ZoneId zone = localTimeZone == null ? ZoneId.systemDefault() : localTimeZone;
+        return parseTimestampAsSqlTimestamp((String) value, zone);
     }
 
     @Override
@@ -1374,8 +1357,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Date getDate(int columnIndex, Calendar cal)
             throws SQLException {
-        // cal into joda local timezone
-        DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
+        ZoneId timeZone = cal == null ? null : cal.getTimeZone().toZoneId();
         return getDate(columnIndex, timeZone);
     }
 
@@ -1388,8 +1370,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Time getTime(int columnIndex, Calendar cal)
             throws SQLException {
-        // cal into joda local timezone
-        DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
+        ZoneId timeZone = cal == null ? null : cal.getTimeZone().toZoneId();
         return getTime(columnIndex, timeZone);
     }
 
@@ -1406,8 +1387,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (isResultTimeZoneFromServer) {
             return getTimestamp(columnIndex, resultTimeZone);
         }
-        // cal into joda local timezone
-        DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
+        ZoneId timeZone = cal == null ? null : cal.getTimeZone().toZoneId();
         return getTimestamp(columnIndex, timeZone);
     }
 
@@ -1780,13 +1760,8 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         if (type == java.time.LocalDate.class) {
-           value = LocalDate.parse((String)value);
+            value = LocalDate.parse((String) value);
         }
-
-//        String columnTypeStr = this.resultSetMetaData.getColumnTypeName(columnIndex);
-//        DatabendRawType databendRawType = new DatabendRawType(columnTypeStr);
-//        ColumnTypeHandler columnTypeHandler = ColumnTypeHandlerFactory.getTypeHandler(databendRawType);
-
 
         return (T) value;
     }
