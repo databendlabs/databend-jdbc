@@ -387,7 +387,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (date == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%s'", date), toDateLiteral(date));
+            String s = date.toString();
+            setValue(i, String.format("'%s'", s), s);
         }
     }
 
@@ -409,7 +410,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (v == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%s'", v), toTimestampLiteral(v));
+            String s = v.toInstant().toString();
+            setValue(i, String.format("'%s'", s), s);
         }
     }
 
@@ -872,7 +874,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private String toTimestampLiteral(Object value)
             throws IllegalArgumentException {
         if (value instanceof java.util.Date) {
-            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime());
+            return TIMESTAMP_FORMATTER.print(((java.util.Date) value).getTime()) + "Z";
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));

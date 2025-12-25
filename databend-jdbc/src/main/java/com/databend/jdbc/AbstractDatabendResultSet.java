@@ -43,6 +43,7 @@ import java.sql.Time;
 import java.sql.Timestamp;
 import java.time.LocalDateTime;
 import java.time.ZoneId;
+import java.time.ZoneOffset;
 import java.time.ZonedDateTime;
 import java.util.*;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -99,15 +100,27 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private final List<DatabendColumnInfo> databendColumnInfoList;
     private final ResultSetMetaData resultSetMetaData;
     private final DateTimeZone resultTimeZone;
+    private final boolean isResultTimeZoneFromServer;
+
     private final String queryId;
 
-    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, String queryId) {
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, Map<String, String> resultSetting, String queryId) {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
-        this.resultTimeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        DateTimeZone timeZone = DateTimeZone.forTimeZone(TimeZone.getDefault());
+        boolean timeZoneFromServer = false;
+        if (resultSetting != null) {
+            String tz = resultSetting.get("timezone");
+            if (tz != null) {
+                timeZone = DateTimeZone.forID(tz);
+                timeZoneFromServer = true;
+            }
+        }
+        this.resultTimeZone = timeZone;
+        this.isResultTimeZoneFromServer = timeZoneFromServer;
         this.queryId = queryId;
     }
 
@@ -164,6 +177,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     private static Date parseDate(String value, DateTimeZone localTimeZone) {
+        if (localTimeZone == null) {
+            return java.sql.Date.valueOf(value);
+        }
         long millis = DATE_FORMATTER.withZone(localTimeZone).parseMillis(String.valueOf(value));
         if (millis >= START_OF_MODERN_ERA_SECONDS * MILLISECONDS_PER_SECOND) {
             return new Date(millis);
@@ -252,7 +268,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         ParsedTimestamp parsed = parseTimestamp(value);
         return toTimestamp(value, parsed, timezone -> {
             if (timezone.isPresent()) {
-                throw new IllegalArgumentException("Invalid timestamp: " + value);
+                return ZoneOffset.of(timezone.get());
             }
             return localTimeZone;
         });
@@ -549,10 +565,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Date getDate(int columnIndex)
             throws SQLException {
-        return getDate(columnIndex, resultTimeZone);
+        return getDate(columnIndex, (DateTimeZone) null);
     }
 
-    private Date getDate(int columnIndex, DateTimeZone localTimeZone)
+    private Date getDate(int columnIndex, DateTimeZone userTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
         if (value == null) {
@@ -560,7 +576,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         try {
-            return parseDate(String.valueOf(value), localTimeZone);
+            return parseDate(String.valueOf(value), userTimeZone);
         } catch (IllegalArgumentException e) {
             throw new SQLException("Expected value to be a date but is: " + value, e);
         }
@@ -1385,6 +1401,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Timestamp getTimestamp(int columnIndex, Calendar cal)
             throws SQLException {
+        // uses the given calendar only if the underlying database does not store timezone information.
+        if (isResultTimeZoneFromServer) {
+            return getTimestamp(columnIndex, resultTimeZone);
+        }
         // cal into joda local timezone
         DateTimeZone timeZone = DateTimeZone.forTimeZone(cal.getTimeZone());
         return getTimestamp(columnIndex, timeZone);

@@ -20,6 +20,7 @@ import com.fasterxml.jackson.annotation.JsonProperty;
 
 import java.net.URI;
 import java.util.List;
+import java.util.Map;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 
@@ -30,6 +31,7 @@ public class QueryResults {
     private final DatabendSession session;
     private final List<QueryRowField> schema;
     private final List<List<String>> data;
+    private final Map<String, String> settings;
     private final String state;
     private final QueryErrors error;
     private final QueryStats stats;
@@ -49,6 +51,7 @@ public class QueryResults {
             @JsonProperty("session") DatabendSession session,
             @JsonProperty("schema") List<QueryRowField> schema,
             @JsonProperty("data") List<List<String>> data,
+            @JsonProperty("settings") Map<String, String> settings,
             @JsonProperty("state") String state,
             @JsonProperty("error") QueryErrors error,
             @JsonProperty("stats") QueryStats stats,
@@ -64,6 +67,7 @@ public class QueryResults {
         this.session = session;
         this.schema = schema;
         this.data = data;
+        this.settings = settings;
         this.state = state;
         this.error = error;
         this.stats = stats;
@@ -110,6 +114,10 @@ public class QueryResults {
     @JsonProperty
     public List<List<String>> getDataRaw() {
         return data;
+    }
+
+    public Map<String, String> getSettings() {
+        return settings;
     }
 
     @JsonProperty
@@ -169,6 +177,7 @@ public class QueryResults {
                 .add("session", session)
                 .add("schema", schema)
                 .add("data", data)
+                .add("settings", settings)
                 .add("state", state)
                 .add("error", error)
                 .add("stats", stats)

@@ -1,4 +1,4 @@
-<suite name="DatabendJdbcTests" verbose="10" parallel="methods">
+<suite name="DatabendJdbcTests" verbose="10" parallel="none">
   <test name="AllTests">
     <groups>
       <run>
@@ -7,6 +7,7 @@
       </run>
     </groups>
     <classes>
+      <class name="com.databend.jdbc.TestTypes"/>
       <class name="com.databend.jdbc.TestBasicDriver"/>
       <class name="com.databend.jdbc.TestDatabendDatabaseMetaData"/>
       <class name="com.databend.jdbc.TestDatabendDriverUri"/>

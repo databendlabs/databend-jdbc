@@ -2,19 +2,16 @@ package com.databend.jdbc;
 
 import com.databend.client.DatabendSession;
 import com.databend.client.PaginationOptions;
-import com.vdurmont.semver4j.Semver;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
 
 import java.sql.Connection;
-import java.sql.Date;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
-import java.sql.Timestamp;
 import java.util.Properties;
 
 import static org.testng.Assert.assertThrows;
@@ -94,7 +91,7 @@ public class TestBasicDriver {
     public void testSchema() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
-            statement.execute("set global timezone='Asia/Shanghai';");
+            statement.execute("set timezone='Asia/Shanghai';");
             statement.execute("SELEcT schema_name as TABLE_SCHEM, catalog_name as TABLE_CATALOG FROM information_schema.schemata where schema_name = 'default' order by catalog_name, schema_name");
             ResultSet r = statement.getResultSet();
 
@@ -316,19 +313,4 @@ public class TestBasicDriver {
         });
     }
 
-    @Test(groups = {"IT"})
-    public void testSelectWithPreparedStatement()
-            throws SQLException {
-        try (Connection connection = Utils.createConnection()) {
-            connection.createStatement().execute("create or replace table test_basic_driver.table_time(t timestamp, d date, ts timestamp)");
-            connection.createStatement().execute("insert into test_basic_driver.table_time values('2021-01-01 00:00:00', '2021-01-01', '2021-01-01 00:00:00')");
-            PreparedStatement statement = connection.prepareStatement("SELECT * from test_basic_driver.table_time where t < ? and d < ? and ts < ?");
-            statement.setTimestamp(1, new Timestamp(System.currentTimeMillis()));
-            statement.setDate(2, new Date(System.currentTimeMillis()));
-            statement.setTimestamp(3, new Timestamp(System.currentTimeMillis()));
-            ResultSet r = statement.executeQuery();
-            r.next();
-            Assert.assertEquals(r.getString(1), "2021-01-01 00:00:00.000000");
-        }
-    }
 }
