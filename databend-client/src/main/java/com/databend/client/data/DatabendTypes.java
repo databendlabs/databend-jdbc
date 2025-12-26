@@ -32,6 +32,7 @@ public final class DatabendTypes {
     public static final String DATETIME = "datetime";
     public static final String DATETIME64 = "datetime64";
     public static final String TIMESTAMP = "timestamp";
+    public static final String TIMESTAMP_TZ = "timestamp_tz";
     public static final String STRING = "string";
     public static final String STRUCT = "struct";
     public static final String ARRAY = "array";

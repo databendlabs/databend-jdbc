@@ -48,6 +48,9 @@ public class JdbcTypeMapping {
             case TIMESTAMP:
                 sqlType = Types.TIMESTAMP;
                 break;
+            case TIMESTAMP_TZ:
+                sqlType = Types.TIMESTAMP_WITH_TIMEZONE;
+                break;
             case ARRAY:
                 sqlType = Types.ARRAY;
                 break;
@@ -122,10 +125,12 @@ public class JdbcTypeMapping {
                 dataType = DatabendDataType.DATE;
                 break;
             case Types.TIME:
-            case Types.TIME_WITH_TIMEZONE:
             case Types.TIMESTAMP:
-            case Types.TIMESTAMP_WITH_TIMEZONE:
                 dataType = DatabendDataType.TIMESTAMP;
+                break;
+            case Types.TIME_WITH_TIMEZONE:
+            case Types.TIMESTAMP_WITH_TIMEZONE:
+                dataType = DatabendDataType.TIMESTAMP_TZ;
                 break;
             case Types.ARRAY:
                 dataType = DatabendDataType.ARRAY;
