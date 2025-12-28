@@ -2,6 +2,8 @@ package com.databend.jdbc;
 
 import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
+import com.databend.client.data.DatabendDataType;
+import com.databend.client.data.DatabendRawType;
 import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
@@ -17,31 +19,12 @@ import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
-import java.sql.Array;
-import java.sql.Blob;
-import java.sql.Clob;
-import java.sql.Date;
-import java.sql.NClob;
-import java.sql.Ref;
-import java.sql.ResultSet;
-import java.sql.ResultSetMetaData;
-import java.sql.RowId;
-import java.sql.SQLException;
-import java.sql.SQLFeatureNotSupportedException;
-import java.sql.SQLType;
-import java.sql.SQLWarning;
-import java.sql.SQLXML;
-import java.sql.Statement;
-import java.sql.Time;
-import java.sql.Timestamp;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.sql.*;
+import java.time.*;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoField;
+import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
-import java.util.GregorianCalendar;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
@@ -51,7 +34,6 @@ import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Function;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -65,7 +47,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     protected  AtomicLong lastRequestTime = new AtomicLong();
 
     static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
-    private static final int MAX_DATETIME_PRECISION = 12;
+
     private static final long SECONDS_PER_DAY = 86_400L;
     private static final long[] POWERS_OF_TEN = {
             1L,
@@ -83,15 +65,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             1000_000_000_000L
     };
     private static final int MILLISECONDS_PER_SECOND = 1000;
-    private static final int MILLISECONDS_PER_MINUTE = 60 * MILLISECONDS_PER_SECOND;
-    private static final long NANOSECONDS_PER_SECOND = 1_000_000_000;
     private static final int PICOSECONDS_PER_NANOSECOND = 1_000;
-    private static final Pattern DATETIME_PATTERN = Pattern.compile("" +
-            "(?<year>[-+]?\\d{4,})-(?<month>\\d{1,2})-(?<day>\\d{1,2})" +
-            "(?: (?<hour>\\d{1,2}):(?<minute>\\d{1,2})(?::(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?)?)?" +
-            "\\s*(?<timezone>.+)?");
+    private static final DateTimeFormatter TIMESTAMP_TZ_PATTERN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS XX");
+    private static final DateTimeFormatter TIMESTAMP_PATTERN = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS");
+    private static final DateTimeFormatter TIMESTAMP_TZ_PATTERN2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS[ XX]");
+
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
-    private static final long START_OF_MODERN_ERA_SECONDS = java.time.LocalDate.of(1901, 1, 1).toEpochDay() * SECONDS_PER_DAY;
     protected final Iterator<List<Object>> results;
     private final Optional<Statement> statement;
     private final AtomicReference<List<Object>> row = new AtomicReference<>();
@@ -178,12 +157,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return new SQLException(message, String.valueOf(error.getCode()));
     }
 
-    private static Date parseDate(String value, ZoneId localTimeZone) {
-        LocalDate localDate = LocalDate.parse(String.valueOf(value), DATE_FORMATTER);
-        ZoneId zone = localTimeZone == null ? ZoneId.systemDefault() : localTimeZone;
-        long millis = localDate.atStartOfDay(zone).toInstant().toEpochMilli();
-        return new Date(millis);
-    }
+
 
     private static long rescale(long value, int fromPrecision, int toPrecision) {
         if (value < 0) {
@@ -248,74 +222,6 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return new Time(epochMilli);
     }
 
-    private static Timestamp parseTimestampAsSqlTimestamp(String value, ZoneId localTimeZone) {
-        requireNonNull(localTimeZone, "localTimeZone is null");
-
-        ParsedTimestamp parsed = parseTimestamp(value);
-        return toTimestamp(value, parsed, timezone -> {
-            if (timezone.isPresent()) {
-                return ZoneOffset.of(timezone.get());
-            }
-            return localTimeZone;
-        });
-    }
-
-    private static Timestamp toTimestamp(String originalValue, ParsedTimestamp parsed, Function<Optional<String>, ZoneId> timeZoneParser) {
-        int year = parsed.year;
-        int month = parsed.month;
-        int day = parsed.day;
-        int hour = parsed.hour;
-        int minute = parsed.minute;
-        int second = parsed.second;
-        long picosOfSecond = parsed.picosOfSecond;
-        ZoneId zoneId = timeZoneParser.apply(parsed.timezone);
-
-        long epochSecond = LocalDateTime.of(year, month, day, hour, minute, second, 0)
-                .atZone(zoneId)
-                .toEpochSecond();
-
-        if (epochSecond < START_OF_MODERN_ERA_SECONDS) {
-            // slower path, but accurate for historical dates
-            GregorianCalendar calendar = new GregorianCalendar(year, month - 1, day, hour, minute, second);
-            calendar.setTimeZone(TimeZone.getTimeZone(zoneId));
-            epochSecond = calendar.getTimeInMillis() / MILLISECONDS_PER_SECOND;
-        }
-
-        int nanoOfSecond = (int) rescale(picosOfSecond, 12, 9);
-        if (nanoOfSecond == NANOSECONDS_PER_SECOND) {
-            epochSecond++;
-            nanoOfSecond = 0;
-        }
-
-        Timestamp timestamp = new Timestamp(epochSecond * MILLISECONDS_PER_SECOND);
-        timestamp.setNanos(nanoOfSecond);
-        return timestamp;
-    }
-
-    private static ParsedTimestamp parseTimestamp(String value) {
-        Matcher matcher = DATETIME_PATTERN.matcher(value);
-        if (!matcher.matches()) {
-            throw new IllegalArgumentException("Invalid timestamp: " + value);
-        }
-
-        int year = Integer.parseInt(matcher.group("year"));
-        int month = Integer.parseInt(matcher.group("month"));
-        int day = Integer.parseInt(matcher.group("day"));
-        int hour = Integer.parseInt(matcher.group("hour"));
-        int minute = Integer.parseInt(matcher.group("minute"));
-        int second = Integer.parseInt(matcher.group("second"));
-        String fraction = matcher.group("fraction");
-        Optional<String> timezone = Optional.ofNullable(matcher.group("timezone"));
-
-        long picosOfSecond = 0;
-        if (fraction != null) {
-            int precision = fraction.length();
-            long fractionValue = Long.parseLong(fraction);
-            picosOfSecond = rescale(fractionValue, precision, 12);
-        }
-
-        return new ParsedTimestamp(year, month, day, hour, minute, second, picosOfSecond, timezone);
-    }
 
     private void checkOpen()
             throws SQLException {
@@ -554,6 +460,13 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         return getDate(columnIndex, (ZoneId) null);
     }
 
+    private static Date parseDate(String value, ZoneId localTimeZone) {
+        LocalDate localDate = LocalDate.parse(String.valueOf(value), DATE_FORMATTER);
+        ZoneId zone = localTimeZone == null ? ZoneId.systemDefault() : localTimeZone;
+        long millis = localDate.atStartOfDay(zone).toInstant().toEpochMilli();
+        return new Date(millis);
+    }
+
     private Date getDate(int columnIndex, ZoneId userTimeZone)
             throws SQLException {
         Object value = column(columnIndex);
@@ -588,22 +501,26 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
     }
 
+    private Timestamp getTimestamp(int columnIndex, ZoneId localTimeZone)  throws SQLException {
+        String value = (String) column(columnIndex);
+        if (value == null || "null".equalsIgnoreCase(value)) {
+            return null;
+        }
+        TemporalAccessor temporal = TIMESTAMP_TZ_PATTERN2.parse(value);
+
+        LocalDateTime localDt = LocalDateTime.from(temporal);
+        if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
+            ZoneOffset offset = ZoneOffset.from(temporal);
+            return Timestamp.from(localDt.atOffset(offset).toInstant());
+        } else {
+            return Timestamp.from(localDt.atZone(localTimeZone).toInstant());
+        }
+    }
+
     @Override
     public Timestamp getTimestamp(int columnIndex)
             throws SQLException {
         return getTimestamp(columnIndex, resultTimeZone);
-    }
-
-    private Timestamp getTimestamp(int columnIndex, ZoneId localTimeZone)
-            throws SQLException {
-        Object value = column(columnIndex);
-
-        if (value == null || "null".equalsIgnoreCase(value.toString())) {
-            return null;
-        }
-
-        ZoneId zone = localTimeZone == null ? ZoneId.systemDefault() : localTimeZone;
-        return parseTimestampAsSqlTimestamp((String) value, zone);
     }
 
     @Override
@@ -1747,20 +1664,55 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
+    OffsetDateTime getOffsetDateTimeNotNull(String value, DatabendRawType type) throws SQLException{
+        DatabendDataType dataType = type.getDataType();
+        if (dataType == DatabendDataType.TIMESTAMP_TZ) {
+            return OffsetDateTime.parse(value, TIMESTAMP_TZ_PATTERN);
+        }
+        if (dataType == DatabendDataType.TIMESTAMP) {
+            return LocalDateTime.parse(value, TIMESTAMP_PATTERN).atZone(resultTimeZone).toOffsetDateTime();
+        }
+        throw new SQLDataException(invalidColumnType(type, "OffsetDateTime"));
+    }
+
+   ZonedDateTime getZonedDateTimeNotNull(String value, DatabendRawType type) throws SQLException{
+        if (type.getDataType() == DatabendDataType.TIMESTAMP) {
+            return LocalDateTime.parse(value, TIMESTAMP_PATTERN).atZone(resultTimeZone);
+        }
+        throw new SQLDataException(invalidColumnType(type, "ZonedDateTime"));
+    }
+
+    static String invalidColumnType(DatabendRawType data, String exp) {
+        return String.format("Can not get %s as %s", data.getType(), exp);
+    }
+
     @Override
     public <T> T getObject(int columnIndex, Class<T> type)
             throws SQLException {
         if (type == null) {
-            throw new SQLException("type is null");
+            throw new SQLDataException("type is null");
         }
-
         Object value = column(columnIndex);
         if (value == null) {
             return null;
         }
 
-        if (type == java.time.LocalDate.class) {
-            value = LocalDate.parse((String) value);
+        DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
+
+        if (type == LocalDate.class) {
+            return type.cast( LocalDate.parse((String)value));
+        }
+
+        if (type == Instant.class) {
+            return type.cast( getTimestamp(columnIndex, resultTimeZone).toInstant());
+        }
+
+        if (type == OffsetDateTime.class) {
+            return type.cast(getOffsetDateTimeNotNull((String) value, databendRawType));
+        }
+
+        if (type == ZonedDateTime.class) {
+            return type.cast(getZonedDateTimeNotNull((String) value, databendRawType));
         }
 
         return (T) value;
@@ -1785,27 +1737,5 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     public boolean isWrapperFor(Class<?> iface)
             throws SQLException {
         return iface.isInstance(this);
-    }
-
-    private static class ParsedTimestamp {
-        private final int year;
-        private final int month;
-        private final int day;
-        private final int hour;
-        private final int minute;
-        private final int second;
-        private final long picosOfSecond;
-        private final Optional<String> timezone;
-
-        public ParsedTimestamp(int year, int month, int day, int hour, int minute, int second, long picosOfSecond, Optional<String> timezone) {
-            this.year = year;
-            this.month = month;
-            this.day = day;
-            this.hour = hour;
-            this.minute = minute;
-            this.second = second;
-            this.picosOfSecond = picosOfSecond;
-            this.timezone = requireNonNull(timezone, "timezone is null");
-        }
     }
 }

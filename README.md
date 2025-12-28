@@ -3,6 +3,11 @@
 ![Apache License 2.0](https://img.shields.io/badge/license-Apache%202.0-blue.svg)
 [![databend-jdbc](https://img.shields.io/maven-central/v/com.databend/databend-jdbc?style=flat-square)](https://central.sonatype.dev/artifact/com.databend/databend-jdbc/0.0.1)
 
+## Highlights
+
+- Databend-specific interfaces to stream files into tables or stages with `loadStreamToTable`, `uploadStream`, and `downloadStream`.
+- Temporal APIs use session timezone to avoid depending on JVM default zone and support modern `java.time`.
+
 ## Prerequisites
 
 The Databend JDBC driver requires Java 8 or later.
@@ -73,35 +78,59 @@ public class Main {
    you can call `while(r.next(){})` to iterate over the result set.
 3. For other SQL such as `create/drop table` non-query type SQL, you can call `statement.execute()` directly.
 
-## JDBC Java type mapping
-The Databend type is mapped to Java type as follows:
 
-| Databend Type | Java Type  |
-|---------------|------------|
-| TINYINT       | Byte       |
-| SMALLINT      | Short      |
-| INT           | Integer    |
-| BIGINT        | Long       |
-| UInt8         | Short      |
-| UInt16        | Integer    |
-| UInt32        | Long       |
-| UInt64        | BigInteger |
-| Float32       | Float      |
-| Float64       | Double     |
-| String        | String     |
-| Date          | String     |
-| TIMESTAMP     | String     |
-| Bitmap        | byte[]     |
-| Array         | String     |
-| Decimal       | BigDecimal |
-| Tuple         | String     |
-| Map           | String     |
-| VARIANT       | String     |
+## Connection Parameters 
 
 For detailed references, please take a look at the following Links:
 
 1. [Connection Parameters](./docs/Connection.md) : detailed documentation about how to use connection parameters in a
    jdbc connection
+
+## JDBC Java type mapping
+The Databend type is mapped to Java type as follows:
+
+| Databend Type | Java Type      |
+|---------------|----------------|
+| TINYINT       | Byte           |
+| SMALLINT      | Short          |
+| INT           | Integer        |
+| BIGINT        | Long           |
+| UInt8         | Short          |
+| UInt16        | Integer        |
+| UInt32        | Long           |
+| UInt64        | BigInteger     |
+| Float32       | Float          |
+| Float64       | Double         |
+| Decimal       | BigDecimal     |
+| String        | String         |
+| Date          | LocalDate      |
+| TIMESTAMP     | ZonedDateTime  |
+| TIMESTAMP_TZ  | OffsetDateTime |
+| Bitmap        | byte[]         |
+| Array         | String         |
+| Tuple         | String         |
+| Map           | String         |
+| VARIANT       | String         |
+
+### Temporal types
+
+we recommend using `java.time` to avoid ambiguity and letting the driver format values via these APIs:
+
+```
+void setObject(int parameterIndex, Object x)
+<T> T getObject(int columnIndex, Class<T> type)
+```
+
+- TIMESTAMP_TZ and TIMESTAMP map to `OffsetDateTime`, `ZonedDateTime`, `Instant` (TIMESTAMP_TZ can return `OffsetDateTime` but not `ZonedDateTime`), and `LocalDateTime`.
+- Date maps to `LocalDate`, and `getObject(..., LocalDate.class)` now mirrors what `getDate().toLocalDate()` returns.
+- When a TIMESTAMP literal omits a timezone, Databend uses the session timezone (not the JVM zone) when storing/returning dates on versions ≥0.4.3 driver + ≥1.2.844 server.
+
+Timestamp/Date are also supported, note that:
+
+- `getTimestamp(int, Calendar cal)` is the same as `getTimestamp(int)` (the cal is omitted) and
+`getObject(int, Instant.classes).toTimestamp()`
+- `setTimestamp(int, Calendar cal)` is diff with `setTimestamp(int)`, the epoch is adjusted according to timezone in cal
+- `setDate`/`getDate` still use the JVM timezone, and `setObject(localDate)` is equivalent to `setDate(Date.valueOf(localDate))`.
 
 
 # Unwrapping to Databend-specific interfaces 
@@ -171,4 +200,3 @@ Download a single file in the stage as `InputStream`
 ```
 InputStream downloadStream(String stageName, String filePathInStage) throws SQLException;
 ```
-
