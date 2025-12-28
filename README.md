@@ -121,9 +121,10 @@ void setObject(int parameterIndex, Object x)
 <T> T getObject(int columnIndex, Class<T> type)
 ```
 
-- TIMESTAMP_TZ and TIMESTAMP map to `OffsetDateTime`, `ZonedDateTime`, `Instant` (TIMESTAMP_TZ can return `OffsetDateTime` but not `ZonedDateTime`), and `LocalDateTime`.
+- TIMESTAMP_TZ and TIMESTAMP map to `OffsetDateTime`, `ZonedDateTime`, `Instant` and `LocalDateTime` (TIMESTAMP_TZ can return `OffsetDateTime` but not `ZonedDateTime`).
 - Date maps to `LocalDate`, and `getObject(..., LocalDate.class)` now mirrors what `getDate().toLocalDate()` returns.
-- When a TIMESTAMP literal omits a timezone, Databend uses the session timezone (not the JVM zone) when storing/returning dates on versions ≥0.4.3 driver + ≥1.2.844 server.
+- When parameters do not contain a timezone, Databend uses the session timezone (not the JVM zone) when storing/returning dates on databend-jdbc ≥ 0.4.3 AND databend-query ≥1.2.844.
+- `getString` return the display of default mapping type.
 
 Timestamp/Date are also supported, note that:
 

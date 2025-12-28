@@ -159,7 +159,7 @@ public class TestTypes {
             Timestamp timestamp = Timestamp.from(instant);
             Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"));
 
-            // 1, 2, 3, 4: set use tz in var
+            // 1, 2, 3, 4: same epoch, use tz in parameter,
             ps.setObject(1, offsetDateTime);
             ps.setInt(2, 1);
             ps.execute();
@@ -172,12 +172,11 @@ public class TestTypes {
             ps.setInt(2, 3);
             ps.execute();
 
-            // cal
             ps.setTimestamp(1, timestamp, cal);
             ps.setInt(2, 4);
             ps.execute();
 
-            // 5, 6:  set use tz=UTC
+            // 5, 6: same epoch, tz=UTC
             ps.setObject(1, instant);
             ps.setInt(2, 5);
             ps.execute();
@@ -186,7 +185,7 @@ public class TestTypes {
             ps.setInt(2, 6);
             ps.execute();
 
-            // 7: set use session tz
+            // 7: diff epoch, set use session tz
             ps.setString(1, timeStringNoTZ);
             ps.setInt(2, 7);
             ps.execute();
@@ -200,7 +199,7 @@ public class TestTypes {
                 exp = instant.atOffset(sessionOffset);
             }
 
-            // 1, 2, 3, 4: set use tz in var
+            // 1, 2, 3, 4, 5: same epoch, use tz in parameter,
             r.next();
             Assert.assertEquals(exp, r.getObject(1, OffsetDateTime.class));
             if (!withTz) {
