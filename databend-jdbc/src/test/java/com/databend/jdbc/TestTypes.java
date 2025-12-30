@@ -1,6 +1,9 @@
 package com.databend.jdbc;
 
 import com.vdurmont.semver4j.Semver;
+import org.locationtech.jts.geom.Geometry;
+import org.locationtech.jts.io.ParseException;
+import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.BeforeTest;
@@ -8,13 +11,7 @@ import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.sql.*;
-import java.time.Instant;
-import java.time.LocalDate;
-import java.time.LocalDateTime;
-import java.time.OffsetDateTime;
-import java.time.ZoneId;
-import java.time.ZoneOffset;
-import java.time.ZonedDateTime;
+import java.time.*;
 import java.util.Calendar;
 import java.util.TimeZone;
 
@@ -185,9 +182,13 @@ public class TestTypes {
             ps.setInt(2, 6);
             ps.execute();
 
-            // 7: diff epoch, set use session tz
+            // 7, 8: diff epoch, set use session tz
             ps.setString(1, timeStringNoTZ);
             ps.setInt(2, 7);
+            ps.execute();
+
+            ps.setObject(1, LocalDateTime.parse(timeStringNoTZ));
+            ps.setInt(2, 8);
             ps.execute();
 
             r = statement.executeQuery("select a from test_ts_tz order by b");
@@ -226,7 +227,12 @@ public class TestTypes {
             Assert.assertEquals(o.toInstant(), offsetDateTime.toInstant());
             Assert.assertEquals(o.getOffset().getTotalSeconds(), expOffsetForUTC);
 
-            // 7: set use session tz
+            // 7, 8: set use session tz
+            r.next();
+            o = r.getObject(1, OffsetDateTime.class);
+            Assert.assertEquals(o.toInstant(), Instant.parse("2021-01-12T22:30:55.123Z"));
+            Assert.assertEquals(o.getOffset().getTotalSeconds(), -8 * 3600);
+
             r.next();
             o = r.getObject(1, OffsetDateTime.class);
             Assert.assertEquals(o.toInstant(), Instant.parse("2021-01-12T22:30:55.123Z"));
@@ -269,7 +275,7 @@ public class TestTypes {
 
             PreparedStatement ps = c.prepareStatement("insert into t1 values (?)");
             if (useLocalDate) {
-                ps.setDate(1, date);
+                ps.setObject(1, localDate);
             } else {
                 ps.setDate(1, date);
             }
@@ -291,6 +297,56 @@ public class TestTypes {
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), LocalDate.of(2020, 1, 9));
 
             Assert.assertFalse(r.next());
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void TestInterval() throws SQLException {
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+
+            s.execute("create or replace table test_interval(a interval)");
+
+            PreparedStatement ps = c.prepareStatement("insert into test_interval values (?)");
+            String interval = "-3 days";
+            ps.setString(1, interval);
+            ps.execute();
+
+            s.execute("SELECT * from test_interval");
+            ResultSet r = s.getResultSet();
+
+            Assert.assertTrue(r.next());
+            Assert.assertEquals(r.getString(1), interval);
+
+            Assert.assertFalse(r.next());
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testSelectGeometry() throws SQLException, ParseException {
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()
+        ) {
+            statement.execute("set enable_geo_create_table=1");
+            statement.execute("CREATE or replace table cities ( id INT, name VARCHAR NOT NULL, location GEOMETRY);");
+            statement.execute("INSERT INTO cities (id, name, location) VALUES (1, 'New York', 'POINT (-73.935242 40.73061))');");
+            statement.execute("INSERT INTO cities (id, name, location) VALUES (2, 'Null', null);");
+            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
+                r.next();
+                Assert.assertEquals("{\"type\": \"Point\", \"coordinates\": [-73.935242,40.73061]}", r.getObject(1));
+                r.next();
+                Assert.assertNull(r.getObject(1));
+            }
+
+            // set geometry_output_format to wkb
+            connection.createStatement().execute("set geometry_output_format='WKB'");
+            try (ResultSet r = statement.executeQuery("select location from cities order by id")) {
+                r.next();
+                byte[] wkb = r.getBytes(1);
+                WKBReader wkbReader = new WKBReader();
+                Geometry geometry = wkbReader.read(wkb);
+                Assert.assertEquals("POINT (-73.935242 40.73061)", geometry.toText());
+            }
         }
     }
 }

@@ -104,8 +104,10 @@ The Databend type is mapped to Java type as follows:
 | Decimal       | BigDecimal     |
 | String        | String         |
 | Date          | LocalDate      |
-| TIMESTAMP     | ZonedDateTime  |
-| TIMESTAMP_TZ  | OffsetDateTime |
+| Timestamp     | ZonedDateTime  |
+| Timestamp_TZ  | OffsetDateTime |
+| Interval      | String         |
+| Geometry      | byte[]         |
 | Bitmap        | byte[]         |
 | Array         | String         |
 | Tuple         | String         |
@@ -114,7 +116,7 @@ The Databend type is mapped to Java type as follows:
 
 ### Temporal types
 
-we recommend using `java.time` to avoid ambiguity and letting the driver format values via these APIs:
+we recommend using `java.time` to avoid ambiguity and set/get values via these APIs:
 
 ```
 void setObject(int parameterIndex, Object x)
@@ -122,16 +124,15 @@ void setObject(int parameterIndex, Object x)
 ```
 
 - TIMESTAMP_TZ and TIMESTAMP map to `OffsetDateTime`, `ZonedDateTime`, `Instant` and `LocalDateTime` (TIMESTAMP_TZ can return `OffsetDateTime` but not `ZonedDateTime`).
-- Date maps to `LocalDate`, and `getObject(..., LocalDate.class)` now mirrors what `getDate().toLocalDate()` returns.
+- Date maps to `LocalDate`
 - When parameters do not contain a timezone, Databend uses the session timezone (not the JVM zone) when storing/returning dates on databend-jdbc ≥ 0.4.3 AND databend-query ≥1.2.844.
-- `getString` return the display of default mapping type.
 
-Timestamp/Date are also supported, note that:
+old Timestamp/Date are also supported, note that:
 
-- `getTimestamp(int, Calendar cal)` is the same as `getTimestamp(int)` (the cal is omitted) and
+- `getTimestamp(int, Calendar cal)` is equivalent to `getTimestamp(int)` (the cal is omitted) and
 `getObject(int, Instant.classes).toTimestamp()`
 - `setTimestamp(int, Calendar cal)` is diff with `setTimestamp(int)`, the epoch is adjusted according to timezone in cal
-- `setDate`/`getDate` still use the JVM timezone, and `setObject(localDate)` is equivalent to `setDate(Date.valueOf(localDate))`.
+- `setDate`/`getDate` still use the JVM timezone, `getDate(1)` is equivalent to `Date.valueOf(getObject(1, LocalDate.class))`, `setDate(1, date)` is equivalent to `setObject(1, date.toLocalDate())`.
 
 
 # Unwrapping to Databend-specific interfaces 

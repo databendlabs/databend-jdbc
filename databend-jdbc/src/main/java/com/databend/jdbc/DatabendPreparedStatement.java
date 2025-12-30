@@ -554,6 +554,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             setString(parameterIndex, toTimeWithTimeZoneLiteral(x));
         } else if (x instanceof Instant) {
             setValueString(parameterIndex, x.toString());
+        } else if (x instanceof LocalDateTime) {
+            setValueString(parameterIndex, x.toString());
         } else if (x instanceof Timestamp) {
             setTimestamp(parameterIndex, (Timestamp) x);
         } else if (x instanceof OffsetDateTime) {
