@@ -124,12 +124,12 @@ public class DatabendPresignClientV1
     private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl, long fileSize)
             throws IOException
     {
-        logger.info("Starting upload: size=" + fileSize + " bytes, url=" + presignedUrl);
+        logger.fine("Starting upload: size=" + fileSize + " bytes, url=" + presignedUrl);
         long startTime = System.currentTimeMillis();
         try {
             Request r = putRequest(headers, presignedUrl, inputStream, fileSize);
             executeInternal(r, true);
-            logger.info("Upload completed in " + (System.currentTimeMillis() - startTime) + "ms");
+            logger.fine("Upload completed in " + (System.currentTimeMillis() - startTime) + "ms");
         }
         catch (IOException e) {
             logger.severe("Upload failed after " + (System.currentTimeMillis() - startTime) + "ms: " + e.getMessage());

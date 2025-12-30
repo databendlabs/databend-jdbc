@@ -16,6 +16,9 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.HashSet;
+import java.util.Set;
+import java.util.UUID;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -428,6 +431,52 @@ public class TestPrepareStatement {
                 n +=1;
             }
             Assert.assertEquals(n, 4);
+        }
+    }
+
+    @Test(groups = "IT")
+    public void TestStageFileRemovedAfterBatchInsert() throws SQLException {
+        String dbName = ("stage_cleanup_" + UUID.randomUUID()).replace("-", "");
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+            c.setAutoCommit(false);
+            s.execute("create or replace database " + dbName);
+            s.execute("use " + dbName);
+            s.execute("create or replace table t_stage_cleanup(a int, b string)");
+
+            Set<String> before = new HashSet<>();
+            try (ResultSet rs = s.executeQuery("LIST @~/")) {
+                while (rs.next()) {
+                    before.add(rs.getString(1));
+                }
+            }
+
+            try (PreparedStatement ps = c.prepareStatement("insert into t_stage_cleanup values")) {
+                ps.setInt(1, 1);
+                ps.setString(2, "hello");
+                ps.addBatch();
+                int[] counts = ps.executeBatch();
+                Assert.assertEquals(counts, new int[] {1});
+            }
+
+            try (ResultSet rs = s.executeQuery("SELECT a, b FROM t_stage_cleanup")) {
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 1);
+                Assert.assertEquals(rs.getString(2), "hello");
+                Assert.assertFalse(rs.next());
+            }
+
+            Set<String> after = new HashSet<>();
+            try (ResultSet rs = s.executeQuery("LIST @~/")) {
+                while (rs.next()) {
+                    after.add(rs.getString(1));
+                }
+            }
+            Set<String> diff = new HashSet<>(after);
+            diff.removeAll(before);
+            if (!diff.isEmpty()) {
+                Assert.fail("Stage has unexpected leftover entries: " + diff);
+            }
         }
     }
 
