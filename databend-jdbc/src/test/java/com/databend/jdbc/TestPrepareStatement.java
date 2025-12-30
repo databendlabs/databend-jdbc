@@ -16,6 +16,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.Timestamp;
 import java.sql.Types;
+import java.util.UUID;
 import java.util.Arrays;
 import java.util.Properties;
 import java.util.TimeZone;
@@ -428,6 +429,73 @@ public class TestPrepareStatement {
                 n +=1;
             }
             Assert.assertEquals(n, 4);
+        }
+    }
+
+    @Test(groups = "IT")
+    public void TestStageFileRemovedAfterBatchInsert() throws SQLException {
+        String dbName = ("stage_cleanup_" + UUID.randomUUID()).replace("-", "");
+        try (Connection c = Utils.createConnection();
+             Statement s = c.createStatement()) {
+            c.setAutoCommit(false);
+            s.execute("create or replace database " + dbName);
+            s.execute("use " + dbName);
+            s.execute("create or replace table t_stage_cleanup(a int, b string)");
+
+            try (TrackingPreparedStatement ps = new TrackingPreparedStatement((DatabendConnection) c, "insert into t_stage_cleanup values")) {
+                ps.setInt(1, 1);
+                ps.setString(2, "hello");
+                ps.addBatch();
+                int[] counts = ps.executeBatch();
+                Assert.assertEquals(counts, new int[] {1});
+
+                String location = ps.getLastAttachmentLocation();
+                Assert.assertNotNull(location);
+                System.out.println("[DEBUG] uploaded stage file: " + location);
+                String dir = location.substring(0, location.lastIndexOf('/') + 1);
+                System.out.println("location dir is:"+dir);
+                try (ResultSet rs = s.executeQuery("LIST " + dir)) {
+                    if (rs.next()) {
+                        Assert.fail("Stage directory not empty after batch insert, unexpected entry: " + rs.getString(1));
+                    }
+                } catch (SQLException e) {
+                    if (e.getErrorCode() != 1003) {
+                        throw e;
+                    }
+                } finally {
+                    try {
+                        System.out.println("[DEBUG] drop stage path: " + location);
+                        s.execute("REMOVE " + location);
+                    } catch (SQLException ignore) {
+                        // best-effort cleanup
+                    }
+                }
+
+                try (ResultSet rs = s.executeQuery("SELECT a, b FROM t_stage_cleanup")) {
+                    Assert.assertTrue(rs.next());
+                    Assert.assertEquals(rs.getInt(1), 1);
+                    Assert.assertEquals(rs.getString(2), "hello");
+                    Assert.assertFalse(rs.next());
+                }
+            }
+        }
+    }
+
+    private static final class TrackingPreparedStatement extends DatabendPreparedStatement {
+        private StageAttachment lastAttachment;
+
+        TrackingPreparedStatement(DatabendConnection connection, String sql) throws SQLException {
+            super(connection, stmt -> {}, sql);
+        }
+
+        @Override
+        boolean dropStageAttachment(StageAttachment attachment) {
+            lastAttachment = attachment;
+            return super.dropStageAttachment(attachment);
+        }
+
+        String getLastAttachmentLocation() {
+            return lastAttachment == null ? null : lastAttachment.getLocation();
         }
     }
 
