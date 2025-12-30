@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.vdurmont.semver4j.Semver;
 import org.testng.Assert;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.BeforeTest;
@@ -9,8 +10,15 @@ import org.testng.annotations.Test;
 import java.sql.*;
 import java.time.Instant;
 import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.time.OffsetDateTime;
+import java.time.ZoneId;
+import java.time.ZoneOffset;
+import java.time.ZonedDateTime;
 import java.util.Calendar;
 import java.util.TimeZone;
+
+import static com.databend.jdbc.Compatibility.driverVersion;
 
 public class TestTypes {
     @BeforeSuite(alwaysRun = true)
@@ -74,68 +82,32 @@ public class TestTypes {
                     }
                 }
                 Instant exp = Instant.parse(expS);
+
+                if (driverVersion == null || driverVersion.isGreaterThanOrEqualTo(new Semver("0.4.3"))) {
+                    // recommended
+                    ZonedDateTime z = r.getObject(1, ZonedDateTime.class);
+                    Assert.assertEquals(exp, z.toInstant());
+
+                    // recommended
+                    Instant instant = r.getObject(1, Instant.class);
+                    Assert.assertEquals(exp, instant);
+
+                    OffsetDateTime o = r.getObject(1, OffsetDateTime.class);
+                    Assert.assertEquals(exp, o.toInstant());
+                }
+
                 Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
                 // ignore cal
                 Assert.assertEquals(exp, r.getTimestamp(1, cal).toInstant());
+
                 r.close();
             }
         }
     }
 
 
-
-    @Test(groups = {"IT"}, dataProvider = "flag")
-    public void testSetTimestamp(boolean sameTZ)
-            throws SQLException
-    {
-        if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
-            return;
-        }
-        if (!sameTZ && Compatibility.skipServerBugLowerThen("1.2.844")) {
-           return;
-        }
-
-        try (Connection connection = Utils.createConnectionWithPresignedUrlDisable();
-             Statement statement = connection.createStatement()) {
-            if (sameTZ) {
-                statement.execute("set timezone='Asia/Shanghai'");
-            } else {
-                statement.execute("set timezone='America/Los_Angeles'");
-            }
-
-            System.out.println("get default" + TimeZone.getDefault());
-
-            Instant instant =  Instant.parse("2021-07-12T14:30:55.123Z");
-            Timestamp ts = Timestamp.from(instant);
-            Assert.assertEquals(ts, Timestamp.valueOf("2021-07-12 22:30:55.123"));
-
-            statement.execute("create or replace table test_ts (a timestamp)");
-            PreparedStatement ps = connection.prepareStatement("insert into test_ts values (?)");
-
-            ResultSet r;
-            // without batch
-            ps.setTimestamp(1, ts);
-            ps.execute();
-            r = statement.executeQuery("select * from test_ts");
-            r.next();
-            Assert.assertEquals(ts, r.getTimestamp(1));
-
-            // with batch
-            statement.execute("create or replace table test_ts (a timestamp)");
-            ps.setTimestamp(1, ts);
-            ps.addBatch();
-            ps.executeBatch();
-            r = statement.executeQuery("select * from test_ts");
-            r.next();
-            Assert.assertEquals(ts, r.getTimestamp(1));
-
-            r.close();
-        }
-    }
-
-
     @Test(groups = {"IT"})
-    public void testTypeTimestampTz()
+    public void testGetTimestampTz()
             throws SQLException {
         if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
             return;
@@ -147,35 +119,141 @@ public class TestTypes {
 
             r = statement.executeQuery("SELECT '1983-07-12 21:30:55 +0700'::timestamp_tz");
             r.next();
-            Instant exp =  Instant.parse("1983-07-12T14:30:55.000Z");
+            Instant exp = Instant.parse("1983-07-12T14:30:55.000Z");
+
+            // recommended
+            OffsetDateTime offsetDateTime = r.getObject(1, OffsetDateTime.class);
+            Assert.assertEquals(exp.atOffset(ZoneOffset.ofHours(7)), offsetDateTime);
+
             Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
+
+            Assert.assertEquals(exp, r.getObject(1, Instant.class));
             r.close();
-
-            statement.execute("create or replace table test_ts_tz (a timestamp_tz)");
-            PreparedStatement ps = connection.prepareStatement("insert into test_ts_tz values (?)");
-            // without batch
-            ps.setObject(1, "2021-01-12T14:30:55.123+03:00");
-            ps.execute();
-            exp = Instant.parse("2021-01-12T11:30:55.123Z");
-            r = statement.executeQuery("select * from test_ts_tz");
-            r.next();
-
-            Assert.assertEquals(exp, r.getTimestamp(1).toInstant());
         }
     }
 
 
-    @DataProvider(name = "timezone")
-    public Object[][] provideTimeZone() {
+    @Test(groups = {"IT"}, dataProvider = "flag")
+    public void testSetTimestamp(boolean withTz)
+            throws SQLException {
+        if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
+            return;
+        }
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("set timezone='America/Los_Angeles'");
+            ResultSet r;
+
+            if (withTz) {
+                statement.execute("create or replace table test_ts_tz (a timestamp_tz, b int)");
+            } else {
+                statement.execute("create or replace table test_ts_tz (a timestamp, b int)");
+            }
+            PreparedStatement ps = connection.prepareStatement("insert into test_ts_tz values (?, ?)");
+
+            String timeStringNoTZ = "2021-01-12T14:30:55.123";
+            String timeString = timeStringNoTZ + "+03:00";
+            OffsetDateTime offsetDateTime = OffsetDateTime.parse(timeString);
+            ZonedDateTime zonedDateTime = LocalDateTime.parse(timeStringNoTZ).atZone(ZoneId.of("Europe/Moscow"));
+            Instant instant = offsetDateTime.toInstant();
+            Timestamp timestamp = Timestamp.from(instant);
+            Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("Europe/Moscow"));
+
+            // 1, 2, 3, 4: same epoch, use tz in parameter,
+            ps.setObject(1, offsetDateTime);
+            ps.setInt(2, 1);
+            ps.execute();
+
+            ps.setObject(1, zonedDateTime);
+            ps.setInt(2, 2);
+            ps.execute();
+
+            ps.setString(1, timeString);
+            ps.setInt(2, 3);
+            ps.execute();
+
+            ps.setTimestamp(1, timestamp, cal);
+            ps.setInt(2, 4);
+            ps.execute();
+
+            // 5, 6: same epoch, tz=UTC
+            ps.setObject(1, instant);
+            ps.setInt(2, 5);
+            ps.execute();
+
+            ps.setTimestamp(1, timestamp);
+            ps.setInt(2, 6);
+            ps.execute();
+
+            // 7: diff epoch, set use session tz
+            ps.setString(1, timeStringNoTZ);
+            ps.setInt(2, 7);
+            ps.execute();
+
+            r = statement.executeQuery("select a from test_ts_tz order by b");
+
+            ZoneId sessionZoneId = ZoneId.of("America/Los_Angeles");
+            ZoneOffset sessionOffset = sessionZoneId.getRules().getOffset(instant);
+            OffsetDateTime exp = offsetDateTime;
+            if (!withTz) {
+                exp = instant.atOffset(sessionOffset);
+            }
+
+            // 1, 2, 3, 4, 5: same epoch, use tz in parameter,
+            r.next();
+            Assert.assertEquals(exp, r.getObject(1, OffsetDateTime.class));
+            if (!withTz) {
+                Assert.assertEquals(instant.atZone(sessionZoneId), r.getObject(1, ZonedDateTime.class));
+            }
+            r.next();
+            Assert.assertEquals(exp, r.getObject(1, OffsetDateTime.class));
+            r.next();
+            Assert.assertEquals(exp, r.getObject(1, OffsetDateTime.class));
+            r.next();
+            Assert.assertEquals(exp, r.getObject(1, OffsetDateTime.class));
+
+            OffsetDateTime o;
+
+            // 5, 6: set use tz=UTC
+            int expOffsetForUTC = withTz? 0: -8 * 3600;
+            r.next();
+            o = r.getObject(1, OffsetDateTime.class);
+            Assert.assertEquals(o.toInstant(), offsetDateTime.toInstant());
+            Assert.assertEquals(o.getOffset().getTotalSeconds(), expOffsetForUTC);
+
+            r.next();
+            o = r.getObject(1, OffsetDateTime.class);
+            Assert.assertEquals(o.toInstant(), offsetDateTime.toInstant());
+            Assert.assertEquals(o.getOffset().getTotalSeconds(), expOffsetForUTC);
+
+            // 7: set use session tz
+            r.next();
+            o = r.getObject(1, OffsetDateTime.class);
+            Assert.assertEquals(o.toInstant(), Instant.parse("2021-01-12T22:30:55.123Z"));
+            Assert.assertEquals(o.getOffset().getTotalSeconds(), -8 * 3600);
+
+            r.close();
+        }
+    }
+
+    @DataProvider(name = "timeZoneAndFlag")
+    public Object[][] provideTimeZoneAndFlag() {
         return new Object[][]{
-                {"Asia/Shanghai",},
-                {"Asia/Tokyo",},
-                {"America/Los_Angeles",},
+                {"Asia/Shanghai", true},
+                {"Asia/Tokyo", true},
+                {"America/Los_Angeles", true},
+                {"Asia/Shanghai", false},
+                {"Asia/Tokyo", false},
+                {"America/Los_Angeles", false}
         };
     }
 
-    @Test(groups = "IT", dataProvider = "timezone")
-    public void TestSetDate(String tz) throws SQLException {
+    @Test(groups = "IT", dataProvider = "timeZoneAndFlag")
+    public void TestDate(String tz, boolean useLocalDate) throws SQLException {
+        if (Compatibility.skipBugLowerThenOrEqualTo("1.2.844", "0.4.2")) {
+            return;
+        }
+
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
@@ -184,10 +262,18 @@ public class TestTypes {
 
             String dateStr = "2020-01-10";
             Date date = Date.valueOf(dateStr);
+            LocalDate localDate = LocalDate.of(2020, 1, 10);
+            Assert.assertEquals(date.toLocalDate(), localDate);
+            Assert.assertEquals(Date.valueOf(localDate), date);
+
+
             PreparedStatement ps = c.prepareStatement("insert into t1 values (?)");
-            ps.setDate(1, date);
-            ps.addBatch();
-            Assert.assertEquals(ps.executeBatch(), new int[]{1});
+            if (useLocalDate) {
+                ps.setDate(1, date);
+            } else {
+                ps.setDate(1, date);
+            }
+            ps.execute();
 
             s.execute("SELECT * from t1");
             ResultSet r = s.getResultSet();
@@ -195,6 +281,7 @@ public class TestTypes {
             Assert.assertTrue(r.next());
             Assert.assertEquals(r.getDate(1), date);
             Assert.assertEquals(r.getString(1), dateStr);
+            Assert.assertEquals(r.getObject(1, LocalDate.class), localDate);
 
             Calendar cal = Calendar.getInstance(TimeZone.getTimeZone("America/Los_Angeles"));
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), date.toLocalDate());
@@ -204,25 +291,6 @@ public class TestTypes {
             Assert.assertEquals(r.getDate(1, cal).toLocalDate(), LocalDate.of(2020, 1, 9));
 
             Assert.assertFalse(r.next());
-        }
-    }
-    @Test(groups = "IT")
-    public void TestLocalDateObject() throws SQLException {
-        if (Compatibility.skipDriverBugLowerThen( "0.4.3")) {
-            return;
-        }
-        LocalDate expected = LocalDate.of(2020, 1, 10);
-        try (Connection c = Utils.createConnection();
-             Statement s = c.createStatement()) {
-            s.execute("create or replace table t_local_date_object(a DATE)");
-            try (PreparedStatement ps = c.prepareStatement("insert into t_local_date_object values (?)")) {
-                ps.setObject(1, expected);
-                Assert.assertEquals(ps.executeUpdate(), 1);
-            }
-            try (ResultSet r = s.executeQuery("select * from t_local_date_object")) {
-                Assert.assertTrue(r.next());
-                Assert.assertEquals(r.getObject(1, LocalDate.class), expected);
-            }
         }
     }
 }

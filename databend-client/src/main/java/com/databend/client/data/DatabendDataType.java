@@ -55,6 +55,7 @@ public enum DatabendDataType {
 
     DATE(Types.DATE, DatabendTypes.DATE, false, 10, true, "Date"),
     TIMESTAMP(Types.TIMESTAMP, DatabendTypes.TIMESTAMP, false, 26, true, "DateTime", "TIMESTAMP"),
+    TIMESTAMP_TZ(Types.TIMESTAMP_WITH_TIMEZONE, DatabendTypes.TIMESTAMP, false, 32, true, "TIMESTAMP_TZ"),
 
     ARRAY(Types.ARRAY, DatabendTypes.ARRAY, false, 0, false, "Array"),
     MAP(Types.OTHER, DatabendTypes.MAP, false, 0, false, "Map"),
@@ -119,6 +120,8 @@ public enum DatabendDataType {
             return DATE;
         } else if (DatabendTypes.TIMESTAMP.equalsIgnoreCase(typeName)) {
             return TIMESTAMP;
+        } else if (DatabendTypes.TIMESTAMP_TZ.equalsIgnoreCase(typeName)) {
+            return TIMESTAMP_TZ;
         } else if (DatabendTypes.VARIANT.equalsIgnoreCase(typeName)) {
             return VARIANT;
         } else if (DatabendTypes.BITMAP.equalsIgnoreCase(typeName)) {

@@ -33,7 +33,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     private final RawStatementWrapper rawStatement;
     static final java.time.format.DateTimeFormatter TIME_FORMATTER = java.time.format.DateTimeFormatter.ofPattern("HH:mm:ss.SSS");
     static final java.time.format.DateTimeFormatter TIMESTAMP_FORMATTER = java.time.format.DateTimeFormatter
-            .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+            .ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS")
             .withZone(ZoneOffset.UTC);
     private final DatabendParameterMetaData paramMetaData;
     private static final java.time.format.DateTimeFormatter LOCAL_DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
@@ -42,6 +42,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             .append(ISO_LOCAL_TIME)
             .toFormatter();
     private static final java.time.format.DateTimeFormatter OFFSET_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .append(ISO_LOCAL_TIME)
+            .appendOffset("+HH:mm", "+00:00")
+            .toFormatter();
+    private static final java.time.format.DateTimeFormatter OFFSET_DATE_TIME_FORMATTER = new DateTimeFormatterBuilder()
+            .append(ISO_LOCAL_DATE)
+            .appendLiteral(' ')
             .append(ISO_LOCAL_TIME)
             .appendOffset("+HH:mm", "+00:00")
             .toFormatter();
@@ -291,6 +297,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         batchInsertUtils.setPlaceHolderValue(index, value, value);
     }
 
+    private void setValueString(int index, String value) {
+        batchInsertUtils.setPlaceHolderValue(index, String.format("'%s'", value), value);
+    }
+
     private void setValue(int index, String value, String csvValue) {
         batchInsertUtils.setPlaceHolderValue(index, value, csvValue);
     }
@@ -397,7 +407,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (v == null) {
             setValueSimple(i, null);
         } else {
-            setValue(i, String.format("'%s'", v), toTimeLiteral(v));
+            setValueString(i, v.toString());
         }
     }
 
@@ -408,8 +418,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (v == null) {
             setValueSimple(i, null);
         } else {
-            String s = v.toInstant().toString();
-            setValue(i, String.format("'%s'", s), s);
+            setValueString(i, v.toInstant().toString());
         }
     }
 
@@ -538,15 +547,19 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         } else if (x instanceof Date) {
             setDate(parameterIndex, (Date) x);
         } else if (x instanceof LocalDate) {
-            setString(parameterIndex, toDateLiteral(x));
+            setString(parameterIndex, x.toString());
         } else if (x instanceof Time) {
             setTime(parameterIndex, (Time) x);
-        }
-        // TODO (https://github.com/trinodb/trino/issues/6299) LocalTime -> setAsTime
-        else if (x instanceof OffsetTime) {
+        } else if (x instanceof OffsetTime) {
             setString(parameterIndex, toTimeWithTimeZoneLiteral(x));
+        } else if (x instanceof Instant) {
+            setValueString(parameterIndex, x.toString());
         } else if (x instanceof Timestamp) {
             setTimestamp(parameterIndex, (Timestamp) x);
+        } else if (x instanceof OffsetDateTime) {
+            setString(parameterIndex, toTimestampLiteral(x));
+        } else if (x instanceof ZonedDateTime) {
+            setString(parameterIndex, toTimestampLiteral(x));
         } else if (x instanceof Map) {
             setString(parameterIndex, convertToJsonString((Map<?, ?>) x));
         } else if (x instanceof Array) {
@@ -665,7 +678,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setTimestamp(int i, Timestamp timestamp, Calendar calendar)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setTimestamp");
+        String s = OFFSET_DATE_TIME_FORMATTER.format(timestamp.toInstant().atZone(calendar.getTimeZone().toZoneId()));
+        setValueString(i, s);
     }
 
     @Override
@@ -878,6 +892,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (value instanceof java.util.Date) {
             // include java.sql.Timestamp
             return TIMESTAMP_FORMATTER.format(((java.util.Date) value).toInstant()) + "Z";
+        }
+        if (value instanceof OffsetDateTime) {
+            return OFFSET_DATE_TIME_FORMATTER.format((OffsetDateTime) value);
+        }
+        if (value instanceof ZonedDateTime) {
+            return OFFSET_DATE_TIME_FORMATTER.format(((ZonedDateTime) value).toOffsetDateTime());
         }
         if (value instanceof LocalDateTime) {
             return LOCAL_DATE_TIME_FORMATTER.format(((LocalDateTime) value));
