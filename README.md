@@ -106,7 +106,7 @@ The Databend type is mapped to Java type as follows:
 | Date          | LocalDate      |
 | Timestamp     | ZonedDateTime  |
 | Timestamp_TZ  | OffsetDateTime |
-| Interval      | String         |
+| Interval      | Duration       |
 | Geometry      | byte[]         |
 | Bitmap        | byte[]         |
 | Array         | String         |
@@ -126,6 +126,7 @@ void setObject(int parameterIndex, Object x)
 - TIMESTAMP_TZ and TIMESTAMP map to `OffsetDateTime`, `ZonedDateTime`, `Instant` and `LocalDateTime` (TIMESTAMP_TZ can return `OffsetDateTime` but not `ZonedDateTime`).
 - Date maps to `LocalDate`
 - When parameters do not contain a timezone, Databend uses the session timezone (not the JVM zone) when storing/returning dates on databend-jdbc ≥ 0.4.3 AND databend-query ≥1.2.844.
+- Interval map to `java.time.Duration`.
 
 old Timestamp/Date are also supported, note that:
 
@@ -133,6 +134,8 @@ old Timestamp/Date are also supported, note that:
 `getObject(int, Instant.classes).toTimestamp()`
 - `setTimestamp(int, Calendar cal)` is diff with `setTimestamp(int)`, the epoch is adjusted according to timezone in cal
 - `setDate`/`getDate` still use the JVM timezone, `getDate(1)` is equivalent to `Date.valueOf(getObject(1, LocalDate.class))`, `setDate(1, date)` is equivalent to `setObject(1, date.toLocalDate())`.
+
+
 
 
 # Unwrapping to Databend-specific interfaces 
