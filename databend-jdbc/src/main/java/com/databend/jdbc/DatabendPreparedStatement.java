@@ -489,7 +489,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             case Types.NVARCHAR:
             case Types.LONGVARCHAR:
             case Types.LONGNVARCHAR:
-                setString(parameterIndex, x.toString());
+                if (x instanceof Duration) {
+                    setDurationLiteral(parameterIndex, (Duration) x);
+                } else {
+                    setString(parameterIndex, x.toString());
+                }
                 return;
             case Types.BINARY:
                 InputStream blobInputStream = new ByteArrayInputStream(x.toString().getBytes());
@@ -514,6 +518,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             case Types.TIMESTAMP_WITH_TIMEZONE:
                 setString(parameterIndex, toTimestampWithTimeZoneLiteral(x));
                 return;
+            case Types.OTHER:
+            case Types.JAVA_OBJECT:
+                if (x instanceof Duration) {
+                    setDurationLiteral(parameterIndex, (Duration) x);
+                    return;
+                }
+                break;
         }
         throw new SQLException("Unsupported target SQL type: " + targetSqlType);
     }
@@ -562,6 +573,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             setString(parameterIndex, toTimestampLiteral(x));
         } else if (x instanceof ZonedDateTime) {
             setString(parameterIndex, toTimestampLiteral(x));
+        } else if (x instanceof Duration) {
+            setDurationLiteral(parameterIndex, (Duration) x);
         } else if (x instanceof Map) {
             setString(parameterIndex, convertToJsonString((Map<?, ?>) x));
         } else if (x instanceof Array) {
@@ -597,6 +610,14 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         builder.append("]");
 
         return builder.toString();
+    }
+
+    private void setDurationLiteral(int parameterIndex, Duration duration) throws SQLException {
+        try {
+            setString(parameterIndex, Interval.encode(duration));
+        } catch (IllegalArgumentException ex) {
+            throw new SQLException("Failed to encode Duration for interval parameter", ex);
+        }
     }
 
     @Override

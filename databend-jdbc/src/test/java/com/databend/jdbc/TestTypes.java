@@ -305,20 +305,50 @@ public class TestTypes {
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
-            s.execute("create or replace table test_interval(a interval)");
+            s.execute("create or replace table test_interval(id int, a interval)");
 
-            PreparedStatement ps = c.prepareStatement("insert into test_interval values (?)");
-            String interval = "-3 days";
-            ps.setString(1, interval);
-            ps.execute();
+            Object[][] cases = new Object[][]{
+                    {1, "-3 days", "-3 days", Duration.ofDays(-3), false},
+                    {2, Duration.ZERO, "00:00:00", Duration.ZERO, false},
+                    {3, "1 day 2:30:15", "1 day 2:30:15", Duration.ofDays(1).plusHours(2).plusMinutes(30).plusSeconds(15), false},
+                    {4, Duration.ofHours(10).plusMinutes(15).plusSeconds(30).negated(), "-10:15:30", Duration.ofHours(10).plusMinutes(15).plusSeconds(30).negated(), true},
+                    {5, Duration.ofHours(4).plusMinutes(5).plusSeconds(6).plusNanos(7000), "4:05:06.000007", Duration.ofHours(4).plusMinutes(5).plusSeconds(6).plusNanos(7_000), false},
+                    {6, Duration.ofDays(1).plusHours(2).plusMinutes(3).plusSeconds(4), "26:03:04", Duration.ofDays(1).plusHours(2).plusMinutes(3).plusSeconds(4), false}
+            };
 
-            s.execute("SELECT * from test_interval");
-            ResultSet r = s.getResultSet();
+            try (PreparedStatement ps = c.prepareStatement("insert into test_interval values (?, ?)")) {
+                for (Object[] testCase : cases) {
+                    ps.setInt(1, (Integer) testCase[0]);
+                    Object param = testCase[1];
+                    boolean useExplicitType = (Boolean) testCase[4];
+                    if (param instanceof Duration) {
+                        if (useExplicitType) {
+                            ps.setObject(2, param, Types.VARCHAR);
+                        } else {
+                            ps.setObject(2, param);
+                        }
+                    } else {
+                        ps.setString(2, (String) param);
+                    }
+                    ps.execute();
+                }
+            }
 
-            Assert.assertTrue(r.next());
-            Assert.assertEquals(r.getString(1), interval);
+            try (ResultSet r = s.executeQuery("SELECT id, a FROM test_interval ORDER BY id")) {
+                for (Object[] testCase : cases) {
+                    Assert.assertTrue(r.next());
+                    Assert.assertEquals(r.getInt(1), testCase[0]);
 
-            Assert.assertFalse(r.next());
+                    Assert.assertEquals(r.getObject(2, Duration.class), testCase[3]);
+
+                    Assert.assertEquals(r.getString(2), testCase[2]);
+
+                    Object defaultValue = r.getObject(2);
+                    Assert.assertTrue(defaultValue instanceof Duration);
+                    Assert.assertEquals(defaultValue, testCase[3]);
+                }
+                Assert.assertFalse(r.next());
+            }
         }
     }
 

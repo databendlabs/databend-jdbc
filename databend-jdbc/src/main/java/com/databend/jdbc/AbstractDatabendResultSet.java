@@ -4,6 +4,7 @@ import com.databend.client.QueryResults;
 import com.databend.client.QueryRowField;
 import com.databend.client.data.DatabendDataType;
 import com.databend.client.data.DatabendRawType;
+import com.databend.client.data.DatabendTypes;
 import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
@@ -44,11 +45,8 @@ import static java.util.Locale.ENGLISH;
 import static java.util.Objects.requireNonNull;
 
 abstract class AbstractDatabendResultSet implements ResultSet {
-    protected  AtomicLong lastRequestTime = new AtomicLong();
-
     static final DateTimeFormatter DATE_FORMATTER = DateTimeFormatter.ISO_LOCAL_DATE;
 
-    private static final long SECONDS_PER_DAY = 86_400L;
     private static final long[] POWERS_OF_TEN = {
             1L,
             10L,
@@ -716,7 +714,18 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public Object getObject(int columnIndex)
             throws SQLException {
-        return column(columnIndex);
+        Object value = column(columnIndex);
+        if (value == null) {
+            return null;
+        }
+        DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
+        if (DatabendRawType.startsWithIgnoreCase(databendRawType.getType(), DatabendTypes.INTERVAL)) {
+            if (!(value instanceof String)) {
+                throw new SQLDataException("Interval value is not textual: " + value.getClass().getName());
+            }
+            return Interval.decode((String) value);
+        }
+        return value;
     }
 
     @Override
@@ -1028,25 +1037,25 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     public void updateObject(int columnIndex, Object x, SQLType targetSqlType, int scaleOrLength)
             throws SQLException {
-        this.updateObject(columnIndex, x, targetSqlType, scaleOrLength);
+        throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, SQLType targetSqlType, int scaleOrLength)
             throws SQLException {
-        this.updateObject(columnLabel, x, targetSqlType, scaleOrLength);
+        throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateObject(int columnIndex, Object x, SQLType targetSqlType)
             throws SQLException {
-        this.updateObject(columnIndex, x, targetSqlType);
+        throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
     public void updateObject(String columnLabel, Object x, SQLType targetSqlType)
             throws SQLException {
-        this.updateObject(columnLabel, x, targetSqlType);
+        throw new SQLFeatureNotSupportedException("updateObject");
     }
 
     @Override
@@ -1700,7 +1709,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
 
         if (type == LocalDate.class) {
-            return type.cast( LocalDate.parse((String)value));
+            return type.cast(LocalDate.parse((String) value));
         }
 
         if (type == Instant.class) {
@@ -1713,6 +1722,17 @@ abstract class AbstractDatabendResultSet implements ResultSet {
 
         if (type == ZonedDateTime.class) {
             return type.cast(getZonedDateTimeNotNull((String) value, databendRawType));
+        }
+
+        if (type == Duration.class) {
+            Object intervalValue = getObject(columnIndex);
+            if (intervalValue == null) {
+                return null;
+            }
+            if (!(intervalValue instanceof Duration)) {
+                throw new SQLDataException(invalidColumnType(databendRawType, "Duration"));
+            }
+            return type.cast(intervalValue);
         }
 
         return (T) value;
