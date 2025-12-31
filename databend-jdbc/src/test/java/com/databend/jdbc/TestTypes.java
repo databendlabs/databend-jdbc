@@ -302,6 +302,9 @@ public class TestTypes {
 
     @Test(groups = {"IT"})
     public void TestInterval() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.2")) {
+            return;
+        }
         try (Connection c = Utils.createConnection();
              Statement s = c.createStatement()) {
 
