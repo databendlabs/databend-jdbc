@@ -40,7 +40,7 @@ public class Utils {
 
     public static Connection createConnectionWithPresignedUrlDisable() throws SQLException {
         String url = baseURL() + "?presigned_url_disabled=true";
-        return DriverManager.getConnection(url, "databend", "databend");
+        return DriverManager.getConnection(url, username, password);
     }
 
     public static int countTable(Statement statement, String table) throws SQLException {

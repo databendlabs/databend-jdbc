@@ -104,10 +104,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private static String formatBigDecimalLiteral(BigDecimal x) {
-        if (x == null) {
-            return "null";
-        }
-
         return x.toString();
     }
 
@@ -293,12 +289,16 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return matcher.find() && !sql.contains(DATABEND_KEYWORDS_SELECT);
     }
 
-    private void setValueSimple(int index, String value) {
+    private void setValueStringNoQuote(int index, String value) {
         batchInsertUtils.setPlaceHolderValue(index, value, value);
     }
 
     private void setValueString(int index, String value) {
         batchInsertUtils.setPlaceHolderValue(index, String.format("'%s'", value), value);
+    }
+
+    private void setValueNull(int index) {
+        setValue(index, "null", "\\N");
     }
 
     private void setValue(int index, String value, String csvValue) {
@@ -309,63 +309,67 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setNull(int i, int i1)
             throws SQLException {
         checkOpen();
-        setValue(i, "null", "\\N");
+        setValueNull(i);
     }
 
     @Override
     public void setBoolean(int i, boolean b)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatBooleanLiteral(b));
+        setValueStringNoQuote(i, formatBooleanLiteral(b));
     }
 
     @Override
     public void setByte(int i, byte b)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatByteLiteral(b));
+        setValueStringNoQuote(i, formatByteLiteral(b));
     }
 
     @Override
     public void setShort(int i, short i1)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatShortLiteral(i1));
+        setValueStringNoQuote(i, formatShortLiteral(i1));
     }
 
     @Override
     public void setInt(int i, int i1)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatIntLiteral(i1));
+        setValueStringNoQuote(i, formatIntLiteral(i1));
     }
 
     @Override
     public void setLong(int i, long l)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatLongLiteral(l));
+        setValueStringNoQuote(i, formatLongLiteral(l));
     }
 
     @Override
     public void setFloat(int i, float v)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatFloatLiteral(v));
+        setValueStringNoQuote(i, formatFloatLiteral(v));
     }
 
     @Override
     public void setDouble(int i, double v)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatDoubleLiteral(v));
+        setValueStringNoQuote(i, formatDoubleLiteral(v));
     }
 
     @Override
     public void setBigDecimal(int i, BigDecimal v)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatBigDecimalLiteral(v));
+        if (v == null) {
+            setValueNull(i);
+        } else {
+            setValueStringNoQuote(i, formatBigDecimalLiteral(v));
+        }
     }
 
     @Override
@@ -373,6 +377,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         String quoted = s;
+        if (s == null) {
+            setValueNull(i);
+            return;
+        }
         if (s.contains("'")) {
             quoted = s.replace("'", "\\'");
         }
@@ -385,7 +393,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setBytes(int i, byte[] v)
             throws SQLException {
         checkOpen();
-        setValueSimple(i, formatBytesLiteral(v));
+        setValueStringNoQuote(i, formatBytesLiteral(v));
     }
 
     @Override
@@ -393,10 +401,9 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (date == null) {
-            setValueSimple(i, null);
+            setValueNull(i);
         } else {
-            String s = date.toString();
-            setValue(i, String.format("'%s'", s), s);
+            setValueString(i, date.toString());
         }
     }
 
@@ -405,7 +412,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (v == null) {
-            setValueSimple(i, null);
+            setValueNull(i);
         } else {
             setValueString(i, v.toString());
         }
@@ -416,7 +423,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (v == null) {
-            setValueSimple(i, null);
+            setValueNull(i);
         } else {
             setValueString(i, v.toInstant().toString());
         }
@@ -452,7 +459,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (x == null) {
-            setNull(parameterIndex, Types.NULL);
+            setValueNull(parameterIndex);
             return;
         }
         switch (targetSqlType) {
@@ -513,10 +520,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 setString(parameterIndex, toTimeWithTimeZoneLiteral(x));
                 return;
             case Types.TIMESTAMP:
-                setString(parameterIndex, toTimestampLiteral(x));
-                return;
             case Types.TIMESTAMP_WITH_TIMEZONE:
-                setString(parameterIndex, toTimestampWithTimeZoneLiteral(x));
+                setString(parameterIndex, toTimestampLiteral(x));
                 return;
             case Types.OTHER:
             case Types.JAVA_OBJECT:
@@ -534,7 +539,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
         if (x == null) {
-            setNull(parameterIndex, Types.NULL);
+            setValueNull(parameterIndex);
         } else if (x instanceof Boolean) {
             setBoolean(parameterIndex, (Boolean) x);
         } else if (x instanceof Byte) {
@@ -654,24 +659,11 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setRef");
     }
 
-    @Override
-    public void setBlob(int i, Blob x)
-            throws SQLException {
-        if (x != null) {
-            setBinaryStream(i, x.getBinaryStream());
-        } else {
-            setNull(i, Types.BLOB);
-        }
-    }
 
     @Override
     public void setClob(int i, Clob x)
             throws SQLException {
-        if (x != null) {
-            setCharacterStream(i, x.getCharacterStream());
-        } else {
-            setNull(i, Types.CLOB);
-        }
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
     }
 
     @Override
@@ -689,13 +681,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setDate(int i, Date date, Calendar calendar)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setDate");
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setDate(int, Date, Calendar)");
     }
 
     @Override
     public void setTime(int i, Time time, Calendar calendar)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setTime");
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setTime(int, Time, Calendar)");
     }
 
     @Override
@@ -708,7 +700,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setNull(int i, int i1, String s)
             throws SQLException {
-        setNull(i, i1);
+        setValueNull(i);
     }
 
     @Override
@@ -752,14 +744,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setClob(int i, Reader reader, long l)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob(int, Reader, long)");
     }
 
-    @Override
-    public void setBlob(int i, InputStream inputStream, long l)
-            throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob");
-    }
+
 
     @Override
     public void setNClob(int i, Reader reader, long l)
@@ -776,7 +764,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setObject(int i, Object o, int i1, int i2)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setObject");
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setObject(int, Object, int, int)");
     }
 
     @Override
@@ -807,6 +795,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setBinaryStream(int i, InputStream inputStream)
             throws SQLException {
         checkOpen();
+        if (inputStream == null) {
+            setValueNull(i);
+            return;
+        }
         try {
             ByteArrayOutputStream buffer = new ByteArrayOutputStream();
             int nRead;
@@ -818,10 +810,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             byte[] bytes = buffer.toByteArray();
             if (BASE64_STR.equalsIgnoreCase(connection().binaryFormat())) {
                 String base64String = bytesToBase64(bytes);
-                setValueSimple(i, base64String);
+                setValueStringNoQuote(i, base64String);
             } else {
                 String hexString = bytesToHex(bytes);
-                setValueSimple(i, hexString);
+                setValueStringNoQuote(i, hexString);
             }
         } catch (IOException e) {
             throw new SQLException("Error reading InputStream", e);
@@ -855,13 +847,26 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public void setClob(int i, Reader reader)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob");
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setClob(int, Reader)");
+    }
+
+    public void setBlob(int i, Blob x)
+            throws SQLException {
+        // never get null
+        setBinaryStream(i, x.getBinaryStream());
     }
 
     @Override
     public void setBlob(int i, InputStream inputStream)
             throws SQLException {
+        // never get null
         setBinaryStream(i, inputStream);
+    }
+
+    @Override
+    public void setBlob(int i, InputStream inputStream, long l)
+            throws SQLException {
+        throw new SQLFeatureNotSupportedException("PreparedStatement", "setBlob(int, InputStream, long)");
     }
 
     @Override
@@ -932,16 +937,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw invalidConversion(value, "timestamp");
     }
 
-    private String toTimestampWithTimeZoneLiteral(Object value)
-            throws SQLException {
-        if (value instanceof String) {
-            return (String) value;
-        } else if (value instanceof OffsetDateTime) {
-            return OFFSET_TIME_FORMATTER.format((OffsetDateTime) value);
-        }
-        throw invalidConversion(value, "timestamp with time zone");
-    }
-
     private String toTimeWithTimeZoneLiteral(Object value)
             throws SQLException {
         if (value instanceof OffsetTime) {
@@ -953,5 +948,4 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
         throw invalidConversion(value, "time with time zone");
     }
-
 }
