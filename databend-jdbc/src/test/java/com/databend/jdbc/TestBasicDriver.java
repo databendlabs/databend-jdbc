@@ -14,6 +14,7 @@ import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
 
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 
 
@@ -51,6 +52,7 @@ public class TestBasicDriver {
             }
         }
     }
+
 
 //    @Test(groups = {"IT"})
 //    public void testRetry()
@@ -313,4 +315,32 @@ public class TestBasicDriver {
         });
     }
 
+
+    @Test(groups = "IT")
+    public void testEncodePass() throws SQLException {
+        try (Connection conn = Utils.createConnection();
+             Statement stmt = conn.createStatement()) {
+            stmt.execute("drop user if exists u01");
+            stmt.execute("drop role if exists test_role");
+            stmt.execute("create role test_role");
+            stmt.execute("grant all PRIVILEGES ON default.* to role test_role");
+            stmt.execute("create user u01 identified by 'mS%aFRZW*GW' with default_role='test_role'");
+            stmt.execute("grant role test_role to u01");
+            Properties p = new Properties();
+            p.setProperty("user", "u01");
+            p.setProperty("password", "mS%aFRZW*GW");
+            try (Connection conn2 = Utils.createConnection("default", p);
+                 Statement stmt2 = conn2.createStatement()) {
+                ResultSet rs = stmt2.executeQuery("select 2");
+                rs.next();
+                assertEquals(rs.getInt(1), 2);
+            }
+        } finally {
+            try (Connection cleanupConn = Utils.createConnection();
+                 Statement cleanupStmt = cleanupConn.createStatement()) {
+                cleanupStmt.execute("drop user if exists u01");
+                cleanupStmt.execute("drop role if exists test_role");
+            }
+        }
+    }
 }

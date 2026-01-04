@@ -65,17 +65,17 @@ public class TestTypes {
                     {"2023-07-12 14:30:55", "2023-07-12T06:30:55.000Z", "2023-07-12T11:30:55.000Z"},
             };
 
-            for (int i = 0; i < cases.length; i++) {
-                String sql = String.format("SELECT '%s'::timestamp", cases[i][0]);
+            for (Object[] aCase : cases) {
+                String sql = String.format("SELECT '%s'::timestamp", aCase[0]);
                 ResultSet r = statement.executeQuery(sql);
                 r.next();
                 String expS;
                 if (sameTZ) {
-                    expS = (String) cases[i][1];
+                    expS = (String) aCase[1];
                 } else {
-                    expS = (String) cases[i][2];
+                    expS = (String) aCase[2];
                     if (expS.equals("same")) {
-                        expS = (String) cases[i][1];
+                        expS = (String) aCase[1];
                     }
                 }
                 Instant exp = Instant.parse(expS);
@@ -380,6 +380,97 @@ public class TestTypes {
                 Geometry geometry = wkbReader.read(wkb);
                 Assert.assertEquals("POINT (-73.935242 40.73061)", geometry.toText());
             }
+        }
+    }
+
+    @Test(groups = {"IT"}, dataProvider = "flag")
+    public void TestBatchInsertWithNULL(boolean batch) throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.3")) {
+            return;
+        }
+        try (Connection c = Utils.createConnectionWithPresignedUrlDisable();
+             Statement s = c.createStatement()) {
+            s.execute("create or replace table t1 (c1 string, c2 string, c3 string, c4 string, c5 string, c6 string, c7 string, c8 string, c9 string)");
+
+            String insertSQL = "insert into t1 values (?, ?, ?, ?, ?, ?, ?, ?, ?)";
+            PreparedStatement ps = c.prepareStatement(insertSQL);
+
+            ps.setNull(1, Types.NULL);
+            ps.setNull(2, Types.NULL, "");
+            ps.setString(3, null);
+            ps.setDate(4, null);
+            ps.setTimestamp(5, null);
+            ps.setTime(6, null);
+            ps.setObject(7, null);
+            ps.setObject(8, null, Types.NULL);
+            ps.setBinaryStream(9, null);
+            // ps.setBlob(1, null); // can not be null
+
+            if (batch) {
+                ps.addBatch();
+                int[] ans = ps.executeBatch();
+                Assert.assertEquals(ans, new int[] {1});
+            } else {
+                int result = ps.executeUpdate();
+                Assert.assertEquals(result, 1);
+            }
+
+            Statement statement = c.createStatement();
+            statement.execute("SELECT * from t1");
+            ResultSet r = statement.getResultSet();
+
+            Assert.assertTrue(r.next());
+            for (int i=1; i<=9; i++) {
+                Assert.assertNull(r.getString(i));
+            }
+            Assert.assertFalse(r.next());
+        }
+    }
+
+    @DataProvider(name = "complexDataType")
+    private Object[][] provideTestData() {
+        return new Object[][] {
+                {true, false},
+                {true, true},
+                {false, false},
+        };
+    }
+
+    @Test(groups = "IT", dataProvider = "complexDataType")
+    public void TestBatchInsertWithComplexDataType(boolean presigned,  boolean placeholder) throws SQLException {
+        String tableName = String.format("test_object_%s_%s", presigned, placeholder).toLowerCase();
+        try (Connection c = presigned ? Utils.createConnection() : Utils.createConnectionWithPresignedUrlDisable();
+             Statement s = c.createStatement()
+        ) {
+            c.setAutoCommit(false);
+            s.execute("create or replace database test_prepare_statement");
+            s.execute("use test_prepare_statement");
+            String createTableSQL = String.format(
+                    "CREATE OR replace table %s(id TINYINT, obj VARIANT, s String, arr ARRAY(INT64)) Engine = Fuse"
+                    , tableName);
+            s.execute(createTableSQL);
+            String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?)" : "");
+
+            PreparedStatement ps = c.prepareStatement(insertSQL);
+            ps.setInt(1, 1);
+            ps.setString(2, "{\"a\": 1,\"b\": 2}");
+            ps.setString(3, "hello world, 你好");
+            ps.setString(4, "[1,2,3,4,5]");
+            ps.addBatch();
+            int[] ans = ps.executeBatch();
+            Assert.assertEquals(ans.length, 1);
+            Assert.assertEquals(ans[0], 1);
+
+            s.execute(String.format("SELECT * from %s", tableName));
+            ResultSet r = s.getResultSet();
+
+            Assert.assertTrue(r.next());
+            Assert.assertEquals(r.getInt(1), 1);
+            Assert.assertEquals(r.getString(2), "{\"a\":1,\"b\":2}");
+            Assert.assertEquals(r.getString(3), "hello world, 你好");
+            Assert.assertEquals(r.getString(4), "[1,2,3,4,5]");
+
+            Assert.assertFalse(r.next());
         }
     }
 }

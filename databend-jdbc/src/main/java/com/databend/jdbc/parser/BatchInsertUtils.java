@@ -78,7 +78,11 @@ public class BatchInsertUtils {
         }
         String[] values = new String[placeHolderEntriesCSV.lastKey() + 1];
         for (Map.Entry<Integer, String> elem : placeHolderEntriesCSV.entrySet()) {
-            values[elem.getKey()] = elem.getValue();
+            String value = elem.getValue();
+            if (value == null) {
+                value = "\\N";
+            }
+            values[elem.getKey()] = value;
         }
         return values;
     }

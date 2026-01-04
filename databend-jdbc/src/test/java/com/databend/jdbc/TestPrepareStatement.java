@@ -83,39 +83,6 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "IT")
-    public void TestBatchInsertWithNULL() throws SQLException {
-        try (Connection c = getConn();
-             Statement s = c.createStatement()) {
-            c.setAutoCommit(false);
-            s.execute("create or replace table t1 (a int, b string)");
-            PreparedStatement ps = c.prepareStatement("insert into t1 values");
-
-            ps.setInt(1, 1);
-            ps.setNull(2, Types.NULL);
-            ps.addBatch();
-
-            ps.setInt(1, 2);
-            ps.setObject(2, null, Types.NULL);
-            ps.addBatch();
-
-            int[] ans = ps.executeBatch();
-            Assert.assertEquals(ans, new int[] {1, 1});
-
-            Statement statement = c.createStatement();
-            statement.execute("SELECT * from t1");
-            ResultSet r = statement.getResultSet();
-
-            int[] c1 = {1, 2};
-            for (int j : c1) {
-                Assert.assertTrue(r.next());
-                Assert.assertEquals(r.getInt(1), j);
-                Assert.assertNull(r.getString(2));
-            }
-            Assert.assertFalse(r.next());
-        }
-    }
-
 
     @Test(groups = "IT")
     public void TestBatchDelete() throws SQLException {
@@ -165,52 +132,7 @@ public class TestPrepareStatement {
         }
     }
 
-    @DataProvider(name = "complexDataType")
-    private Object[][] provideTestData() {
-        return new Object[][] {
-                {true, false},
-                {true, true},
-                {false, false},
-        };
-    }
 
-    @Test(groups = "IT", dataProvider = "complexDataType")
-    public void TestBatchInsertWithComplexDataType(boolean presigned,  boolean placeholder) throws SQLException {
-        String tableName = String.format("test_object_%s_%s", presigned, placeholder).toLowerCase();
-        try (Connection c = presigned ? Utils.createConnection() : Utils.createConnectionWithPresignedUrlDisable();
-             Statement s = c.createStatement()
-        ) {
-            c.setAutoCommit(false);
-            s.execute("create or replace database test_prepare_statement");
-            s.execute("use test_prepare_statement");
-            String createTableSQL = String.format(
-                    "CREATE OR replace table %s(id TINYINT, obj VARIANT, s String, arr ARRAY(INT64)) Engine = Fuse"
-                    , tableName);
-            s.execute(createTableSQL);
-            String insertSQL = String.format("insert into %s values %s", tableName, placeholder ? "(?,?,?,?)" : "");
-
-            PreparedStatement ps = c.prepareStatement(insertSQL);
-            ps.setInt(1, 1);
-            ps.setString(2, "{\"a\": 1,\"b\": 2}");
-            ps.setString(3, "hello world, 你好");
-            ps.setString(4, "[1,2,3,4,5]");
-            ps.addBatch();
-            int[] ans = ps.executeBatch();
-            Assert.assertEquals(ans.length, 1);
-            Assert.assertEquals(ans[0], 1);
-
-            s.execute(String.format("SELECT * from %s", tableName));
-            ResultSet r = s.getResultSet();
-
-            Assert.assertTrue(r.next());
-            Assert.assertEquals(r.getInt(1), 1);
-            Assert.assertEquals(r.getString(2), "{\"a\":1,\"b\":2}");
-            Assert.assertEquals(r.getString(3), "hello world, 你好");
-            Assert.assertEquals(r.getString(4), "[1,2,3,4,5]");
-
-            Assert.assertFalse(r.next());
-        }
-    }
 
     @Test(groups = "IT")
     public void TestBatchReplaceInto() throws SQLException {
@@ -285,7 +207,7 @@ public class TestPrepareStatement {
 
     @Test(groups = "IT")
     public void testUpdateSetNull() throws SQLException {
-        try (Connection conn = getConn();
+        try (Connection conn = Utils.createConnectionWithPresignedUrlDisable();
              Statement s = conn.createStatement()) {
             s.execute("create or replace table t1(a int, b string)");
             String sql = "insert into t1 values (?,?)";
@@ -480,7 +402,7 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "IT")
+    @Test(groups = "UNIT")
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
         Connection conn = Utils.createConnection();
         StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
@@ -522,33 +444,7 @@ public class TestPrepareStatement {
         }
     }
 
-    @Test(groups = "IT")
-    public void testEncodePass() throws SQLException {
-        try (Connection conn = Utils.createConnection();
-             Statement stmt = conn.createStatement()) {
-            stmt.execute("drop user if exists u01");
-            stmt.execute("drop role if exists test_role");
-            stmt.execute("create role test_role");
-            stmt.execute("grant all PRIVILEGES ON default.* to role test_role");
-            stmt.execute("create user u01 identified by 'mS%aFRZW*GW' with default_role='test_role'");
-            stmt.execute("grant role test_role to u01");
-            Properties p = new Properties();
-            p.setProperty("user", "u01");
-            p.setProperty("password", "mS%aFRZW*GW");
-            try (Connection conn2 = Utils.createConnection("default", p);
-                 Statement stmt2 = conn2.createStatement()) {
-                stmt2.execute("select 1");
-            }
-        } finally {
-            try (Connection cleanupConn = Utils.createConnection();
-                 Statement cleanupStmt = cleanupConn.createStatement()) {
-                cleanupStmt.execute("drop user if exists u01");
-                cleanupStmt.execute("drop role if exists test_role");
-            } catch (SQLException ignore) {
-                // ignore cleanup failure
-            }
-        }
-    }
+
 
     @Test(groups = "IT")
     public void testExecuteUpdate() throws SQLException {
