@@ -38,7 +38,7 @@ jobs:
         env:
           DATABEND_QUERY_VERSION: ${{ matrix.server }}
 
-      - name: Bulid Test Jar
+      - name: Build Test Jar
         run: mvn clean package -DskipTests
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
