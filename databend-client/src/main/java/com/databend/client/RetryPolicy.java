@@ -23,6 +23,8 @@ import okhttp3.Response;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.sql.SQLException;
+import java.util.Arrays;
+import java.util.List;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -70,8 +72,21 @@ public class RetryPolicy {
         return false;
     }
 
+    private static final List<String> ERROR_KEYWORDS = Arrays.asList(
+            "unexpected end of stream",
+            "timeout",
+            "connection refused"
+    );
+
     public boolean shouldRetry(IOException e) {
-        return  e.getCause() instanceof ConnectException;
+        if (e.getCause() instanceof ConnectException) {
+            return true;
+        }
+        String msg = e.getMessage();
+        if (msg == null) {
+            return false;
+        }
+        return ERROR_KEYWORDS.stream().anyMatch(keyword -> msg.contains(keyword));
     }
 
     private static long calculateBackoffInterval(int attempts) {
