@@ -14,10 +14,6 @@
     <name>databend-jdbc</name>
     <packaging>jar</packaging>
 
-    <properties>
-        <air.main.basedir>${project.parent.basedir}</air.main.basedir>
-        <project.build.targetJdk>8</project.build.targetJdk>
-    </properties>
     <dependencies>
         <dependency>
             <groupId>com.databend</groupId>
@@ -124,5 +120,24 @@
                 </excludes>
             </resource>
         </resources>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.3.0</version>
+                <executions>
+                    <execution>
+                        <id>attach-tests</id>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>test-jar</goal>
+                        </goals>
+                    </execution>
+                </executions>
+                <configuration>
+                    <skipIfEmpty>true</skipIfEmpty>
+                </configuration>
+            </plugin>
+        </plugins>
     </build>
 </project>
