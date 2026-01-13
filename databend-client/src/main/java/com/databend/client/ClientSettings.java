@@ -21,7 +21,7 @@ public class ClientSettings {
     public static final Integer DEFAULT_QUERY_TIMEOUT = 300;
     // seconds
     public static final Integer DEFAULT_CONNECTION_TIMEOUT = 60;
-    public static final Integer DEFAULT_SOCKET_TIMEOUT = 0;
+    public static final Integer DEFAULT_SOCKET_TIMEOUT = 900;
     public static final int DEFAULT_RETRY_ATTEMPTS = 5;
     public static final String X_Databend_Query_ID = "X-DATABEND-QUERY-ID";
     public static final String X_DATABEND_VERSION= "X-DATABEND-VERSION";
