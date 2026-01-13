@@ -451,7 +451,9 @@ final class DatabendDriverUri {
                 builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
             }
             if (CONNECTION_TIMEOUT.getValue(properties).isPresent()) {
-                builder.connectTimeout(CONNECTION_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
+                Integer timeout =  CONNECTION_TIMEOUT.getValue(properties).get();
+                if (timeout != 0)
+                    builder.connectTimeout(timeout, TimeUnit.SECONDS);
             }
             if (SOCKET_TIMEOUT.getValue(properties).isPresent()) {
                 builder.readTimeout(SOCKET_TIMEOUT.getValue(properties).get(), TimeUnit.SECONDS);
