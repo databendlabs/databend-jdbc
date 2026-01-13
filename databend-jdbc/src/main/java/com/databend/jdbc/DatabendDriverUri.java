@@ -103,11 +103,19 @@ final class DatabendDriverUri {
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);
-        this.socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
+        Integer socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
+        if (socketTimeout <= this.waitTimeSecs + 5) {
+            this.socketTimeout = this.waitTimeSecs + 5;
+        } else {
+            this.socketTimeout = socketTimeout;
+        }
+
         String settingsStr = SESSION_SETTINGS.getValue(properties).orElse("");
         this.sessionSettings = parseSessionSettings(settingsStr);
+
+
     }
 
     private Map<String, String> parseSessionSettings(String settingsStr) {
