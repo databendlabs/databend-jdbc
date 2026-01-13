@@ -51,34 +51,8 @@ public class TestDatabendDriverUri {
     }
 
     @Test(groups = {"UNIT"})
-    public void testMultiHost() throws SQLException {
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost,localhost:9991,localhost:31919/d2?ssl=true", null);
-        Assert.assertEquals(uri.getNodes().getUris().size(), 3);
-        for (int i = 0; i < 3; i++) {
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getScheme(), "https");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getHost(), "localhost");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getPath(), "/d2");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getQuery(), "ssl=true");
-        }
-        Assert.assertEquals(uri.getNodes().getUris().get(0).getPort(), 443);
-        Assert.assertEquals(uri.getNodes().getUris().get(1).getPort(), 9991);
-        Assert.assertEquals(uri.getNodes().getUris().get(2).getPort(), 31919);
-    }
-
-    @Test(groups = {"UNIT"})
-    public void testSameHost() throws SQLException {
-        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://u1:p1@localhost,localhost:9991,localhost/d2?ssl=false", null);
-        System.out.println(uri.getNodes().toString());
-        Assert.assertEquals(uri.getNodes().getUris().size(), 2);
-
-        for (int i = 0; i < 2; i++) {
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getScheme(), "http");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getHost(), "localhost");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getPath(), "/d2");
-            Assert.assertEquals(uri.getNodes().getUris().get(i).getQuery(), "ssl=false");
-        }
-        Assert.assertEquals(uri.getNodes().getUris().get(0).getPort(), 8000);
-        Assert.assertEquals(uri.getNodes().getUris().get(1).getPort(), 9991);
+    public void testMultiHostNotSupported() {
+        assertInvalid("jdbc:databend://localhost:8000,localhost:8001/default", "Multiple hosts in JDBC URL are not supported");
     }
 
     @Test(groups = {"UNIT"})

@@ -16,12 +16,10 @@ import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
 
 import static com.databend.client.OkHttpUtils.*;
@@ -257,66 +255,62 @@ final class DatabendDriverUri {
         }
         Map<String, String> uriProperties = new LinkedHashMap<>();
         String raw = url.substring(pos + JDBC_URL_START.length());
-        String host;
-        int port = -1;
         raw = tryParseUriUserPassword(raw, uriProperties);
+        ensureSingleHostAuthority(raw, url);
 
-        // Split the URL into hosts and the rest
-        // todo process bracket wrapped comma
-        String[] hosts = raw.split(",");
         List<URI> uris = new ArrayList<>();
         try {
-            for (String raw_host : hosts) {
-                String fullUri = (raw_host.startsWith("http://") || raw_host.startsWith("https://")) ?
-                        raw_host :
-                        "http://" + raw_host;
+            URI uri = parseSingleUri(raw);
+            if (uri.getHost() == null || uri.getHost().isEmpty()) {
+                throw new SQLException("Invalid host " + uri.getHost());
+            }
 
-                URI uri = new URI(fullUri);
-                String authority = uri.getAuthority();
-                String[] hostAndPort = authority.split(":");
-                if (hostAndPort.length == 2) {
-                    host = hostAndPort[0];
-                    port = Integer.parseInt(hostAndPort[1]);
-                } else if (hostAndPort.length == 1) {
-                    host = hostAndPort[0];
-                } else {
-                    throw new SQLException("Invalid host and port, url: " + url);
-                }
-                if (host == null || host.isEmpty()) {
-                    throw new SQLException("Invalid host " + host);
-                }
-                // Set SSL properties based on the scheme
-                if ("https".equals(uri.getScheme())) {
-                    uriProperties.put(SSL.getKey(), "true");
-                    uriProperties.put(SSL_MODE.getKey(), "enable");
-                } else {
-                    uriProperties.put(SSL.getKey(), "false");
-                    uriProperties.put(SSL_MODE.getKey(), "disable");
-                }
-                uris.add(uri);
+            if ("https".equals(uri.getScheme())) {
+                uriProperties.put(SSL.getKey(), "true");
+                uriProperties.put(SSL_MODE.getKey(), "enable");
+            } else {
+                uriProperties.put(SSL.getKey(), "false");
+                uriProperties.put(SSL_MODE.getKey(), "disable");
             }
-            URI lastUri = uris.get(uris.size() - 1);
-            // Initialize database from the last URI
-            initDatabase(lastUri, uriProperties);
-            String uriPath = lastUri.getPath();
-            String uriQuery = lastUri.getQuery();
-            String uriFragment = lastUri.getFragment();
-            // Sync path and query from lastUri for the rest of uri
-            for (int i = 0; i < uris.size() - 1; i++) {
-                URI uri = uris.get(i);
-                uris.set(i, new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), uriPath, uriQuery, uriFragment));
-            }
-            // remove duplicate uris
-            Set<URI> uriSet = new LinkedHashSet<>(uris);
-            uris.clear();
-            uris.addAll(uriSet);
-            // Create DatabendNodes object
-            // You might want to make this configurable
+            uris.add(uri);
+
+            initDatabase(uri, uriProperties);
+            String uriPath = uri.getPath();
+            String uriQuery = uri.getQuery();
+            String uriFragment = uri.getFragment();
+
             DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED);
             DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment, 5 * 60 * 1000);
             return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
         } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + raw, e);
+        }
+    }
+
+    private static URI parseSingleUri(String rawHost) throws URISyntaxException {
+        String fullUri = (rawHost.startsWith("http://") || rawHost.startsWith("https://")) ?
+                rawHost :
+                "http://" + rawHost;
+        return new URI(fullUri);
+    }
+
+    private static void ensureSingleHostAuthority(String raw, String originalUrl) throws SQLException {
+        int endOfAuthority = raw.length();
+        int slashIndex = raw.indexOf('/');
+        if (slashIndex != -1 && slashIndex < endOfAuthority) {
+            endOfAuthority = slashIndex;
+        }
+        int questionIndex = raw.indexOf('?');
+        if (questionIndex != -1 && questionIndex < endOfAuthority) {
+            endOfAuthority = questionIndex;
+        }
+        int fragmentIndex = raw.indexOf('#');
+        if (fragmentIndex != -1 && fragmentIndex < endOfAuthority) {
+            endOfAuthority = fragmentIndex;
+        }
+        String authoritySection = raw.substring(0, endOfAuthority);
+        if (authoritySection.contains(",")) {
+            throw new SQLException("Multiple hosts in JDBC URL are not supported: " + originalUrl);
         }
     }
 

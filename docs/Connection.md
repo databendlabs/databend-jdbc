@@ -56,7 +56,7 @@ Then the above URL within warehouse DSN can be used as follows:
 
 ### Configure load balancing and failover
 
-Load balancing in Databend JDBC works by routing queries to different endpoints specified in the JDBC URL based on the chosen policy. This allows for better distribution of workload across multiple Databend nodes.
+Load balancing in Databend JDBC works by routing queries to different endpoints that are available to the driver (for example, nodes that were discovered automatically). JDBC URLs now support only a single host; use automatic node discovery if you need to work with multiple Databend nodes.
 
 #### Load Balancing Options
 
@@ -70,15 +70,14 @@ There are three load balancing options available:
 
 | Parameter | Description | Default | Example |
 |-----------|-------------|---------|---------|
-| load_balancing_policy | Specifies the load balancing policy for multi-host connections. Options are "disabled", "random", and "round_robin". | disabled | jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random |
-| max_failover_retry | Specifies the maximum number of retry attempts for failover connections. | 0 | jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?max_failover_retry=4 |
+| load_balancing_policy | Specifies the load balancing policy when multiple nodes are available (e.g., via node discovery). Options are "disabled", "random", and "round_robin". | disabled | jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random |
+| max_failover_retry | Specifies the maximum number of retry attempts for failover connections. | 0 | jdbc:databend://localhost:8000/default?auto_discovery=true&max_failover_retry=4 |
 
 #### Examples
 
-1. Basic load balancing with round-robin policy: `jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=round_robin`
-2. Load balancing with random policy and failover configuration:: `jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random&max_failover_retry=3
-`
-3. Load balancing with SSL enabled:`jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?ssl=true&load_balancing_policy=round_robin`
+1. Basic load balancing with round-robin policy: `jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=round_robin`
+2. Load balancing with random policy and failover configuration: `jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random&max_failover_retry=3`
+3. Load balancing with SSL enabled:`jdbc:databend://localhost:8000/default?ssl=true&auto_discovery=true&load_balancing_policy=round_robin`
 
 **NOTICE:**
 
@@ -86,8 +85,9 @@ There are three load balancing options available:
 
 2. Remember to replace the hostnames, ports, and file paths with your actual Databend cluster configuration and SSL certificate locations.
 
-3. Failover retry occur only for connection issues (java.net.ConnectException), other exception will NOT trigger retry.
-4. Databend-jdbc support Transaction. During a transaction, the connection will be pinned to the same node, and the load balancing policy will be disabled. once the transaction is commited or aborted the connection will be released and the load balancing policy will be enabled again.
+3. Specifying multiple hosts in the JDBC URL (for example, `host1,host2`) is not supported.
+4. Failover retry occur only for connection issues (java.net.ConnectException), other exception will NOT trigger retry.
+5. Databend-jdbc support Transaction. During a transaction, the connection will be pinned to the same node, and the load balancing policy will be disabled. once the transaction is commited or aborted the connection will be released and the load balancing policy will be enabled again.
 
 
 
@@ -160,8 +160,8 @@ String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend";
 | binary_format          | binary format, support hex and base64                                                                                     | hex           | jdbc:databend://0.0.0.0:8000/default?binary_format=hex                                                   |
 | use_verify             | whether verify the server before establishing the connection                                                              | true          | jdbc:databend://0.0.0.0:8000/default?use_verify=true                                                     |
 | debug                  | whether enable debug mode                                                                                                 | false         | jdbc:databend://0.0.0.0:8000/default?debug=true                                                          |
-| load_balancing_policy | Specifies the load balancing policy for multi-host connections. Options are "disabled", "random", and "round_robin".      | disabled      | jdbc:databend://localhost:8000,localhost:8002,localhost:8003/default?load_balancing_policy=random        |
-| max_failover_retry | Specifies the maximum number of retry attempts for failover connections.                                                  | 0             | jdbc:databend://localhost:7222,localhost:7223,localhost:7224,localhost:8000/default?max_failover_retry=4 |
+| load_balancing_policy | Specifies the load balancing policy when multiple nodes are available (for example, via node discovery). Options are "disabled", "random", and "round_robin".      | disabled      | jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random        |
+| max_failover_retry | Specifies the maximum number of retry attempts for failover connections.                                                  | 0             | jdbc:databend://localhost:8000/default?auto_discovery=true&max_failover_retry=4 |
 | auto_discovery | Automatically discover possible cluster nodes in a databend query cluster                                                 | false         | jdbc:databend://0.0.0.0:8000/default?auto_discovery=true                                                 |
 | node_discovery_interval | Minimum interval between two automatic node discovery actions in milliseconds                                             | 5 * 60 * 1000 | jdbc:databend://0.0.0.0:8000/default?node_discovery_interval=600000                                      |
 | session_settings | set databend session settings                                                                                             | ""            | jdbc:databend://0.0.0.0:8000/default?session_settings="key1=value1,key2=value2"                          |
