@@ -54,76 +54,7 @@ Then the above URL within warehouse DSN can be used as follows:
         Connection conn=DriverManager.getConnection(url);
 ```
 
-### Configure load balancing and failover
-
-Load balancing in Databend JDBC works by routing queries to different endpoints that are available to the driver (for example, nodes that were discovered automatically). JDBC URLs now support only a single host; use automatic node discovery if you need to work with multiple Databend nodes.
-
-#### Load Balancing Options
-
-There are three load balancing options available:
-
-1. **disabled**: Only routes queries to the first endpoint provided (sorted in alphabetic order).
-2. **random**: Randomly distributes queries based on the query ID.
-3. **round_robin**: Distributes queries evenly to each node in a circular order.
-
-#### Configurable Parameters
-
-| Parameter | Description | Default | Example |
-|-----------|-------------|---------|---------|
-| load_balancing_policy | Specifies the load balancing policy when multiple nodes are available (e.g., via node discovery). Options are "disabled", "random", and "round_robin". | disabled | jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random |
-| max_failover_retry | Specifies the maximum number of retry attempts for failover connections. | 0 | jdbc:databend://localhost:8000/default?auto_discovery=true&max_failover_retry=4 |
-
-#### Examples
-
-1. Basic load balancing with round-robin policy: `jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=round_robin`
-2. Load balancing with random policy and failover configuration: `jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random&max_failover_retry=3`
-3. Load balancing with SSL enabled:`jdbc:databend://localhost:8000/default?ssl=true&auto_discovery=true&load_balancing_policy=round_robin`
-
-**NOTICE:**
-
-1. When configuring SSL, it's recommended to use the approach shown in the last example, which allows for more detailed SSL configuration including certificate verification.
-
-2. Remember to replace the hostnames, ports, and file paths with your actual Databend cluster configuration and SSL certificate locations.
-
-3. Specifying multiple hosts in the JDBC URL (for example, `host1,host2`) is not supported.
-4. Failover retry occur only for connection issues (java.net.ConnectException), other exception will NOT trigger retry.
-5. Databend-jdbc support Transaction. During a transaction, the connection will be pinned to the same node, and the load balancing policy will be disabled. once the transaction is commited or aborted the connection will be released and the load balancing policy will be enabled again.
-
-
-
-
-#### Automatic Node Discovery
-
-| Parameter              | Description                                                                                                               | Default       | example                                                                                 |                                                             
-|------------------------|---------------------------------------------------------------------------------------------------------------------------|---------------|-----------------------------------------------------------------------------------------|
-| auto_discovery | Automatically discover possible cluster nodes in a databend query cluster | false         | jdbc:databend://0.0.0.0:8000/default?auto_discovery=true                                |
-| node_discovery_interval | Minimum interval between two automatic node discovery actions in milliseconds | 5 * 60 * 1000 | jdbc:databend://0.0.0.0:8000/default?auto_discovery=true&node_discovery_interval=600000 |
-
-Automatic Node Discovery will try to discover existing databend query cluster using /v1/discovery_nodes api, it will be closed if the target api is not supported on your databend version(minimum version:  v1.2.629-nightly), it passsively probe the possible node list which new query occured after given `node_discovery_interval` and update possible node  lists used for load balancing and failover. it will not use thread pool or executor service to start a background thread to handle the task.
-
-**NOTICE:**
-As the cluster ip/dns may vary based your network environment, it is recommend to give all possible nodes in the same warehouse and tenant a fixed ip or dns for reliable node discovery.
-Sample Configuration:
-
-```toml
-[query]
-discovery_address = "localhost:8000"
-
-# Databend Query HTTP Handler.
-http_handler_host = "0.0.0.0"
-http_handler_port = 8000
-
-tenant_id = "test_tenant"
-cluster_id = "test_cluster"
-```
-
-
-In the above node configuration file, `discovery_address` is used for jdbc to connect the target node if it was discovered by the node discovery api from other nodes located in the same warehouse(with same tenant_id and cluster_id)
-If `discovery_address` is not set, the address is determined based on three scenarios:
-1. If the user has directly modified the discovery-address in the configuration, this value is returned.
-2. If the user has configured an HTTP address that is not 0.0.0.0 or 127.0.0.1, this HTTP address is returned.
-3. If the user has configured an HTTP address as 0.0.0.0 or 127.0.0.1, the system will probe to detect a suitable IP address. The IP address that is successfully routed through the network and can communicate with the meta service will be returned.
-
+Databend JDBC URLs accept a single host. Automatic node discovery, load balancing, and failover are not supported.
 
 ## Connection parameters
 
@@ -160,8 +91,4 @@ String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend";
 | binary_format          | binary format, support hex and base64                                                                                     | hex           | jdbc:databend://0.0.0.0:8000/default?binary_format=hex                                                   |
 | use_verify             | whether verify the server before establishing the connection                                                              | true          | jdbc:databend://0.0.0.0:8000/default?use_verify=true                                                     |
 | debug                  | whether enable debug mode                                                                                                 | false         | jdbc:databend://0.0.0.0:8000/default?debug=true                                                          |
-| load_balancing_policy | Specifies the load balancing policy when multiple nodes are available (for example, via node discovery). Options are "disabled", "random", and "round_robin".      | disabled      | jdbc:databend://localhost:8000/default?auto_discovery=true&load_balancing_policy=random        |
-| max_failover_retry | Specifies the maximum number of retry attempts for failover connections.                                                  | 0             | jdbc:databend://localhost:8000/default?auto_discovery=true&max_failover_retry=4 |
-| auto_discovery | Automatically discover possible cluster nodes in a databend query cluster                                                 | false         | jdbc:databend://0.0.0.0:8000/default?auto_discovery=true                                                 |
-| node_discovery_interval | Minimum interval between two automatic node discovery actions in milliseconds                                             | 5 * 60 * 1000 | jdbc:databend://0.0.0.0:8000/default?node_discovery_interval=600000                                      |
 | session_settings | set databend session settings                                                                                             | ""            | jdbc:databend://0.0.0.0:8000/default?session_settings="key1=value1,key2=value2"                          |

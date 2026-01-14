@@ -22,7 +22,6 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.ConnectException;
 import java.net.URI;
 import java.nio.charset.StandardCharsets;
 import java.sql.Array;
@@ -86,7 +85,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     private final OkHttpClient httpClient;
     private final ConcurrentHashMap<DatabendStatement, Boolean> statements = new ConcurrentHashMap<>();
     private final DatabendDriverUri driverUri;
-    private boolean autoDiscovery;
     private final AtomicReference<DatabendSession> session = new AtomicReference<>();
 
     private String routeHint;
@@ -131,8 +129,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         this.driverUri = uri;
         this.schema.set(uri.getDatabase());
         this.routeHint = randRouteHint();
-        // it maybe closed due to unsupported server versioning.
-        this.autoDiscovery = uri.autoDiscovery();
         DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).setSettings(uri.getSessionSettings()).build();
         this.setSession(session);
 
@@ -454,10 +450,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return 0;
     }
 
-    public int getMaxFailoverRetries() {
-        return this.driverUri.getMaxFailoverRetry();
-    }
-
     @Override
     @NotImplemented
     public void setHoldability(int holdability) throws SQLException {
@@ -650,10 +642,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return this.driverUri.copyPurge();
     }
 
-    boolean isAutoDiscovery() {
-        return this.autoDiscovery;
-    }
-
     String warehouse() {
         return this.driverUri.getWarehouse();
     }
@@ -734,98 +722,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         ClientSettings settings = sb.build();
         return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
     }
-    /**
-     * Retry executing a query in case of connection errors. fail over mechanism is used to retry the query when connect error occur
-     * It will find next target host based on configured Load balancing Policy.
-     *
-     * @param sql The SQL statement to execute.
-     * @param attach The stage attachment to use for the query.
-     * @return A DatabendClient instance representing the successful query execution.
-     * @throws SQLException If the query fails after retrying the specified number of times.
-     * @see DatabendClientLoadBalancingPolicy
-     */
-    DatabendClient startQueryWithFailover(String sql, StageAttachment attach) throws SQLException {
-        if (this.driverUri.getNodes().getUris().size() == 1 && !this.autoDiscovery) {
-            return this.startQueryInternal(sql, attach);
-        }
-        int maxRetries = getMaxFailoverRetries();
-        SQLException lastException = null;
-        String lastHost = null;
-
-        for (int attempt = 0; attempt <= maxRetries; attempt++) {
-            try {
-                String queryId = UUID.randomUUID().toString().replace("-", "");
-                String candidateHost = selectHostForQuery(queryId);
-                if (candidateHost.equals(lastHost)) {
-                    continue;
-                }
-                lastHost = candidateHost;
-
-                // configure the client settings
-                ClientSettings.Builder sb = this.makeClientSettings(queryId, candidateHost);
-                if (attach != null) {
-                    sb.setStageAttachment(attach);
-                }
-                ClientSettings settings = sb.build();
-
-                logger.log(Level.FINE, "execute query #{0}: SQL: {1} host: {2}",
-                        new Object[]{attempt + 1, sql, settings.getHost()});
-
-                // need to retry the auto discovery in case of connection error
-                if (this.autoDiscovery) {
-                    tryAutoDiscovery(httpClient, settings);
-                }
-
-                return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
-            } catch (Exception e) {
-                // handle the exception and retry the query
-                if (shouldRetryException(e) && attempt < maxRetries) {
-                    lastException = wrapException("query failed", sql, e);
-                    try {
-                        // back off retry
-                        Thread.sleep(Math.min(100 * (1 << attempt), 5000));
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                        throw wrapException("query interrupt", sql, ie);
-                    }
-                } else {
-                    // throw the exception
-                    if (e instanceof SQLException) {
-                        throw (SQLException) e;
-                    } else {
-                        throw wrapException("Query failed，no need to retry", sql, e);
-                    }
-                }
-            }
-        }
-
-        throw new SQLException("after" + maxRetries + "times retry and failed: SQL: " + sql, lastException);
-    }
-
-    private boolean shouldRetryException(Exception e) {
-        Throwable cause = e.getCause();
-        // connection error
-        if (cause instanceof ConnectException) {
-            return true;
-        }
-
-        if (e instanceof IOException) {
-            return (e.getMessage().contains("unexpected end of stream") ||
-                    e.getMessage().contains("timeout") ||
-                    e.getMessage().contains("connection refused"));
-        }
-
-        if (e instanceof RuntimeException) {
-            String message = e.getMessage();
-            return message != null && (
-                    message.contains("520") ||
-                            message.contains("timeout") ||
-                            message.contains("retry")
-            );
-        }
-
-        return false;
-    }
 
     private String selectHostForQuery(String queryId) {
         String candidateHost = this.driverUri.getUri(queryId).toString();
@@ -844,48 +740,12 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return candidateHost;
     }
 
-    private SQLException wrapException(String prefix, String sql, Exception e) {
-        String message = prefix + ": SQL: " + sql;
-        if (e.getMessage() != null) {
-            message += " - " + e.getMessage();
-        }
-        if (e.getCause() != null) {
-            message += " (Reason: " + e.getCause().getMessage() + ")";
-        }
-        return new SQLException(message, e);
-    }
-    /**
-     * Try to auto discovery the databend nodes it will log exceptions when auto discovery failed and not affect real query execution
-     *
-     * @param client the http client to query on
-     * @param settings the client settings to use
-     */
-    void tryAutoDiscovery(OkHttpClient client, ClientSettings settings) {
-        if (this.autoDiscovery) {
-            if (this.driverUri.enableMock()) {
-                settings.getAdditionalHeaders().put("~mock.unsupported.discovery", "true");
-            }
-            DatabendNodes nodes = this.driverUri.getNodes();
-            if (nodes != null && nodes.needDiscovery()) {
-                try {
-                    nodes.discoverUris(client, settings);
-                } catch (UnsupportedOperationException e) {
-                    logger.log(Level.WARNING, "Current Query Node do not support auto discovery, close the functionality: " + e.getMessage());
-                    this.autoDiscovery = false;
-                } catch (Exception e) {
-                    logger.log(Level.FINE, "Error auto discovery: " + " cause: " + e.getCause() + " message: " + e.getMessage());
-                }
-            }
-        }
-
-    }
-
     DatabendClient startQuery(String sql) throws SQLException {
         return startQuery(sql, null);
     }
 
     DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        DatabendClient client = startQueryWithFailover(sql, attach);
+        DatabendClient client = startQueryInternal(sql, attach);
         Long timeout = client.getResults().getResultTimeoutSecs();
         if (timeout != null && timeout != 0) {
             heartbeatManager.onStartQuery(timeout);
