@@ -171,7 +171,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getPort(), 33101);
         Assert.assertEquals(uri.getConnectionTimeout().intValue(), 15);
         Assert.assertEquals(uri.getQueryTimeout().intValue(), 120);
-        Assert.assertEquals(uri.getSocketTimeout().intValue(), 15);
+        Assert.assertEquals(uri.getSocketTimeout().intValue(), 20);
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), PaginationOptions.getDefaultWaitTimeSec());
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), PaginationOptions.getDefaultMaxRowsInBuffer());
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), PaginationOptions.getDefaultMaxRowsPerPage());
