@@ -106,8 +106,8 @@ final class DatabendDriverUri {
         this.maxRowsInBuffer = ConnectionProperties.MAX_ROWS_IN_BUFFER.getRequiredValue(properties);
         this.maxRowsPerPage = ConnectionProperties.MAX_ROWS_PER_PAGE.getRequiredValue(properties);
         Integer socketTimeout = SOCKET_TIMEOUT.getRequiredValue(properties);
-        if (socketTimeout <= this.waitTimeSecs + 5) {
-            this.socketTimeout = this.waitTimeSecs + 5;
+        if (socketTimeout <= this.waitTimeSecs + 10) {
+            this.socketTimeout = this.waitTimeSecs + 10;
         } else {
             this.socketTimeout = socketTimeout;
         }
