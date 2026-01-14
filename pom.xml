@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.4.2</version>
+    <version>0.4.3</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
@@ -16,6 +16,19 @@
             <distribution>repo</distribution>
         </license>
     </licenses>
+    <developers>
+        <developer>
+            <id>databend-team</id>
+            <name>Databend Team</name>
+            <email>hanshanjie@databend.com</email>
+            <organization>Databend Cloud</organization>
+            <organizationUrl>https://databend.com</organizationUrl>
+            <roles>
+                <role>maintainer</role>
+            </roles>
+            <timezone>UTC</timezone>
+        </developer>
+    </developers>
     <scm>
         <connection>scm:git:git://github.com/databendcloud/databend-jdbc.git</connection>
         <url>https://github.com/databendcloud/databend-jdbc</url>
