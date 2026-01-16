@@ -21,12 +21,13 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<String> WAREHOUSE = new Warehouse();
     public static final ConnectionProperty<String> SSL_MODE = new SSLMode();
     static final ConnectionProperty<String> TENANT = new Tenant();
+    public static final ConnectionProperty<String> DATABASE = new Database();
+    // Deprecated multi-host knobs kept for compatibility to avoid hard failures.
     public static final ConnectionProperty<Integer> MAX_FAILOVER_RETRY = new MaxFailoverRetry();
     public static final ConnectionProperty<String> LOAD_BALANCING_POLICY = new LoadBalancingPolicy();
     public static final ConnectionProperty<Boolean> AUTO_DISCOVERY = new AutoDiscovery();
     public static final ConnectionProperty<Integer> NODE_DISCOVERY_INTERVAL = new NodeDiscoveryInterval();
     public static final ConnectionProperty<Boolean> ENABLE_MOCK = new EnableMock();
-    public static final ConnectionProperty<String> DATABASE = new Database();
     public static final ConnectionProperty<String> ACCESS_TOKEN = new AccessToken();
 
     public static final ConnectionProperty<Integer> CONNECTION_TIMEOUT = new ConnectionTimeout();
@@ -55,7 +56,6 @@ public final class ConnectionProperties {
             .add(WAREHOUSE)
             .add(SSL_MODE)
             .add(TENANT)
-            .add(LOAD_BALANCING_POLICY)
             .add(DATABASE)
             .add(ACCESS_TOKEN)
             .add(PRESIGNED_URL_DISABLED)
@@ -67,6 +67,7 @@ public final class ConnectionProperties {
             .add(MAX_ROWS_PER_PAGE)
             .add(SESSION_SETTINGS)
             .build();
+    // Deprecated multi-host properties are intentionally excluded from ALL_PROPERTIES so we can detect user-specified values.
     private static final Map<String, String> DEFAULTS;
 
     public static Set<ConnectionProperty<?>> allProperties() {
@@ -177,6 +178,7 @@ public final class ConnectionProperties {
             super("enable_mock", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
         }
     }
+
 
     private static class AccessToken
             extends AbstractConnectionProperty<String> {
