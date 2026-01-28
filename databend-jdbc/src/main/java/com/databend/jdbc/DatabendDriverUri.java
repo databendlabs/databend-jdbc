@@ -12,17 +12,14 @@ import java.net.URI;
 import java.net.URISyntaxException;
 import java.sql.SQLException;
 import java.util.AbstractMap;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
-import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
-import java.util.Set;
 import java.util.concurrent.TimeUnit;
+import java.util.logging.Logger;
 
 import static com.databend.client.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
@@ -42,8 +39,9 @@ final class DatabendDriverUri {
     private static final Splitter ARG_SPLITTER = Splitter.on('=').limit(2);
     private static final int DEFAULT_HTTPS_PORT = 443;
     private static final int DEFAULT_HTTP_PORT = 8000;
+    private static final Logger logger = Logger.getLogger(DatabendDriverUri.class.getPackage().getName());
     private final Properties properties;
-    private final DatabendNodes nodes;
+    private final URI uri;
     private final boolean useSecureConnection;
     private final boolean useVerify;
     private final boolean debug;
@@ -57,15 +55,11 @@ final class DatabendDriverUri {
     private final String database;
     private final boolean presignedUrlDisabled;
     private final Integer connectionTimeout;
-    private final Integer maxFailoverRetry;
-    private final boolean autoDiscovery;
-    private final boolean enableMock;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
     private final Integer maxRowsPerPage;
-    private final int nodeDiscoveryInterval;
 
     private final Map<String, String> sessionSettings;
 
@@ -73,28 +67,17 @@ final class DatabendDriverUri {
 
     private DatabendDriverUri(String url, Properties driverProperties)
             throws SQLException {
-        Map.Entry<DatabendNodes, Map<String, String>> uriAndProperties = parse(url);
-        List<URI> uris = uriAndProperties.getKey().getUris();
-        this.properties = mergeProperties(uris.get(uris.size() - 1), uriAndProperties.getValue(), driverProperties);
+        Map.Entry<URI, Map<String, String>> uriAndProperties = parse(url);
+        URI rawUri = uriAndProperties.getKey();
+        this.properties = mergeProperties(rawUri, uriAndProperties.getValue(), driverProperties);
         this.useSecureConnection = SSL.getValue(properties).orElse(false);
         this.useVerify = USE_VERIFY.getValue(properties).orElse(false);
         this.debug = DEBUG.getValue(properties).orElse(false);
-        this.enableMock = ENABLE_MOCK.getValue(properties).orElse(false);
         this.strNullAsNull = STRNULL_AS_NULL.getValue(properties).orElse(true);
         this.warehouse = WAREHOUSE.getValue(properties).orElse("");
         this.sslmode = SSL_MODE.getValue(properties).orElse("disable");
         this.tenant = TENANT.getValue(properties).orElse("");
-        this.maxFailoverRetry = MAX_FAILOVER_RETRY.getValue(properties).orElse(5);
-        this.autoDiscovery = AUTO_DISCOVERY.getValue(properties).orElse(false);
-        this.nodeDiscoveryInterval = NODE_DISCOVERY_INTERVAL.getValue(properties).orElse(5 * 60 * 1000);
-        List<URI> finalUris = canonicalizeUris(uris, this.useSecureConnection, this.sslmode);
-        DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(LOAD_BALANCING_POLICY.getValue(properties).orElse(DatabendClientLoadBalancingPolicy.DISABLED));
-        DatabendNodes nodes = uriAndProperties.getKey();
-        nodes.updateNodes(finalUris);
-        nodes.updatePolicy(policy);
-        nodes.setSSL(this.useSecureConnection, this.sslmode);
-        nodes.setDiscoveryInterval(this.nodeDiscoveryInterval);
-        this.nodes = nodes;
+        this.uri = canonicalizeUri(rawUri, this.useSecureConnection, this.sslmode);
         this.database = DATABASE.getValue(properties).orElse("default");
         this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
@@ -115,6 +98,7 @@ final class DatabendDriverUri {
         String settingsStr = SESSION_SETTINGS.getValue(properties).orElse("");
         this.sessionSettings = parseSessionSettings(settingsStr);
 
+        warnDeprecatedMultiHostProperties(this.properties);
 
     }
 
@@ -152,29 +136,6 @@ final class DatabendDriverUri {
 
         String db = path.substring(1);
         uriProperties.put(DATABASE.getKey(), db);
-    }
-
-    public static List<URI> canonicalizeUris(List<URI> uris, boolean isSSLSecured, String sslmode) throws SQLException {
-        List<URI> finalUris = new ArrayList<>();
-        for (URI uri : uris) {
-            finalUris.add(canonicalizeUri(uri, isSSLSecured, sslmode));
-        }
-        // Sort the finalUris list
-        finalUris.sort(new Comparator<URI>() {
-            @Override
-            public int compare(URI uri1, URI uri2) {
-                // First, compare by host
-                int hostComparison = uri1.getHost().compareTo(uri2.getHost());
-                if (hostComparison != 0) {
-                    return hostComparison;
-                }
-
-                // If hosts are the same, compare by port
-                return Integer.compare(uri1.getPort(), uri2.getPort());
-            }
-        });
-
-        return finalUris;
     }
 
     private static URI canonicalizeUri(URI uri, boolean isSSLSecured, String sslmode) throws SQLException {
@@ -245,7 +206,7 @@ final class DatabendDriverUri {
     }
 
     // needs to parse possible host, port, username, password, tenant, warehouse, database, etc.
-    private static Map.Entry<DatabendNodes, Map<String, String>> parse(String url)
+    private static Map.Entry<URI, Map<String, String>> parse(String url)
             throws SQLException {
         if (url == null) {
             throw new SQLException("URL is null");
@@ -257,66 +218,54 @@ final class DatabendDriverUri {
         }
         Map<String, String> uriProperties = new LinkedHashMap<>();
         String raw = url.substring(pos + JDBC_URL_START.length());
-        String host;
-        int port = -1;
         raw = tryParseUriUserPassword(raw, uriProperties);
+        ensureSingleHostAuthority(raw, url);
 
-        // Split the URL into hosts and the rest
-        // todo process bracket wrapped comma
-        String[] hosts = raw.split(",");
-        List<URI> uris = new ArrayList<>();
         try {
-            for (String raw_host : hosts) {
-                String fullUri = (raw_host.startsWith("http://") || raw_host.startsWith("https://")) ?
-                        raw_host :
-                        "http://" + raw_host;
+            URI uri = parseSingleUri(raw);
+            if (uri.getHost() == null || uri.getHost().isEmpty()) {
+                throw new SQLException("Invalid host " + uri.getHost());
+            }
 
-                URI uri = new URI(fullUri);
-                String authority = uri.getAuthority();
-                String[] hostAndPort = authority.split(":");
-                if (hostAndPort.length == 2) {
-                    host = hostAndPort[0];
-                    port = Integer.parseInt(hostAndPort[1]);
-                } else if (hostAndPort.length == 1) {
-                    host = hostAndPort[0];
-                } else {
-                    throw new SQLException("Invalid host and port, url: " + url);
-                }
-                if (host == null || host.isEmpty()) {
-                    throw new SQLException("Invalid host " + host);
-                }
-                // Set SSL properties based on the scheme
-                if ("https".equals(uri.getScheme())) {
-                    uriProperties.put(SSL.getKey(), "true");
-                    uriProperties.put(SSL_MODE.getKey(), "enable");
-                } else {
-                    uriProperties.put(SSL.getKey(), "false");
-                    uriProperties.put(SSL_MODE.getKey(), "disable");
-                }
-                uris.add(uri);
+            if ("https".equals(uri.getScheme())) {
+                uriProperties.put(SSL.getKey(), "true");
+                uriProperties.put(SSL_MODE.getKey(), "enable");
+            } else {
+                uriProperties.put(SSL.getKey(), "false");
+                uriProperties.put(SSL_MODE.getKey(), "disable");
             }
-            URI lastUri = uris.get(uris.size() - 1);
-            // Initialize database from the last URI
-            initDatabase(lastUri, uriProperties);
-            String uriPath = lastUri.getPath();
-            String uriQuery = lastUri.getQuery();
-            String uriFragment = lastUri.getFragment();
-            // Sync path and query from lastUri for the rest of uri
-            for (int i = 0; i < uris.size() - 1; i++) {
-                URI uri = uris.get(i);
-                uris.set(i, new URI(uri.getScheme(), uri.getUserInfo(), uri.getHost(), uri.getPort(), uriPath, uriQuery, uriFragment));
-            }
-            // remove duplicate uris
-            Set<URI> uriSet = new LinkedHashSet<>(uris);
-            uris.clear();
-            uris.addAll(uriSet);
-            // Create DatabendNodes object
-            // You might want to make this configurable
-            DatabendClientLoadBalancingPolicy policy = DatabendClientLoadBalancingPolicy.create(DatabendClientLoadBalancingPolicy.DISABLED);
-            DatabendNodes databendNodes = new DatabendNodes(uris, policy, uriPath, uriQuery, uriFragment, 5 * 60 * 1000);
-            return new AbstractMap.SimpleImmutableEntry<>(databendNodes, uriProperties);
+
+            initDatabase(uri, uriProperties);
+            return new AbstractMap.SimpleImmutableEntry<>(uri, uriProperties);
         } catch (URISyntaxException e) {
             throw new SQLException("Invalid URI: " + raw, e);
+        }
+    }
+
+    private static URI parseSingleUri(String rawHost) throws URISyntaxException {
+        String fullUri = (rawHost.startsWith("http://") || rawHost.startsWith("https://")) ?
+                rawHost :
+                "http://" + rawHost;
+        return new URI(fullUri);
+    }
+
+    private static void ensureSingleHostAuthority(String raw, String originalUrl) throws SQLException {
+        int endOfAuthority = raw.length();
+        int slashIndex = raw.indexOf('/');
+        if (slashIndex != -1 && slashIndex < endOfAuthority) {
+            endOfAuthority = slashIndex;
+        }
+        int questionIndex = raw.indexOf('?');
+        if (questionIndex != -1 && questionIndex < endOfAuthority) {
+            endOfAuthority = questionIndex;
+        }
+        int fragmentIndex = raw.indexOf('#');
+        if (fragmentIndex != -1 && fragmentIndex < endOfAuthority) {
+            endOfAuthority = fragmentIndex;
+        }
+        String authoritySection = raw.substring(0, endOfAuthority);
+        if (authoritySection.contains(",")) {
+            throw new SQLException("Multiple hosts in JDBC URL are not supported: " + originalUrl);
         }
     }
 
@@ -344,20 +293,12 @@ final class DatabendDriverUri {
         return result;
     }
 
-    public DatabendNodes getNodes() {
-        return nodes;
-    }
-
     public URI getUri() {
-        return nodes.getUris().get(0);
+        return uri;
     }
 
     public URI getUri(String query_id) {
-        return nodes.pickUri(query_id);
-    }
-
-    public Boolean autoDiscovery() {
-        return autoDiscovery;
+        return getUri();
     }
 
     public String getDatabase() {
@@ -386,10 +327,6 @@ final class DatabendDriverUri {
 
     public boolean getDebug() {
         return debug;
-    }
-
-    public boolean enableMock() {
-        return enableMock;
     }
 
     public String getSslmode() {
@@ -432,10 +369,6 @@ final class DatabendDriverUri {
         return maxRowsPerPage;
     }
 
-    public Integer getMaxFailoverRetry() {
-        return maxFailoverRetry;
-    }
-
     public Map<String, String> getSessionSettings() {
         return sessionSettings;
     }
@@ -472,4 +405,17 @@ final class DatabendDriverUri {
         }
     }
 
+    private void warnDeprecatedMultiHostProperties(Properties mergedProperties) {
+        warnDeprecatedProperty(mergedProperties, LOAD_BALANCING_POLICY);
+        warnDeprecatedProperty(mergedProperties, MAX_FAILOVER_RETRY);
+        warnDeprecatedProperty(mergedProperties, AUTO_DISCOVERY);
+        warnDeprecatedProperty(mergedProperties, NODE_DISCOVERY_INTERVAL);
+        warnDeprecatedProperty(mergedProperties, ENABLE_MOCK);
+    }
+
+    private void warnDeprecatedProperty(Properties mergedProperties, ConnectionProperty<?> property) {
+        if (mergedProperties.containsKey(property.getKey())) {
+            logger.warning("Connection property '" + property.getKey() + "' is deprecated and ignored because multi-host features were removed.");
+        }
+    }
 }
