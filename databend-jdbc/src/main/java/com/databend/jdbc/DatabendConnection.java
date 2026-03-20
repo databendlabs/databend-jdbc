@@ -8,6 +8,7 @@ import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
+import com.databend.jdbc.exception.DatabendSQLException;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -720,7 +721,12 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             sb.setStageAttachment(attach);
         }
         ClientSettings settings = sb.build();
-        return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
+        try {
+            return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
+        } catch (RuntimeException e) {
+            String message = e.getMessage() == null ? e.toString() : e.getMessage();
+            throw new DatabendSQLException("Failed to start query: " + message, queryId, e);
+        }
     }
 
     private String selectHostForQuery(String queryId) {
