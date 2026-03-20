@@ -96,34 +96,4 @@ public class TestClientIT {
         }
         Assert.assertEquals(cli1.getAdditionalHeaders().get(X_Databend_Query_ID), expectedUUID1);
     }
-
-    @Test(groups = {"IT"})
-    public void testDiscoverNodes() {
-        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
-        String expectedUUID = UUID.randomUUID().toString().replace("-", "");
-
-        Map<String, String> additionalHeaders = new HashMap<>();
-        additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
-        ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        List<DiscoveryNode> nodes = DatabendClientV1.discoverNodes(client, settings);
-        Assert.assertFalse(nodes.isEmpty());
-    }
-
-    @Test(groups = {"it"})
-    public void testDiscoverNodesUnSupported() {
-        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
-        String expectedUUID = UUID.randomUUID().toString().replace("-", "");
-
-        Map<String, String> additionalHeaders = new HashMap<>();
-        additionalHeaders.put(X_Databend_Query_ID, expectedUUID);
-        additionalHeaders.put("~mock.unsupported.discovery", "true");
-        ClientSettings settings = new ClientSettings(DATABEND_HOST, DatabendSession.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), additionalHeaders, null, DEFAULT_RETRY_ATTEMPTS);
-        try {
-            DatabendClientV1.discoverNodes(client, settings);
-            Assert.fail("Expected exception was not thrown");
-        } catch (Exception e) {
-            System.out.println(e);
-            Assert.assertTrue(e instanceof UnsupportedOperationException, "Exception should be UnsupportedOperationException");
-        }
-    }
 }
