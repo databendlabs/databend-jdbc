@@ -21,15 +21,12 @@ import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
 import static com.databend.client.JsonCodec.jsonCodec;
-import static com.databend.client.constant.DatabendConstant.BOOLEAN_TRUE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
-import static java.net.HttpURLConnection.HTTP_NOT_FOUND;
 import static java.net.HttpURLConnection.HTTP_OK;
 import static java.util.Objects.requireNonNull;
 
@@ -42,10 +39,8 @@ public class DatabendClientV1
             firstNonNull(DatabendClientV1.class.getPackage().getImplementationVersion(), "jvm-unknown");
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
-    public static final JsonCodec<DiscoveryResponseCodec.DiscoveryResponse> DISCOVERY_RESULT_CODEC = jsonCodec(DiscoveryResponseCodec.DiscoveryResponse.class);
 
     public static final String QUERY_PATH = "/v1/query";
-    public static final String DISCOVERY_PATH = "/v1/discovery_nodes";
     private final OkHttpClient httpClient;
     private final String query;
     private final String host;
@@ -73,22 +68,13 @@ public class DatabendClientV1
         this.nodeID = last_node_id.get();
 
         Request request = buildQueryRequest(query, settings);
-        boolean completed = this.execute(request);
+        boolean completed = this.executeInternal(request);
 
         if (!completed) {
             throw new RuntimeException("Query failed to complete");
         }
 
         last_node_id.set(this.nodeID);
-    }
-
-    public static List<DiscoveryNode> discoverNodes(OkHttpClient httpClient, ClientSettings settings) {
-        requireNonNull(httpClient, "httpClient is null");
-        requireNonNull(settings, "settings is null");
-        requireNonNull(settings.getHost(), "settings.host is null");
-        Request request = buildDiscoveryRequest(settings);
-        DiscoveryResponseCodec.DiscoveryResponse response = getDiscoveryResponse(httpClient, request);
-        return response.getNodes();
     }
 
     public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders) {
@@ -125,48 +111,9 @@ public class DatabendClientV1
         return builder.post(okhttp3.RequestBody.create(MEDIA_TYPE_JSON, reqString)).build();
     }
 
-    private static Request buildDiscoveryRequest(ClientSettings settings) {
-        HttpUrl url = HttpUrl.get(settings.getHost());
-        String discoveryPath = DISCOVERY_PATH;
-        // intentionally use unsupported discovery path for testing
-        if (settings.getAdditionalHeaders().get("~mock.unsupported.discovery") != null && BOOLEAN_TRUE_STR.equals(settings.getAdditionalHeaders().get("~mock.unsupported.discovery"))) {
-            discoveryPath = "/v1/discovery_nodes_unsupported";
-        }
-
-        url = url.newBuilder().encodedPath(discoveryPath).build();
-        Request.Builder builder = prepareRequest(url, settings.getAdditionalHeaders());
-        return builder.get().build();
-    }
-
     @Override
     public String getQuery() {
         return query;
-    }
-
-    private static DiscoveryResponseCodec.DiscoveryResponse getDiscoveryResponse(OkHttpClient httpClient, Request request) {
-        requireNonNull(request, "request is null");
-        JsonResponse<DiscoveryResponseCodec.DiscoveryResponse> response;
-
-        try {
-            RetryPolicy retryPolicy = new RetryPolicy(true, true);
-            RetryPolicy.ResponseWithBody resp = retryPolicy.sendRequestWithRetry(httpClient, request);
-            long code = resp.response.code();
-            if (code == HTTP_OK) {
-                response = JsonResponse.decode(DISCOVERY_RESULT_CODEC, resp);
-                DiscoveryResponseCodec.DiscoveryResponse discoveryResponse = response.getValue();
-                QueryErrors  errors = discoveryResponse.getError();
-                if (errors  == null) {
-                    return discoveryResponse;
-                } else {
-                    throw new RuntimeException("Discovery request failed: " + discoveryResponse.getError());
-                }
-            } else if (code == HTTP_NOT_FOUND) {
-                throw new UnsupportedOperationException("Discovery request feature not supported");
-            }
-            throw new RuntimeException("Discovery request failed, code = " + code + " :" + resp.body);
-        } catch (SQLException e) {
-            throw new RuntimeException(e);
-        }
     }
 
     private boolean executeInternal(Request request) {

@@ -24,7 +24,6 @@ import com.fasterxml.jackson.databind.module.SimpleModule;
 import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 
 import java.io.IOException;
-import java.io.InputStream;
 import java.io.UncheckedIOException;
 import java.lang.reflect.Type;
 import java.util.function.Supplier;
@@ -45,9 +44,7 @@ public class JsonCodec<T> {
             .disable(MapperFeature.CAN_OVERRIDE_ACCESS_MODIFIERS)
             .disable(MapperFeature.INFER_PROPERTY_MUTATORS)
             .disable(MapperFeature.ALLOW_FINAL_FIELDS_AS_MUTATORS)
-            .registerModule(new Jdk8Module()).registerModule(new SimpleModule().addDeserializer(
-                    DiscoveryResponseCodec.DiscoveryResponse.class, new DiscoveryResponseCodec.DiscoveryResponseDeserializer()
-            ));
+            .registerModule(new Jdk8Module()).registerModule(new SimpleModule());
 
     private final ObjectMapper mapper;
     private final Type type;
@@ -77,15 +74,6 @@ public class JsonCodec<T> {
             throw e;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
-        }
-    }
-
-    public T fromJson(InputStream inputStream)
-            throws IOException, JsonProcessingException {
-        try (JsonParser parser = mapper.createParser(inputStream)) {
-            T value = mapper.readerFor(javaType).readValue(parser);
-            checkArgument(parser.nextToken() == null, "Found characters after the expected end of input");
-            return value;
         }
     }
 }

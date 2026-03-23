@@ -122,8 +122,6 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         private final BlockingQueue<T> rowQueue;
         private final Semaphore semaphore = new Semaphore(0);
         private final Future<?> future;
-        private volatile boolean cancelled;
-        private volatile boolean finished;
 
         public AsyncIterator(Iterator<T> dataIterator, DatabendClient client) {
             this(dataIterator, client, Optional.empty());
@@ -134,8 +132,6 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             requireNonNull(dataIterator, "dataIterator is null");
             this.client = client;
             this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
-            this.cancelled = false;
-            this.finished = false;
             this.future = executorService.submit(() -> {
                 try {
                     while (dataIterator.hasNext()) {
@@ -148,29 +144,17 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                     throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
                 } finally {
                     semaphore.release();
-                    finished = true;
                 }
             });
         }
 
         public void cancel() {
-            cancelled = true;
             future.cancel(true);
             // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
             // is working for `future` may be blocked by `rowQueue.put` (`rowQueue` is full) and will never finish
             // its work. It is necessary to close `client` and drain `rowQueue` to avoid such leaks.
             client.close();
             rowQueue.clear();
-        }
-
-        @VisibleForTesting
-        Future<?> getFuture() {
-            return future;
-        }
-
-        @VisibleForTesting
-        boolean isBackgroundThreadFinished() {
-            return finished;
         }
 
         @Override
@@ -203,7 +187,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>> {
         private final DatabendClient client;
-        private  QueryLiveness liveness;
+        private final QueryLiveness liveness;
 
         private ResultsPageIterator(DatabendClient client, QueryLiveness liveness) {
             this.client = client;
@@ -216,12 +200,8 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             while (client.hasNext()) {
                 QueryResults results = client.getResults();
                 List<List<Object>> rows = results.getData();
-                try {
-                    client.advance();
-                    liveness.lastRequestTime.set(System.currentTimeMillis());
-                } catch (RuntimeException e) {
-                    throw new RuntimeException(e);
-                }
+                client.advance();
+                liveness.lastRequestTime.set(System.currentTimeMillis());
                 if (rows != null) {
                     return rows;
                 }
