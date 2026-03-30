@@ -16,7 +16,7 @@ jobs:
       matrix:
         server:
           - "nightly"
-          - "v1.2.790-nightly"
+          - "v1.2.889-nightly"
         driver:
           - "0.4.1"
           - "0.4.0"

@@ -16,7 +16,7 @@ jobs:
       matrix:
         version:
           - "nightly"
-          - "v1.2.790-nightly"
+          - "v1.2.889-nightly"
     steps:
       - uses: actions/checkout@v4
 
