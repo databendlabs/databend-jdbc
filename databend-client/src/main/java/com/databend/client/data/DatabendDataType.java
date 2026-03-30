@@ -108,7 +108,7 @@ public enum DatabendDataType {
             return INT_32;
         } else if (DatabendTypes.UINT32.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_32;
-        } else if (DatabendTypes.INT64.equalsIgnoreCase(typeName)) {
+        } else if (DatabendTypes.INT64.equalsIgnoreCase(typeName) || "bigint".equalsIgnoreCase(typeName)) {
             return INT_64;
         } else if (DatabendTypes.UINT64.equalsIgnoreCase(typeName)) {
             return UNSIGNED_INT_64;
@@ -140,6 +140,11 @@ public enum DatabendDataType {
             return BINARY;
         } else if (startsWithIgnoreCase(typeName, DatabendTypes.GEOMETRY)) {
             return GEOMETRY;
+        }
+        // Fallback: check SQL-standard aliases (e.g., bigint, tinyint, smallint, varchar, etc.)
+        DatabendDataType aliasMatch = typeNameOrAliasToType.get(typeName.toUpperCase());
+        if (aliasMatch != null) {
+            return aliasMatch;
         }
         return NULL;
     }

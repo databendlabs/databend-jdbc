@@ -51,6 +51,20 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         requireNonNull(client, "client is null");
         List<QueryRowField> s = client.getResults().getSchema();
         Map<String, String> resultSettings = client.getResults().getSettings();
+        // Fallback: if top-level settings has no timezone, try session.settings
+        if (resultSettings == null || !resultSettings.containsKey("timezone")) {
+            if (client.getResults().getSession() != null && client.getResults().getSession().getSettings() != null) {
+                Map<String, String> sessionSettings = client.getResults().getSession().getSettings();
+                if (sessionSettings.containsKey("timezone")) {
+                    if (resultSettings == null) {
+                        resultSettings = sessionSettings;
+                    } else {
+                        resultSettings = new java.util.HashMap<>(resultSettings);
+                        resultSettings.put("timezone", sessionSettings.get("timezone"));
+                    }
+                }
+            }
+        }
         AtomicLong lastRequestTime = new AtomicLong(System.currentTimeMillis());
         QueryResults r = client.getResults();
         QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), capability.heartBeat());
