@@ -69,6 +69,28 @@ public class TestColumnTypeHandlerFactory
         assertTypeHandler("Nullable(IPv4)", StringHandler.class, true);
         assertTypeHandler("Geometry", GeometryHandler.class, false);
         assertTypeHandler("Nullable(Geometry)", GeometryHandler.class, true);
+
+        // SQL-standard type aliases (returned by newer Databend versions)
+        assertTypeHandler("tinyint", Int8Handler.class, false);
+        assertTypeHandler("Nullable(tinyint)", Int8Handler.class, true);
+        assertTypeHandler("tinyint unsigned", UInt8Handler.class, false);
+        assertTypeHandler("smallint", Int16Handler.class, false);
+        assertTypeHandler("Nullable(smallint)", Int16Handler.class, true);
+        assertTypeHandler("smallint unsigned", UInt16Handler.class, false);
+        assertTypeHandler("integer", Int32Handler.class, false);
+        assertTypeHandler("Nullable(integer)", Int32Handler.class, true);
+        assertTypeHandler("integer unsigned", UInt32Handler.class, false);
+        assertTypeHandler("bigint", Int64Handler.class, false);
+        assertTypeHandler("Nullable(bigint)", Int64Handler.class, true);
+        assertTypeHandler("bigint unsigned", UInt64Handler.class, false);
+        assertTypeHandler("float", Float32Handler.class, false);
+        assertTypeHandler("Nullable(float)", Float32Handler.class, true);
+        assertTypeHandler("double", Float64Handler.class, false);
+        assertTypeHandler("Nullable(double)", Float64Handler.class, true);
+        assertTypeHandler("varchar", StringHandler.class, false);
+        assertTypeHandler("Nullable(varchar)", StringHandler.class, true);
+        assertTypeHandler("bool", BooleanHandler.class, false);
+        assertTypeHandler("Nullable(bool)", BooleanHandler.class, true);
     }
 
     private void assertTypeHandler(String typeStr, Class<?> clazz, boolean isNullable) {

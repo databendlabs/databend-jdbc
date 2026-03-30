@@ -141,6 +141,11 @@ public enum DatabendDataType {
         } else if (startsWithIgnoreCase(typeName, DatabendTypes.GEOMETRY)) {
             return GEOMETRY;
         }
+        // Fallback: check SQL-standard aliases (e.g., bigint, tinyint, smallint, varchar, etc.)
+        DatabendDataType aliasMatch = typeNameOrAliasToType.get(typeName.toUpperCase());
+        if (aliasMatch != null) {
+            return aliasMatch;
+        }
         return NULL;
     }
 
