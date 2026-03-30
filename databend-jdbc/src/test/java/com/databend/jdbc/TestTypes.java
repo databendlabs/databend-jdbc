@@ -57,10 +57,25 @@ public class TestTypes {
 
             statement.execute(String.format("set timezone='%s'", sessionTz));
 
+            // For timestamp (without tz), newer Databend nightly converts the input
+            // to session timezone local time before storing. When reading back, the JDBC
+            // driver interprets the local time using the session timezone.
+            //
+            // Case format: {input, expected_sameTZ(session=Shanghai), expected_diffTZ(session=Moscow)}
+            // "same" means the diffTZ expected value equals the sameTZ expected value.
+            //
+            // For inputs with explicit tz offset (e.g. +0700 or Z):
+            //   Databend converts to session tz local time, then stores without tz.
+            //   sameTZ (Shanghai +8): '21:30:55+0700' -> 22:30:55 Shanghai -> 14:30:55Z
+            //   diffTZ (Moscow  +3): '21:30:55+0700' -> 17:30:55 Moscow  -> 14:30:55Z
+            //   Both resolve to the same UTC instant.
+            //
+            // For inputs without tz offset:
+            //   Databend treats the input as session tz local time.
+            //   sameTZ (Shanghai +8): '14:30:55' -> 14:30:55 Shanghai -> 06:30:55Z
+            //   diffTZ (Moscow  +3): '14:30:55' -> 14:30:55 Moscow  -> 11:30:55Z
             Object[][] cases = new Object[][]{
-                    // use tz in string, ignore session timezone
                     {"2021-07-12T21:30:55+0700", "2021-07-12T14:30:55.000Z", "same"},
-                    // use tz in string, ignore session timezone
                     {"2022-07-12 14:30:55Z", "2022-07-12T14:30:55.000Z", "same"},
                     {"2023-07-12 14:30:55", "2023-07-12T06:30:55.000Z", "2023-07-12T11:30:55.000Z"},
             };
