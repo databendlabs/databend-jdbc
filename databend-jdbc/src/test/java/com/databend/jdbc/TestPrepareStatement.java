@@ -622,6 +622,9 @@ public class TestPrepareStatement {
 
     @Test(groups = {"IT"})
     public void testSelectCountStarWithPreparedStatement() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.5")) {
+            return;
+        }
         try (Connection conn = getConn();
              Statement s = conn.createStatement()) {
             s.execute("create or replace table t1(a int, b string)");
