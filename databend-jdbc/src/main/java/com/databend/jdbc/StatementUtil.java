@@ -68,6 +68,9 @@ class StatementUtil {
      */
     public static Map<Integer, String> extractColumnTypes(String sql) {
         Map<Integer, String> columnTypes = new LinkedHashMap<>();
+        if (isQuery(sql)) {
+            return columnTypes;
+        }
         Pattern pattern = Pattern.compile("\\((.*?)\\)");
         Matcher matcher = pattern.matcher(sql);
         if (matcher.find()) {
