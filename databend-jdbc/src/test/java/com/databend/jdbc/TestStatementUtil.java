@@ -19,4 +19,25 @@ public class TestStatementUtil {
         assertEquals("Int8", columnTypes.get(1));
         assertEquals("VARIANT", columnTypes.get(2));
     }
+
+    @Test(groups = {"UNIT"})
+    public void testExtractColumnTypesSelectCountStar() {
+        String sql = "SELECT COUNT(*) FROM 'szps_dwd'.'DWD_WSC_WS_GYYX_LJSLLJ_1H'";
+        Map<Integer, String> columnTypes = StatementUtil.extractColumnTypes(sql);
+        assertEquals(0, columnTypes.size());
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testExtractColumnTypesSelectWithFunctions() {
+        String sql = "SELECT SUM(a), AVG(b) FROM test_table WHERE id = ?";
+        Map<Integer, String> columnTypes = StatementUtil.extractColumnTypes(sql);
+        assertEquals(0, columnTypes.size());
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testExtractColumnTypesShowTables() {
+        String sql = "SHOW TABLES";
+        Map<Integer, String> columnTypes = StatementUtil.extractColumnTypes(sql);
+        assertEquals(0, columnTypes.size());
+    }
 }

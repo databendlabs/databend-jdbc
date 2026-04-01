@@ -621,6 +621,48 @@ public class TestPrepareStatement {
 
 
     @Test(groups = {"IT"})
+    public void testSelectCountStarWithPreparedStatement() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.5")) {
+            return;
+        }
+        try (Connection conn = getConn();
+             Statement s = conn.createStatement()) {
+            s.execute("create or replace table t1(a int, b string)");
+            s.execute("insert into t1 values(1, 'a')");
+            s.execute("insert into t1 values(2, 'b')");
+
+            // COUNT(*) should not be parsed as a parameter
+            String countSql = "SELECT COUNT(*) FROM t1";
+            try (PreparedStatement ps = conn.prepareStatement(countSql)) {
+                Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 0,
+                        "COUNT(*) should have 0 parameters");
+                ResultSet rs = ps.executeQuery();
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 2);
+            }
+
+            // SUM with column should not be parsed as a parameter
+            String sumSql = "SELECT SUM(a) FROM t1";
+            try (PreparedStatement ps = conn.prepareStatement(sumSql)) {
+                Assert.assertEquals(ps.getParameterMetaData().getParameterCount(), 0,
+                        "SUM(a) should have 0 parameters");
+                ResultSet rs = ps.executeQuery();
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 3);
+            }
+
+            // SELECT with actual parameter marker should still work
+            String selectWithParam = "SELECT COUNT(*) FROM t1 WHERE a = ?";
+            try (PreparedStatement ps = conn.prepareStatement(selectWithParam)) {
+                ps.setInt(1, 1);
+                ResultSet rs = ps.executeQuery();
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 1);
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
     public void testSelectWithPreparedStatement()
             throws SQLException {
         try (Connection connection = Utils.createConnection()) {
