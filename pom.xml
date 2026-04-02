@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.4.4</version>
+    <version>0.4.5</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
@@ -265,6 +265,10 @@
                 <version>${plugin.gpg.version}</version>
                 <configuration>
                     <skip>true</skip>
+                    <gpgArguments>
+                        <arg>--pinentry-mode</arg>
+                        <arg>loopback</arg>
+                    </gpgArguments>
                 </configuration>
             </plugin>
             <plugin>
