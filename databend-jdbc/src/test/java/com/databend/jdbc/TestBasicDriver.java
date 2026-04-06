@@ -302,6 +302,12 @@ public class TestBasicDriver {
             DatabendSession session = (DatabendSession)  Compatibility.invokeMethodNoArg(connection, "getSession");
             Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
             Assert.assertEquals(session.getSettings().get("max_threads"), "1");
+
+            // test variable
+            connection.createStatement().execute("set variable a=1");
+            ResultSet r = connection.createStatement().executeQuery("select $a");
+            r.next();
+            assertEquals(r.getInt(1), 1);
         }
     }
 
