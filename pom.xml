@@ -4,7 +4,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.databend</groupId>
     <artifactId>databend-base</artifactId>
-    <version>0.4.5</version>
+    <version>0.4.6</version>
     <name>databend-base</name>
     <description>Databend</description>
     <packaging>pom</packaging>
