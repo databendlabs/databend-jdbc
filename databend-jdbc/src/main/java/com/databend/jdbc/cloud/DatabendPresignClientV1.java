@@ -57,6 +57,7 @@ public class DatabendPresignClientV1
                 .protocols(Arrays.asList(Protocol.HTTP_1_1))
                 .addInterceptor(chain -> {
                     Request request = chain.request();
+                    boolean oneShot = request.body() != null && request.body().isOneShot();
                     int retryCount = 0;
                     Response response = null;
                     while (retryCount < 3) {
@@ -65,10 +66,13 @@ public class DatabendPresignClientV1
                             if (response.isSuccessful()) {
                                 return response;
                             }
+                            if (oneShot) {
+                                return response;
+                            }
                             response.close();
                         }
                         catch (IOException e) {
-                            if (retryCount == 2) {
+                            if (retryCount == 2 || oneShot) {
                                 throw e;
                             }
                         }
@@ -165,6 +169,9 @@ public class DatabendPresignClientV1
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
+            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
+                throw new IOException("Upload failed and request body is not replayable", cause);
+            }
             attempts++;
             Response response = null;
             try {
@@ -209,15 +216,14 @@ public class DatabendPresignClientV1
             String presignedUrl, long fileSize, boolean uploadFromStream)
             throws IOException
     {
-
-        InputStream it = null;
         if (!uploadFromStream) {
-            it = Files.newInputStream(srcFile.toPath());
+            try (InputStream it = Files.newInputStream(srcFile.toPath())) {
+                uploadFromStream(it, headers, presignedUrl, fileSize);
+            }
         }
         else {
-            it = inputStream;
+            uploadFromStream(inputStream, headers, presignedUrl, fileSize);
         }
-        uploadFromStream(it, headers, presignedUrl, fileSize);
     }
 
     @Override
@@ -279,10 +285,14 @@ public class DatabendPresignClientV1
             }
 
             @Override
+            public boolean isOneShot() {
+                return true;
+            }
+
+            @Override
             public void writeTo(BufferedSink sink) throws IOException {
-                try (Source source = Okio.source(inputStream)) {
-                    sink.writeAll(source);
-                }
+                Source source = Okio.source(inputStream);
+                sink.writeAll(source);
             }
         };
 
@@ -328,14 +338,15 @@ class InputStreamRequestBody
     }
 
     @Override
+    public boolean isOneShot() {
+        return true;
+    }
+
+    @Override
     public void writeTo(@NonNull BufferedSink sink)
             throws IOException
     {
-        try (Source source = Okio.source(inputStream)) {
-            sink.writeAll(source);
-        }
-        catch (IOException e) {
-            logger.warning(format("writeTo failed, error is %s, cause is %s", e.getMessage(), e.getCause()));
-        }
+        Source source = Okio.source(inputStream);
+        sink.writeAll(source);
     }
 }
