@@ -149,7 +149,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), PaginationOptions.getDefaultWaitTimeSec());
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), PaginationOptions.getDefaultMaxRowsInBuffer());
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), PaginationOptions.getDefaultMaxRowsPerPage());
-        Assert.assertEquals("auto", uri.presignedUrlDisabled());
+        Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
         Assert.assertEquals("\\N", uri.nullDisplay());
         Assert.assertEquals("base64", uri.binaryFormat());
@@ -175,7 +175,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 1);
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 10);
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 5);
-        Assert.assertEquals("true", uri.presignedUrlDisabled());
+        Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
         Assert.assertEquals("", uri.binaryFormat().toString());
     }
@@ -209,7 +209,7 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getWaitTimeSecs().intValue(), 9);
         Assert.assertEquals(uri.getMaxRowsInBuffer().intValue(), 11);
         Assert.assertEquals(uri.getMaxRowsPerPage().intValue(), 7);
-        Assert.assertEquals("false", uri.presignedUrlDisabled());
+        Assert.assertFalse(uri.presignedUrlDisabled().booleanValue());
         Assert.assertEquals("null", uri.nullDisplay().toString());
         Assert.assertFalse(uri.getStrNullAsNull());
     }

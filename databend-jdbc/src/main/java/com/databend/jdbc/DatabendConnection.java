@@ -175,8 +175,13 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     }
 
     private void checkPresign() {
-        String mode = this.driverUri.presignedUrlDisabled();
-        switch (mode.toLowerCase(Locale.US)) {
+        String presign = this.driverUri.getPresign();
+        if (presign == null || presign.isEmpty()) {
+            // fallback to legacy presigned_url_disabled boolean
+            this.presignDisabled = this.driverUri.presignedUrlDisabled();
+            return;
+        }
+        switch (presign.toLowerCase(Locale.US)) {
             case "auto":
                 String host = this.httpUri.getHost();
                 if (host != null && (host.endsWith(".databend.com")
@@ -192,23 +197,23 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
                     PresignContext.newPresignContext(this, PresignContext.PresignMethod.UPLOAD, "~", ".databend-jdbc/check");
                     this.presignDisabled = false;
                 } catch (Exception e) {
-                    logger.warning("presign mode off with error detected: " + e.getMessage());
+                    logger.warning("presign off: detect failed: " + e.getMessage());
                     this.presignDisabled = true;
                 }
                 break;
-            case "true":
-                this.presignDisabled = true;
-                break;
-            case "false":
+            case "on":
                 this.presignDisabled = false;
                 break;
-            default:
-                logger.warning("Unknown presigned_url_disabled value: " + mode + ", defaulting to auto");
+            case "off":
                 this.presignDisabled = true;
+                break;
+            default:
+                logger.warning("Unknown presign value: " + presign + ", falling back to presigned_url_disabled");
+                this.presignDisabled = this.driverUri.presignedUrlDisabled();
                 break;
         }
         if (this.debug()) {
-            logger.info("presign disabled: " + this.presignDisabled + " (mode=" + mode + ", host=" + this.httpUri.getHost() + ")");
+            logger.info("presign disabled: " + this.presignDisabled + " (presign=" + presign + ", host=" + this.httpUri.getHost() + ")");
         }
     }
 
