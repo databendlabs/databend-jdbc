@@ -35,7 +35,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Integer> QUERY_TIMEOUT = new QueryTimeout();
     public static final ConnectionProperty<Integer> SOCKET_TIMEOUT = new SocketTimeout();
 
-    public static final ConnectionProperty<Boolean> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
+    public static final ConnectionProperty<String> PRESIGNED_URL_DISABLED = new PresignedUrlDisabled();
     public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
     public static final ConnectionProperty<String> NULL_DISPLAY = new NullDisplay();
     public static final ConnectionProperty<String> BINARY_FORMAT = new BinaryFormat();
@@ -188,9 +188,9 @@ public final class ConnectionProperties {
     }
 
     private static class PresignedUrlDisabled
-            extends AbstractConnectionProperty<Boolean> {
+            extends AbstractConnectionProperty<String> {
         public PresignedUrlDisabled() {
-            super("presigned_url_disabled", Optional.of("false"), NOT_REQUIRED, ALLOWED, BOOLEAN_CONVERTER);
+            super("presigned_url_disabled", Optional.of("auto"), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
         }
     }
 

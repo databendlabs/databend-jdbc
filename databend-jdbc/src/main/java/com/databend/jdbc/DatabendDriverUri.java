@@ -53,7 +53,7 @@ final class DatabendDriverUri {
     private final String nullDisplay;
     private final String binaryFormat;
     private final String database;
-    private final boolean presignedUrlDisabled;
+    private final String presignedUrlDisabled;
     private final Integer connectionTimeout;
     private final Integer queryTimeout;
     private final Integer socketTimeout;
@@ -79,7 +79,7 @@ final class DatabendDriverUri {
         this.tenant = TENANT.getValue(properties).orElse("");
         this.uri = canonicalizeUri(rawUri, this.useSecureConnection, this.sslmode);
         this.database = DATABASE.getValue(properties).orElse("default");
-        this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getRequiredValue(properties);
+        this.presignedUrlDisabled = PRESIGNED_URL_DISABLED.getValue(properties).orElse("auto");
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
         this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("");
@@ -305,7 +305,7 @@ final class DatabendDriverUri {
         return database;
     }
 
-    public Boolean presignedUrlDisabled() {
+    public String presignedUrlDisabled() {
         return presignedUrlDisabled;
     }
 
