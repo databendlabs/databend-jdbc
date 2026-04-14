@@ -92,6 +92,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     private final AtomicReference<String> lastNodeID = new AtomicReference<>();
     private Semver serverVersion = null;
     private Capability serverCapability = null;
+    private boolean presignDisabled;
 
     private static volatile ExecutorService heartbeatScheduler = null;
     private final HeartbeatManager heartbeatManager = new HeartbeatManager();
@@ -135,6 +136,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
 
         initializeFileHandler();
         this.login();
+        this.checkPresign();
     }
 
     Semver getServerVersion() {
@@ -169,6 +171,49 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             }
         } catch(JsonProcessingException e){
             throw new RuntimeException(e);
+        }
+    }
+
+    private void checkPresign() {
+        String presign = this.driverUri.getPresign();
+        if (presign == null || presign.isEmpty()) {
+            // fallback to legacy presigned_url_disabled boolean
+            this.presignDisabled = this.driverUri.presignedUrlDisabled();
+            return;
+        }
+        switch (presign.toLowerCase(Locale.US)) {
+            case "auto":
+                String host = this.httpUri.getHost();
+                if (host != null && (host.endsWith(".databend.com")
+                        || host.endsWith(".databend.cn")
+                        || host.endsWith(".tidbcloud.com"))) {
+                    this.presignDisabled = false;
+                } else {
+                    this.presignDisabled = true;
+                }
+                break;
+            case "detect":
+                try {
+                    PresignContext.newPresignContext(this, PresignContext.PresignMethod.UPLOAD, "~", ".databend-jdbc/check");
+                    this.presignDisabled = false;
+                } catch (Exception e) {
+                    logger.warning("presign off: detect failed: " + e.getMessage());
+                    this.presignDisabled = true;
+                }
+                break;
+            case "on":
+                this.presignDisabled = false;
+                break;
+            case "off":
+                this.presignDisabled = true;
+                break;
+            default:
+                logger.warning("Unknown presign value: " + presign + ", falling back to presigned_url_disabled");
+                this.presignDisabled = this.driverUri.presignedUrlDisabled();
+                break;
+        }
+        if (this.debug()) {
+            logger.info("presign disabled: " + this.presignDisabled + " (presign=" + presign + ", host=" + this.httpUri.getHost() + ")");
         }
     }
 
@@ -636,7 +681,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     }
 
     boolean presignedUrlDisabled() {
-        return this.driverUri.presignedUrlDisabled();
+        return this.presignDisabled;
     }
 
     boolean copyPurge() {
@@ -858,8 +903,8 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
                 // Update the file size to the compressed size
                 fileSize = byteArrayOutputStream.size();
             }
-            if (this.driverUri.presignedUrlDisabled()) {
-                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
+            if (this.presignDisabled) {
+                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString(), this.driverUri.getWarehouse());
                 cli.presignUpload(null, dataStream, s, p + "/", destFileName, fileSize, true);
             } else {
 //                logger.log(Level.FINE, "presign to @" + s + "/" + dest);

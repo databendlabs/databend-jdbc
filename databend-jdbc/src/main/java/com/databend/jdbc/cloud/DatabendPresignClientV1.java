@@ -28,6 +28,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import static com.databend.client.ClientSettings.DatabendWarehouseHeader;
 import static com.databend.client.ClientSettings.X_DATABEND_RELATIVE_PATH;
 import static com.databend.client.ClientSettings.X_DATABEND_STAGE_NAME;
 import static java.lang.String.format;
@@ -43,9 +44,15 @@ public class DatabendPresignClientV1
     private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
     private final String uri;
+    private final String warehouse;
     private static final Logger logger = Logger.getLogger(DatabendPresignClientV1.class.getPackage().getName());
 
     public DatabendPresignClientV1(OkHttpClient client, String uri)
+    {
+        this(client, uri, null);
+    }
+
+    public DatabendPresignClientV1(OkHttpClient client, String uri, String warehouse)
     {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
@@ -90,6 +97,7 @@ public class DatabendPresignClientV1
                     return response;
                 }).build();
         this.uri = uri;
+        this.warehouse = warehouse;
     }
 
     private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name, long fileSize)
@@ -100,10 +108,13 @@ public class DatabendPresignClientV1
                 .setType(MultipartBody.FORM)
                 .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream, fileSize))
                 .build();
-        Headers headers = new Headers.Builder()
+        Headers.Builder headersBuilder = new Headers.Builder()
                 .add(X_DATABEND_STAGE_NAME, stageName)
-                .add(X_DATABEND_RELATIVE_PATH, relativePath)
-                .build();
+                .add(X_DATABEND_RELATIVE_PATH, relativePath);
+        if (this.warehouse != null && !this.warehouse.isEmpty()) {
+            headersBuilder.add(DatabendWarehouseHeader, this.warehouse);
+        }
+        Headers headers = headersBuilder.build();
 
         HttpUrl url = HttpUrl.get(this.uri);
         url = new HttpUrl.Builder()
