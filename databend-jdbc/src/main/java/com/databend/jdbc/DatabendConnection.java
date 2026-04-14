@@ -904,7 +904,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
                 fileSize = byteArrayOutputStream.size();
             }
             if (this.presignDisabled) {
-                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
+                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString(), this.driverUri.getWarehouse());
                 cli.presignUpload(null, dataStream, s, p + "/", destFileName, fileSize, true);
             } else {
 //                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
