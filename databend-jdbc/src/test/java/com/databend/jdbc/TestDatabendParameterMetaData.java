@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.data.DatabendDataType;
+import com.databend.jdbc.internal.data.DatabendDataType;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;

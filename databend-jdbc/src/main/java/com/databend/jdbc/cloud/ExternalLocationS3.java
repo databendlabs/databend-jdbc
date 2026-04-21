@@ -1,6 +1,14 @@
 package com.databend.jdbc.cloud;
 
 // https://databend.rs/doc/sql-commands/dml/dml-copy-into-table#externallocation
+/**
+ * <strong>Deprecated.</strong> This model only exists for the deprecated
+ * {@code FileTransferAPI.copyIntoTable(...)} flow through {@link DatabendCopyParams}.
+ * <p>
+ * Deprecated since version 4.0.1. Scheduled for removal in a future release.
+ * Please execute {@code COPY INTO ...} SQL directly instead.
+ */
+@Deprecated
 public class ExternalLocationS3 {
     // for example: s3://bucket_name/path
     private final String location;

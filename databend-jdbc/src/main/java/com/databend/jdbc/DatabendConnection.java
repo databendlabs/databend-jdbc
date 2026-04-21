@@ -1,30 +1,22 @@
 package com.databend.jdbc;
 
-import com.databend.client.*;
-
-import static com.databend.client.JsonCodec.jsonCodec;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
-import com.databend.jdbc.cloud.DatabendPresignClient;
-import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
 import com.databend.jdbc.exception.DatabendSQLException;
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import com.databend.jdbc.internal.query.QueryResultPages;
+import com.databend.jdbc.internal.query.StageAttachment;
+import com.databend.jdbc.internal.session.Capability;
+import com.databend.jdbc.internal.session.DatabendSessionHandle;
+import com.databend.jdbc.internal.session.QueryLiveness;
+import com.databend.jdbc.internal.session.SessionHandleConfig;
+import com.databend.jdbc.internal.session.SessionState;
 import com.vdurmont.semver4j.Semver;
 import okhttp3.*;
-import okio.BufferedSink;
-import okio.Okio;
-import okio.Source;
 
-import java.io.ByteArrayInputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.File;
-import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
-import java.nio.charset.StandardCharsets;
 import java.sql.Array;
 import java.sql.Blob;
 import java.sql.CallableStatement;
@@ -46,58 +38,30 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.Executor;
-import java.util.concurrent.Executors;
-import java.util.concurrent.ExecutorService;
-import java.util.concurrent.ScheduledFuture;
-import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
-import java.util.function.Consumer;
 import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
-import java.util.zip.GZIPOutputStream;
 
-import static com.databend.client.ClientSettings.*;
-import static com.databend.client.DatabendClientV1.MEDIA_TYPE_JSON;
-import static com.databend.client.DatabendClientV1.USER_AGENT_VALUE;
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
-import static java.net.URI.create;
 import static java.util.Objects.requireNonNull;
-import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 
-public class DatabendConnection implements Connection, DatabendConnectionExtension, FileTransferAPI, Consumer<DatabendSession> {
+public class DatabendConnection implements Connection, DatabendConnectionExtension, FileTransferAPI {
 
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
-    private static final String STREAMING_LOAD_PATH = "/v1/streaming_load";
-    private static final String LOGIN_PATH = "/v1/session/login";
-    private static final String LOGOUT_PATH = "/v1/session/logout";
-    private static final String HEARTBEAT_PATH = "/v1/session/heartbeat";
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-    private static final JsonCodec<DatabendSession> SESSION_JSON_CODEC = jsonCodec(DatabendSession.class);
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
-    private final URI httpUri;
     private final AtomicReference<String> schema = new AtomicReference<>();
-    private final OkHttpClient httpClient;
     private final ConcurrentHashMap<DatabendStatement, Boolean> statements = new ConcurrentHashMap<>();
     private final DatabendDriverUri driverUri;
-    private final AtomicReference<DatabendSession> session = new AtomicReference<>();
+    private final DatabendSessionHandle sessionHandle;
 
-    private String routeHint;
-    private final AtomicReference<String> lastNodeID = new AtomicReference<>();
-    private Semver serverVersion = null;
-    private Capability serverCapability = null;
-    private boolean presignDisabled;
-
-    private static volatile ExecutorService heartbeatScheduler = null;
-    private final HeartbeatManager heartbeatManager = new HeartbeatManager();
-
-    private void initializeFileHandler() {
+    private void initializeFileLogHandler() {
         if (this.debug()) {
             File file = new File("databend-jdbc-debug.log");
             if (!file.canWrite()) {
@@ -124,141 +88,24 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
 
     DatabendConnection(DatabendDriverUri uri, OkHttpClient httpClient) throws SQLException {
         requireNonNull(uri, "uri is null");
-        // only used for presign url on non-object storage, which mainly served for demo pupose.
-        // TODO: may also add query id and load balancing on the part.
-        this.httpUri = uri.getUri();
-        this.httpClient = httpClient;
         this.driverUri = uri;
         this.schema.set(uri.getDatabase());
-        this.routeHint = randRouteHint();
-        DatabendSession session = new DatabendSession.Builder().setDatabase(this.getSchema()).setSettings(uri.getSessionSettings()).build();
-        this.setSession(session);
+        SessionHandleConfig config = this.driverUri.toSessionHandleConfig();
+        this.sessionHandle = new DatabendSessionHandle(httpClient, config, this::queryLivenesses);
 
-        initializeFileHandler();
-        this.login();
-        this.checkPresign();
+        initializeFileLogHandler();
+        this.sessionHandle.login();
+        this.sessionHandle.initializePresign(this.driverUri.getPresign(), this.driverUri.presignedUrlDisabled());
     }
 
     Semver getServerVersion() {
-        return this.serverVersion;
+        return this.sessionHandle.getServerVersion();
     }
 
     Capability getServerCapability() {
-        return this.serverCapability;
+        Semver version = this.sessionHandle.getServerVersion();
+        return version == null ? null : new Capability(version);
     }
-
-    private void login() throws SQLException {
-        RetryPolicy retryPolicy = new RetryPolicy(true, true);
-
-        HashMap<String, String> headers = new HashMap<>();
-        headers.put("Accept", "application/json");
-        headers.put("Content-Type", "application/json");
-        try {
-            LoginRequest req = new LoginRequest();
-            req.database = this.getSchema();
-            req.settings = this.driverUri.getSessionSettings();
-            String bodyString = objectMapper.writeValueAsString(req);
-            RequestBody requestBody= RequestBody.create(MEDIA_TYPE_JSON, bodyString);
-
-            RetryPolicy.ResponseWithBody response = requestHelper(LOGIN_PATH, "post", requestBody, headers, retryPolicy);
-            // old server do not support this API
-            if (response.response.code() != 400) {
-                String version = objectMapper.readTree(response.body).get("version").asText();
-                if (version != null) {
-                    this.serverVersion = new Semver(version);
-                    this.serverCapability = new Capability(this.serverVersion);
-                }
-            }
-        } catch(JsonProcessingException e){
-            throw new RuntimeException(e);
-        }
-    }
-
-    private void checkPresign() {
-        String presign = this.driverUri.getPresign();
-        if (presign == null || presign.isEmpty()) {
-            // fallback to legacy presigned_url_disabled boolean
-            this.presignDisabled = this.driverUri.presignedUrlDisabled();
-            return;
-        }
-        switch (presign.toLowerCase(Locale.US)) {
-            case "auto":
-                String host = this.httpUri.getHost();
-                if (host != null && (host.endsWith(".databend.com")
-                        || host.endsWith(".databend.cn")
-                        || host.endsWith(".tidbcloud.com"))) {
-                    this.presignDisabled = false;
-                } else {
-                    this.presignDisabled = true;
-                }
-                break;
-            case "detect":
-                try {
-                    PresignContext.newPresignContext(this, PresignContext.PresignMethod.UPLOAD, "~", ".databend-jdbc/check");
-                    this.presignDisabled = false;
-                } catch (Exception e) {
-                    logger.warning("presign off: detect failed: " + e.getMessage());
-                    this.presignDisabled = true;
-                }
-                break;
-            case "on":
-                this.presignDisabled = false;
-                break;
-            case "off":
-                this.presignDisabled = true;
-                break;
-            default:
-                logger.warning("Unknown presign value: " + presign + ", falling back to presigned_url_disabled");
-                this.presignDisabled = this.driverUri.presignedUrlDisabled();
-                break;
-        }
-        if (this.debug()) {
-            logger.info("presign disabled: " + this.presignDisabled + " (presign=" + presign + ", host=" + this.httpUri.getHost() + ")");
-        }
-    }
-
-    private static String randRouteHint() {
-        String charset = "abcdef0123456789";
-        Random rand = new Random();
-        StringBuilder sb = new StringBuilder(16);
-        for (int i = 0; i < 16; i++) {
-            sb.append(charset.charAt(rand.nextInt(charset.length())));
-        }
-        return sb.toString();
-    }
-
-    private static final char SPECIAL_CHAR = '#';
-
-    private static String uriRouteHint(String URI) {
-        // Encode the URI using Base64
-        String encodedUri = Base64.getEncoder().encodeToString(URI.getBytes());
-
-        // Append the special character
-        return encodedUri + SPECIAL_CHAR;
-    }
-
-    private static URI parseRouteHint(String routeHint) {
-        if (routeHint == null || routeHint.isEmpty()) {
-            return null;
-        }
-        try {
-            if (routeHint.charAt(routeHint.length() - 1) != SPECIAL_CHAR) {
-                return null;
-            }
-            // Remove the special character
-            String encodedUri = routeHint.substring(0, routeHint.length() - 1);
-
-            // Decode the Base64 string
-            byte[] decodedBytes = Base64.getDecoder().decode(encodedUri);
-            String decodedUri = new String(decodedBytes);
-
-            return create(decodedUri);
-        } catch (Exception e) {
-            logger.log(Level.FINE, "Failed to parse route hint: " + routeHint, e);
-            return null;
-        }
-    }
-
 
     private static void checkResultSet(int resultSetType, int resultSetConcurrency)
             throws SQLFeatureNotSupportedException {
@@ -284,26 +131,8 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return sb.toString();
     }
 
-    DatabendSession getSession() {
-        return this.session.get();
-    }
-
-    private boolean inActiveTransaction() {
-        if (this.session.get() == null) {
-            return false;
-        }
-        return this.session.get().inActiveTransaction();
-    }
-
-    private void setSession(DatabendSession session) {
-        if (session == null) {
-            return;
-        }
-        this.session.set(session);
-    }
-
-    private OkHttpClient getHttpClient() {
-        return httpClient;
+    SessionState getSession() {
+        return this.sessionHandle.getSession();
     }
 
     @Override
@@ -375,7 +204,10 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     @Override
     public void setAutoCommit(boolean b)
             throws SQLException {
-        this.session.get().setAutoCommit(b);
+        SessionState currentSession = this.sessionHandle.getSession();
+        if (currentSession != null) {
+            currentSession.setAutoCommit(b);
+        }
         autoCommit.set(b);
     }
 
@@ -393,10 +225,19 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     @Override
     public void close()
             throws SQLException {
-        for (Statement stmt : statements.keySet()) {
-            stmt.close();
+        synchronized (this) {
+            if (closed.get()) {
+                return;
+            }
+            try {
+                for (Statement stmt : new ArrayList<>(statements.keySet())) {
+                    stmt.close();
+                }
+                this.sessionHandle.close();
+            } finally {
+                closed.set(true);
+            }
         }
-        logout();
     }
 
     @Override
@@ -680,20 +521,8 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return aClass.isInstance(this);
     }
 
-    boolean presignedUrlDisabled() {
-        return this.presignDisabled;
-    }
-
     boolean copyPurge() {
         return this.driverUri.copyPurge();
-    }
-
-    String warehouse() {
-        return this.driverUri.getWarehouse();
-    }
-
-    Boolean strNullAsNull() {
-        return this.driverUri.getStrNullAsNull();
     }
 
     Boolean useVerify() {
@@ -704,10 +533,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return this.driverUri.getDebug();
     }
 
-    String tenant() {
-        return this.driverUri.getTenant();
-    }
-
     String nullDisplay() {
         return this.driverUri.nullDisplay();
     }
@@ -716,30 +541,9 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return this.driverUri.binaryFormat();
     }
 
-    PaginationOptions getPaginationOptions() {
-        PaginationOptions.Builder builder = PaginationOptions.builder();
-        builder.setWaitTimeSecs(this.driverUri.getWaitTimeSecs());
-        builder.setMaxRowsInBuffer(this.driverUri.getMaxRowsInBuffer());
-        builder.setMaxRowsPerPage(this.driverUri.getMaxRowsPerPage());
-        return builder.build();
-    }
 
     public URI getURI() {
-        return this.httpUri;
-    }
-
-    private String buildUrlWithQueryRequest(ClientSettings settings, String querySql) {
-        QueryRequest req = QueryRequest.builder()
-                .setSession(settings.getSession())
-                .setStageAttachment(settings.getStageAttachment())
-                .setPaginationOptions(settings.getPaginationOptions())
-                .setSql(querySql)
-                .build();
-        String reqString = req.toString();
-        if (reqString == null || reqString.isEmpty()) {
-            throw new IllegalArgumentException("Invalid request: " + req);
-        }
-        return reqString;
+        return this.sessionHandle.getBaseUri();
     }
 
     void pingDatabendClientV1() throws SQLException {
@@ -752,98 +556,20 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             throw new DatabendFailedToPingException(String.format("failed to ping databend server: %s", e.getMessage()));
         }
     }
-    @Override
-    public void accept(DatabendSession session) {
-        setSession(session);
+    QueryResultPages startQuery(String sql) throws SQLException {
+        return startQuery(sql, null);
     }
 
-    private DatabendClient startQueryInternal(String sql, StageAttachment attach) throws SQLException {
+    QueryResultPages startQuery(String sql, StageAttachment attach) throws SQLException {
         String queryId = UUID.randomUUID().toString().replace("-", "");
-        String candidateHost = selectHostForQuery(queryId);
-        // configure the client settings
-        ClientSettings.Builder sb = this.makeClientSettings(queryId, candidateHost);
-        if (attach != null) {
-            sb.setStageAttachment(attach);
-        }
-        ClientSettings settings = sb.build();
+        QueryResultPages queryPages;
         try {
-            return new DatabendClientV1(httpClient, sql, settings, this, lastNodeID);
+            queryPages = sessionHandle.startQuery(queryId, sql, attach);
         } catch (RuntimeException e) {
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             throw new DatabendSQLException("Failed to start query: " + message, queryId, e);
         }
-    }
-
-    private String selectHostForQuery(String queryId) {
-        String candidateHost = this.driverUri.getUri(queryId).toString();
-
-        if (!inActiveTransaction()) {
-            this.routeHint = uriRouteHint(candidateHost);
-        }
-
-        if (this.routeHint != null && !this.routeHint.isEmpty()) {
-            URI uri = parseRouteHint(this.routeHint);
-            if (uri != null) {
-                candidateHost = uri.toString();
-            }
-        }
-
-        return candidateHost;
-    }
-
-    DatabendClient startQuery(String sql) throws SQLException {
-        return startQuery(sql, null);
-    }
-
-    DatabendClient startQuery(String sql, StageAttachment attach) throws SQLException {
-        DatabendClient client = startQueryInternal(sql, attach);
-        Long timeout = client.getResults().getResultTimeoutSecs();
-        if (timeout != null && timeout != 0) {
-            heartbeatManager.onStartQuery(timeout);
-        }
-        return client;
-    }
-
-    private ClientSettings.Builder makeClientSettings(String queryID, String host) {
-        PaginationOptions options = getPaginationOptions();
-        Map<String, String> additionalHeaders = setAdditionalHeaders();
-        additionalHeaders.put(X_Databend_Query_ID, queryID);
-        return new Builder().
-                setSession(this.session.get()).
-                setHost(host).
-                setQueryTimeoutSecs(this.driverUri.getQueryTimeout()).
-                setConnectionTimeout(this.driverUri.getConnectionTimeout()).
-                setSocketTimeout(this.driverUri.getSocketTimeout()).
-                setPaginationOptions(options).
-                setAdditionalHeaders(additionalHeaders);
-    }
-
-    private Map<String, String> setAdditionalHeaders() {
-        Map<String, String> additionalHeaders = new HashMap<>();
-
-        DatabendSession session = this.getSession();
-        String warehouse = null;
-        if (session != null ) {
-            Map<String, String> settings = session.getSettings();
-            if (settings != null) {
-                warehouse = settings.get("warehouse");
-            }
-        }
-        if (warehouse == null && !this.driverUri.getWarehouse().isEmpty()) {
-            warehouse = this.driverUri.getWarehouse();
-        }
-        if (warehouse!=null) {
-            additionalHeaders.put(DatabendWarehouseHeader, warehouse);
-        }
-
-        if (!this.driverUri.getTenant().isEmpty()) {
-            additionalHeaders.put(DatabendTenantHeader, this.driverUri.getTenant());
-        }
-        if (!this.routeHint.isEmpty()) {
-            additionalHeaders.put(X_DATABEND_ROUTE_HINT, this.routeHint);
-        }
-        additionalHeaders.put("User-Agent", USER_AGENT_VALUE);
-        return additionalHeaders;
+        return queryPages;
     }
 
     @Override
@@ -875,74 +601,13 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     @Override
     public void uploadStream(String stageName, String destPrefix, InputStream inputStream, String destFileName, long fileSize, boolean compressData)
             throws SQLException {
-        /*
-         remove / in the end of stage name
-         remove / in the beginning of destPrefix and end of destPrefix
-         */
-        String s;
-        if (stageName == null) {
-            s = "~";
-        } else {
-            s = stageName.replaceAll("/$", "");
-        }
-        String p = destPrefix.replaceAll("^/", "").replaceAll("/$", "");
-        String dest = p + "/" + destFileName;
-        try {
-            InputStream dataStream = inputStream;
-            if (compressData) {
-                // Wrap the input stream with a GZIPOutputStream for compression
-                ByteArrayOutputStream byteArrayOutputStream = new ByteArrayOutputStream();
-                try (GZIPOutputStream gzipOutputStream = new GZIPOutputStream(byteArrayOutputStream)) {
-                    byte[] buffer = new byte[1024];
-                    int len;
-                    while ((len = inputStream.read(buffer)) != -1) {
-                        gzipOutputStream.write(buffer, 0, len);
-                    }
-                }
-                dataStream = new ByteArrayInputStream(byteArrayOutputStream.toByteArray());
-                // Update the file size to the compressed size
-                fileSize = byteArrayOutputStream.size();
-            }
-            if (this.presignDisabled) {
-                DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString(), this.driverUri.getWarehouse());
-                cli.presignUpload(null, dataStream, s, p + "/", destFileName, fileSize, true);
-            } else {
-//                logger.log(Level.FINE, "presign to @" + s + "/" + dest);
-                long presignStartTime = System.nanoTime();
-                PresignContext ctx = PresignContext.newPresignContext(this, PresignContext.PresignMethod.UPLOAD, s, dest);
-                long presignEndTime = System.nanoTime();
-                if (this.debug()) {
-                    logger.info("presign cost time: " + (presignEndTime - presignStartTime) / 1000000.0 + "ms");
-                }
-                Headers h = ctx.getHeaders();
-                String presignUrl = ctx.getUrl();
-                DatabendPresignClient cli = new DatabendPresignClientV1(new OkHttpClient(), this.httpUri.toString());
-                long uploadStartTime = System.nanoTime();
-                cli.presignUpload(null, dataStream, h, presignUrl, fileSize, true);
-                long uploadEndTime = System.nanoTime();
-                if (this.debug()) {
-                    logger.info("upload cost time: " + (uploadEndTime - uploadStartTime) / 1000000.0 + "ms");
-                }
-            }
-        } catch (RuntimeException | IOException e) {
-            logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
-            throw new SQLException(e);
-        }
+        this.sessionHandle.uploadStream(stageName, destPrefix, inputStream, destFileName, fileSize, compressData);
     }
 
     @Override
     public InputStream downloadStream(String stageName, String path)
             throws SQLException {
-        String s = stageName.replaceAll("/$", "");
-        DatabendPresignClient cli = new DatabendPresignClientV1(httpClient, this.httpUri.toString());
-        try {
-            PresignContext ctx = PresignContext.newPresignContext(this, PresignContext.PresignMethod.DOWNLOAD, s, path);
-            Headers h = ctx.getHeaders();
-            String presignUrl = ctx.getUrl();
-            return cli.presignDownloadStream(h, presignUrl);
-        } catch (RuntimeException e) {
-            throw new SQLException(e);
-        }
+        return this.sessionHandle.downloadStream(stageName, path);
     }
 
     @Override
@@ -967,8 +632,8 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
 
     @Override
     public int loadStreamToTable(String sql, InputStream inputStream, long fileSize,  LoadMethod loadMethod) throws SQLException {
-        if (!this.serverCapability.streamingLoad()) {
-            throw new SQLException("please upgrade databend-query to >1.2.781 to use loadStreamToTable, current version=" + this.serverVersion);
+        if (!this.sessionHandle.supportsStreamingLoad()) {
+            throw new SQLException("please upgrade databend-query to >1.2.781 to use loadStreamToTable, current version=" + this.sessionHandle.getServerVersion());
         }
 
         if (!sql.contains("@_databend_load")) {
@@ -976,7 +641,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         }
 
         if (loadMethod.equals(LoadMethod.STREAMING)) {
-            return streamingLoad(sql, inputStream, fileSize);
+            return this.sessionHandle.streamingLoad(sql, inputStream, fileSize);
         } else {
             Instant now = Instant.now();
             long nanoTimestamp = now.getEpochSecond() * 1_000_000_000 + now.getNano();
@@ -993,238 +658,18 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         }
     }
 
-    MultipartBody buildMultiPart(InputStream inputStream, long fileSize) {
-        RequestBody requestBody = new RequestBody() {
-            @Override
-            public MediaType contentType() {
-                return MediaType.parse("application/octet-stream");
-            }
-
-            @Override
-            public long contentLength() {
-                return fileSize;
-            }
-
-            @Override
-            public void writeTo(BufferedSink sink) throws IOException {
-                try (Source source = Okio.source(inputStream)) {
-                    sink.writeAll(source);
-                }
-            }
-        };
-        return new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart(
-                "upload",
-                "java.io.InputStream",
-                requestBody
-        ).build();
-    }
-
-    int streamingLoad(String sql, InputStream inputStream, long fileSize) throws SQLException {
-        RetryPolicy retryPolicy = new RetryPolicy(true, true);
-
-        try {
-            HashMap<String, String> headers = new HashMap<>();
-            DatabendSession session = this.session.get();
-            if (session != null) {
-                String sessionString = objectMapper.writeValueAsString(session);
-                headers.put(DatabendQueryContextHeader, sessionString);
-            }
-            headers.put(DatabendSQLHeader, sql);
-            headers.put("Accept", "application/json");
-            RequestBody requestBody = buildMultiPart(inputStream, fileSize);
-            RetryPolicy.ResponseWithBody response = requestHelper(STREAMING_LOAD_PATH, "put", requestBody, headers, retryPolicy);
-            JsonNode json = objectMapper.readTree(response.body);
-            JsonNode error = json.get("error");
-            if (error != null) {
-                throw new SQLException("streaming load fail: code = " + error.get("code").asText() + ", message=" +  error.get("message").asText());
-            }
-            String base64 = response.response.headers().get(DatabendQueryContextHeader);
-            if (base64 != null) {
-                byte[] bytes = Base64.getUrlDecoder().decode(base64);
-                String str = new String(bytes, StandardCharsets.UTF_8);
-                try {
-                    session = SESSION_JSON_CODEC.fromJson(str);
-                }   catch(Exception e) {
-                    throw new RuntimeException(e);
-                }
-                if (session != null) {
-                    this.session.set(session);
-                }
-            }
-            JsonNode stats = json.get("stats");
-            if (stats != null) {
-                int rows = stats.get("rows").asInt(-1);
-                if (rows != -1) {
-                    return  rows;
-                }
-            }
-            throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.body);
-        } catch(JsonProcessingException e) {
-            throw new RuntimeException(e);
-        }
-    }
-
-    void logout() throws SQLException {
-        DatabendSession session = this.session.get();
-        if (session == null || !session.getNeedKeepAlive()) {
-            return;
-        }
-        RetryPolicy retryPolicy = new RetryPolicy(false, false);
-        RequestBody body = RequestBody.create(MEDIA_TYPE_JSON, "{}");
-        requestHelper(LOGOUT_PATH, "post", body, new HashMap<>(), retryPolicy);
-    }
-
-
-    HttpUrl getUrl(String path) {
-        String host = this.driverUri.getUri().toString();
-        HttpUrl url = HttpUrl.get(host);
-        return url.newBuilder().encodedPath(path).build();
-    }
-
-    RetryPolicy.ResponseWithBody requestHelper(String path, String method, RequestBody body, Map<String, String> headers, RetryPolicy retryPolicy) throws SQLException {
-        DatabendSession session = this.session.get();
-        HttpUrl url = getUrl(path);
-
-        Request.Builder builder = new Request.Builder().url(url);
-        this.setAdditionalHeaders().forEach(builder::addHeader);
-        if (headers != null) {
-            headers.forEach(builder::addHeader);
-        }
-        if (session.getNeedSticky()) {
-            builder.addHeader(ClientSettings.X_DATABEND_ROUTE_HINT, url.host());
-            String lastNodeID = this.lastNodeID.get();
-            if (lastNodeID != null) {
-                builder.addHeader(ClientSettings.X_DATABEND_STICKY_NODE, lastNodeID);
+    private List<QueryLiveness> queryLivenesses() {
+        ArrayList<QueryLiveness> livenesses = new ArrayList<>();
+        for (DatabendStatement stmt : statements.keySet()) {
+            QueryLiveness queryLiveness = stmt.queryLiveness();
+            if (queryLiveness != null) {
+                livenesses.add(queryLiveness);
             }
         }
-        if ("post".equals(method)) {
-            builder = builder.post(body);
-        } else if ("put".equals(method)) {
-            builder = builder.put(body);
-        } else {
-            builder = builder.get();
-        }
-        Request request = builder.build();
-        return retryPolicy.sendRequestWithRetry(this.httpClient, request);
-    }
-
-    class HeartbeatManager implements Runnable {
-        private ScheduledFuture<?> heartbeatFuture;
-        private long heartbeatIntervalMillis = 30000;
-        private long lastHeartbeatStartTimeMillis = 0;
-        private ScheduledExecutorService getScheduler() {
-            if (heartbeatScheduler == null) {
-                synchronized (HeartbeatManager.class) {
-                    if (heartbeatScheduler == null) {
-                        // create daemon thread so that it will not block JVM from exiting.
-                        heartbeatScheduler =
-                                Executors.newScheduledThreadPool(
-                                        1,
-                                        runnable -> {
-                                            Thread thread = Executors.defaultThreadFactory().newThread(runnable);
-                                            thread.setName("heartbeat (" + thread.getId() + ")");
-                                            thread.setDaemon(true);
-                                            return thread;
-                                        });
-                    }
-                }
-            }
-            return (ScheduledExecutorService) heartbeatScheduler;
-        }
-
-        private void scheduleHeartbeat() {
-            long delay =  Math.max(heartbeatIntervalMillis - (System.currentTimeMillis() - lastHeartbeatStartTimeMillis), 0);
-            heartbeatFuture = getScheduler().schedule(this, delay, MILLISECONDS);
-        }
-
-        private ArrayList<QueryLiveness> queryLiveness() {
-            ArrayList<QueryLiveness> arr = new ArrayList<>();
-            for (DatabendStatement stmt : statements.keySet()) {
-                QueryLiveness ql = stmt.queryLiveness();
-                if (ql != null && !ql.stopped && ql.serverSupportHeartBeat) {
-                    arr.add(ql);
-                }
-            }
-            return arr;
-        }
-
-        private void doHeartbeat(ArrayList<QueryLiveness> queryLivenesses ) {
-            long now = System.currentTimeMillis();
-            lastHeartbeatStartTimeMillis = now;
-            Map<String, ArrayList<String>> nodeToQueryID = new HashMap<>();
-            Map<String, QueryLiveness> queries = new HashMap<>();
-
-            for (QueryLiveness ql: queryLivenesses) {
-                if (now - ql.lastRequestTime.get() >= ql.resultTimeoutSecs * 1000 / 2) {
-                    nodeToQueryID.computeIfAbsent(ql.nodeID, k -> new ArrayList<>()).add(ql.queryID);
-                    queries.put(ql.queryID, ql);
-                }
-            }
-            if (nodeToQueryID.isEmpty()) {
-                return;
-            }
-
-            Map<String, Object> map = new HashMap<>();
-            map.put("node_to_queries", nodeToQueryID);
-
-            try {
-                String body = objectMapper.writeValueAsString(map);
-                RequestBody requestBody = RequestBody.create(MEDIA_TYPE_JSON, body);
-                RetryPolicy retryPolicy = new RetryPolicy(true, false);
-                body = requestHelper(HEARTBEAT_PATH, "post", requestBody, null, retryPolicy).body;
-                JsonNode toRemove = objectMapper.readTree(body).get("queries_to_remove");
-                if (toRemove.isArray()) {
-                    for (JsonNode element : toRemove) {
-                        String queryId = element.asText();
-                        queries.get(queryId).stopped = true;
-                    }
-                }
-            } catch (JsonProcessingException e) {
-                logger.warning("fail to encode heartbeat body: " + e);
-            } catch (SQLException e) {
-                logger.warning("fail to send heartbeat: " + e);
-            } catch (Exception e) {
-                logger.warning("fail to send heartbeat: " + e);
-                throw new RuntimeException(e);
-            }
-        }
-
-        public void onStartQuery(Long timeoutSecs) {
-            synchronized (DatabendConnection.this) {
-                if (timeoutSecs * 1000 / 4 < heartbeatIntervalMillis) {
-                    heartbeatIntervalMillis = timeoutSecs * 1000 / 4;
-                    if (heartbeatFuture != null) {
-                        heartbeatFuture.cancel(false);
-                        heartbeatFuture = null;
-                    }
-                }
-                if (heartbeatFuture == null) {
-                    scheduleHeartbeat();
-                }
-            }
-        }
-
-        @Override
-        public void run() {
-            ArrayList<QueryLiveness> arr = queryLiveness();
-            doHeartbeat(arr);
-
-            heartbeatFuture = null;
-            synchronized (DatabendConnection.this) {
-                if (arr.size() > 0) {
-                    if (heartbeatFuture == null) {
-                        scheduleHeartbeat();
-                    }
-                } else {
-                    heartbeatFuture = null;
-                }
-            }
-        }
+        return livenesses;
     }
 
     boolean isHeartbeatStopped() {
-        return heartbeatManager.heartbeatFuture == null;
+        return this.sessionHandle.isHeartbeatStopped();
     }
 }

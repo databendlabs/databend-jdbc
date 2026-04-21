@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 
+import com.databend.jdbc.internal.binding.StatementUtil;
 import org.testng.annotations.Test;
 
 import java.util.Map;

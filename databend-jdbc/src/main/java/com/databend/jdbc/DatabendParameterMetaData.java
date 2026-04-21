@@ -13,7 +13,7 @@ class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData
     protected final List<DatabendColumnInfo> params;
     protected final JdbcTypeMapping mapper;
 
-    protected DatabendParameterMetaData(List<DatabendColumnInfo> params, JdbcTypeMapping mapper) {
+    public DatabendParameterMetaData(List<DatabendColumnInfo> params, JdbcTypeMapping mapper) {
         this.params = requireNonNull(params, "connection is null");
         this.mapper = mapper;
     }

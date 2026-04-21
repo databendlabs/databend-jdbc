@@ -1,7 +1,5 @@
 package com.databend.jdbc;
 
-import com.databend.jdbc.util.GlobalCookieJar;
-import okhttp3.Cookie;
 import okhttp3.OkHttpClient;
 
 import java.io.Closeable;
@@ -13,7 +11,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
-import static com.databend.client.OkHttpUtils.userAgentInterceptor;
+import static com.databend.jdbc.internal.http.OkHttpUtils.userAgentInterceptor;
 import static com.databend.jdbc.DriverInfo.*;
 
 class NonRegisteringDatabendDriver implements Driver, Closeable {
@@ -56,9 +54,6 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
         }
 
         DatabendDriverUri uri = DatabendDriverUri.create(url, info);
-
-        GlobalCookieJar cookieJar = new GlobalCookieJar();
-        cookieJar.add(new Cookie.Builder().name("cookie_enabled").value("true").domain("not_used").build());
 
         OkHttpClient.Builder builder = httpClient.newBuilder();
         uri.setupClient(builder);
@@ -108,6 +103,5 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
         // TODO: support java.util.Logging
         throw new SQLFeatureNotSupportedException();
     }
-
 
 }

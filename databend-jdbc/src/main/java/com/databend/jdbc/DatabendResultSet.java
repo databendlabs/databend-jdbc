@@ -1,12 +1,14 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
-import com.databend.client.QueryResults;
-import com.databend.client.QueryRowField;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.AbstractIterator;
 import com.google.common.collect.Streams;
 import com.google.common.util.concurrent.ThreadFactoryBuilder;
+import com.databend.jdbc.internal.query.QueryResultPages;
+import com.databend.jdbc.internal.query.QueryResults;
+import com.databend.jdbc.internal.query.QueryRowField;
+import com.databend.jdbc.internal.session.Capability;
+import com.databend.jdbc.internal.session.QueryLiveness;
 
 import javax.annotation.concurrent.GuardedBy;
 import java.sql.SQLException;
@@ -30,7 +32,7 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DatabendResultSet extends AbstractDatabendResultSet {
     private final Statement statement;
-    private final DatabendClient client;
+    private final QueryResultPages queryPages;
     @GuardedBy("this")
     private boolean closed;
     @GuardedBy("this")
@@ -38,23 +40,23 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
     private final QueryLiveness liveness;
 
-    private DatabendResultSet(Statement statement, DatabendClient client, List<QueryRowField> schema, Map<String, String> resultSetting, long maxRows, QueryLiveness liveness) {
+    private DatabendResultSet(Statement statement, QueryResultPages queryPages, List<QueryRowField> schema, Map<String, String> resultSetting, long maxRows, QueryLiveness liveness) {
         super(Optional.of(requireNonNull(statement, "statement is null")), schema,
-                new AsyncIterator<>(flatten(new ResultsPageIterator(client, liveness), maxRows), client), resultSetting, client.getResults().getQueryId());
+                new AsyncIterator<>(flatten(new ResultsPageIterator(queryPages, liveness), maxRows), queryPages), resultSetting, queryPages.getResults().getQueryId());
         this.statement = statement;
-        this.client = client;
+        this.queryPages = queryPages;
         this.liveness = liveness;
     }
 
-    static DatabendResultSet create(Statement statement, DatabendClient client, long maxRows, Capability capability)
+    static DatabendResultSet create(Statement statement, QueryResultPages queryPages, long maxRows, Capability capability)
             throws SQLException {
-        requireNonNull(client, "client is null");
-        List<QueryRowField> s = client.getResults().getSchema();
-        Map<String, String> resultSettings = client.getResults().getSettings();
+        requireNonNull(queryPages, "queryPages is null");
+        List<QueryRowField> s = queryPages.getResults().getSchema();
+        Map<String, String> resultSettings = queryPages.getResults().getSettings();
         // Fallback: if top-level settings has no timezone, try session.settings
         if (resultSettings == null || !resultSettings.containsKey("timezone")) {
-            if (client.getResults().getSession() != null && client.getResults().getSession().getSettings() != null) {
-                Map<String, String> sessionSettings = client.getResults().getSession().getSettings();
+            if (queryPages.getResults().getSession() != null && queryPages.getResults().getSession().getSettings() != null) {
+                Map<String, String> sessionSettings = queryPages.getResults().getSession().getSettings();
                 if (sessionSettings.containsKey("timezone")) {
                     if (resultSettings == null) {
                         resultSettings = sessionSettings;
@@ -66,9 +68,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             }
         }
         AtomicLong lastRequestTime = new AtomicLong(System.currentTimeMillis());
-        QueryResults r = client.getResults();
-        QueryLiveness liveness = new QueryLiveness(r.getQueryId(), client.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), capability.heartBeat());
-        return new DatabendResultSet(statement, client, s, resultSettings, maxRows, liveness);
+        QueryResults r = queryPages.getResults();
+        QueryLiveness liveness = new QueryLiveness(r.getQueryId(), queryPages.getNodeID(), lastRequestTime,  r.getResultTimeoutSecs(), capability.heartBeat());
+        return new DatabendResultSet(statement, queryPages, s, resultSettings, maxRows, liveness);
     }
 
     private static <T> Iterator<T> flatten(Iterator<Iterable<T>> iterator, long maxRows) {
@@ -116,7 +118,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         }
 
         ((AsyncIterator<?>) results).cancel();
-        client.close();
+        queryPages.close();
         if (closeStatement) {
             statement.close();
         }
@@ -132,19 +134,19 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
         private static final int MAX_QUEUED_ROWS = 50_000;
         private static final ExecutorService executorService = newCachedThreadPool(
                 new ThreadFactoryBuilder().setNameFormat("Databend JDBC worker-%s").setDaemon(true).build());
-        private final DatabendClient client;
+        private final QueryResultPages queryPages;
         private final BlockingQueue<T> rowQueue;
         private final Semaphore semaphore = new Semaphore(0);
         private final Future<?> future;
 
-        public AsyncIterator(Iterator<T> dataIterator, DatabendClient client) {
-            this(dataIterator, client, Optional.empty());
+        public AsyncIterator(Iterator<T> dataIterator, QueryResultPages queryPages) {
+            this(dataIterator, queryPages, Optional.empty());
         }
 
         @VisibleForTesting
-        AsyncIterator(Iterator<T> dataIterator, DatabendClient client, Optional<BlockingQueue<T>> queue) {
+        AsyncIterator(Iterator<T> dataIterator, QueryResultPages queryPages, Optional<BlockingQueue<T>> queue) {
             requireNonNull(dataIterator, "dataIterator is null");
-            this.client = client;
+            this.queryPages = queryPages;
             this.rowQueue = queue.orElseGet(() -> new ArrayBlockingQueue<>(MAX_QUEUED_ROWS));
             this.future = executorService.submit(() -> {
                 try {
@@ -153,7 +155,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                         semaphore.release();
                     }
                 } catch (InterruptedException e) {
-                    client.close();
+                    queryPages.close();
                     rowQueue.clear();
                     throw new RuntimeException(new SQLException("ResultSet thread was interrupted", e));
                 } finally {
@@ -164,10 +166,10 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
 
         public void cancel() {
             future.cancel(true);
-            // When thread interruption is mis-handled by underlying implementation of `client`, the thread which
+            // When thread interruption is mis-handled by underlying implementation of `queryPages`, the thread which
             // is working for `future` may be blocked by `rowQueue.put` (`rowQueue` is full) and will never finish
-            // its work. It is necessary to close `client` and drain `rowQueue` to avoid such leaks.
-            client.close();
+            // its work. It is necessary to close `queryPages` and drain `rowQueue` to avoid such leaks.
+            queryPages.close();
             rowQueue.clear();
         }
 
@@ -200,21 +202,21 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
     }
 
     private static class ResultsPageIterator extends AbstractIterator<Iterable<List<Object>>> {
-        private final DatabendClient client;
+        private final QueryResultPages queryPages;
         private final QueryLiveness liveness;
 
-        private ResultsPageIterator(DatabendClient client, QueryLiveness liveness) {
-            this.client = client;
+        private ResultsPageIterator(QueryResultPages queryPages, QueryLiveness liveness) {
+            this.queryPages = queryPages;
             this.liveness = liveness;
         }
 
         // AsyncIterator will call this and put rows to queue with MAX_QUEUED_ROWS=5000
         @Override
         protected Iterable<List<Object>> computeNext() {
-            while (client.hasNext()) {
-                QueryResults results = client.getResults();
+            while (queryPages.hasNext()) {
+                QueryResults results = queryPages.getResults();
                 List<List<Object>> rows = results.getData();
-                client.advance();
+                queryPages.advance();
                 liveness.lastRequestTime.set(System.currentTimeMillis());
                 if (rows != null) {
                     return rows;
@@ -222,9 +224,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             }
             liveness.stopped = true;
             // next uri is null, no more data
-            QueryResults results = client.getResults();
+            QueryResults results = queryPages.getResults();
             if (results.getError() != null) {
-                throw new RuntimeException(resultsException(results, client.getQuery()));
+                throw new RuntimeException(resultsException(results, queryPages.getQuery()));
             }
             return endOfData();
         }

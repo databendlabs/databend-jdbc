@@ -3,8 +3,6 @@ package com.databend.jdbc;
 import com.databend.jdbc.log.DatabendLogger;
 import com.databend.jdbc.log.JDKLogger;
 import com.databend.jdbc.log.SLF4JLogger;
-import lombok.CustomLog;
-import lombok.experimental.UtilityClass;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;
@@ -12,11 +10,12 @@ import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
-@UtilityClass
-@CustomLog
 public class LoggerUtil {
+    private static final Logger log = Logger.getLogger(LoggerUtil.class.getName());
 
     private static Boolean slf4jAvailable;
 
@@ -44,7 +43,7 @@ public class LoggerUtil {
      * @param is the {@link InputStream}
      * @return a copy of the {@link InputStream} provided
      */
-    public InputStream logInputStream(InputStream is) {
+    public static InputStream logInputStream(InputStream is) {
         ByteArrayOutputStream baos = new ByteArrayOutputStream();
         try {
             byte[] buffer = new byte[1024];
@@ -61,7 +60,7 @@ public class LoggerUtil {
             log.info("======================================");
             return new ByteArrayInputStream(baos.toByteArray());
         } catch (Exception ex) {
-            log.warn("Could not log the stream", ex);
+            log.log(Level.WARNING, "Could not log the stream", ex);
         }
         return new ByteArrayInputStream(baos.toByteArray());
     }

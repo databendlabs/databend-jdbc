@@ -28,9 +28,9 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.databend.client.ClientSettings.DatabendWarehouseHeader;
-import static com.databend.client.ClientSettings.X_DATABEND_RELATIVE_PATH;
-import static com.databend.client.ClientSettings.X_DATABEND_STAGE_NAME;
+import static com.databend.jdbc.internal.session.QueryRequestConfig.DATABEND_WAREHOUSE_HEADER;
+import static com.databend.jdbc.internal.session.QueryRequestConfig.X_DATABEND_RELATIVE_PATH;
+import static com.databend.jdbc.internal.session.QueryRequestConfig.X_DATABEND_STAGE_NAME;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -112,7 +112,7 @@ public class DatabendPresignClientV1
                 .add(X_DATABEND_STAGE_NAME, stageName)
                 .add(X_DATABEND_RELATIVE_PATH, relativePath);
         if (this.warehouse != null && !this.warehouse.isEmpty()) {
-            headersBuilder.add(DatabendWarehouseHeader, this.warehouse);
+            headersBuilder.add(DATABEND_WAREHOUSE_HEADER, this.warehouse);
         }
         Headers headers = headersBuilder.build();
 

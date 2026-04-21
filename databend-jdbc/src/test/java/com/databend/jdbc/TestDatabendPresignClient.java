@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.PaginationOptions;
+import com.databend.jdbc.internal.session.PaginationOptions;
 import com.databend.jdbc.cloud.DatabendPresignClient;
 import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import okhttp3.OkHttpClient;

@@ -1,8 +1,8 @@
 package com.databend.jdbc;
 
-import com.databend.client.QueryRowField;
-import com.databend.client.data.DatabendDataType;
-import com.databend.client.data.DatabendRawType;
+import com.databend.jdbc.internal.data.DatabendDataType;
+import com.databend.jdbc.internal.data.DatabendRawType;
+import com.databend.jdbc.internal.query.QueryRowField;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Joiner;
 import org.apache.commons.lang3.StringUtils;

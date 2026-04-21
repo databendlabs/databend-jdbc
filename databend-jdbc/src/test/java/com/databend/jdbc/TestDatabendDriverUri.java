@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.PaginationOptions;
+import com.databend.jdbc.internal.session.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 

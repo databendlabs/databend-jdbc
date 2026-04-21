@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.StageAttachment;
+import com.databend.jdbc.internal.query.StageAttachment;
 import org.testng.Assert;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.BeforeSuite;

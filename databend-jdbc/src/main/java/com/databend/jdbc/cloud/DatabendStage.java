@@ -2,6 +2,14 @@ package com.databend.jdbc.cloud;
 
 import org.apache.commons.lang3.StringUtils;
 
+/**
+ * <strong>Deprecated.</strong> This model only exists for the deprecated
+ * {@code FileTransferAPI.copyIntoTable(...)} flow through {@link DatabendCopyParams}.
+ * <p>
+ * Deprecated since version 4.0.1. Scheduled for removal in a future release.
+ * Please execute {@code COPY INTO ...} SQL directly instead.
+ */
+@Deprecated
 public class DatabendStage {
     private static final String defaultStageName = "~";
     private final String stageName;

@@ -1,7 +1,7 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendSession;
-import com.databend.client.PaginationOptions;
+import com.databend.jdbc.internal.session.PaginationOptions;
+import com.databend.jdbc.internal.session.SessionState;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -299,7 +299,7 @@ public class TestBasicDriver {
         try (Connection connection = Utils.createConnection("test_basic_driver")) {
             connection.createStatement().execute("set max_threads=1");
             connection.createStatement().execute("use test_basic_driver_2");
-            DatabendSession session = (DatabendSession)  Compatibility.invokeMethodNoArg(connection, "getSession");
+            SessionState session = (SessionState)  Compatibility.invokeMethodNoArg(connection, "getSession");
             Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
             Assert.assertEquals(session.getSettings().get("max_threads"), "1");
         }
