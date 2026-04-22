@@ -1,6 +1,7 @@
 package com.databend.jdbc;
 
 import com.databend.jdbc.internal.session.PaginationOptions;
+import com.databend.jdbc.internal.session.SessionHandleConfig;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -28,6 +29,13 @@ public class TestDatabendDriverUri {
                 msg.startsWith(prefix),
                 "error message not start with " + prefix + ":" + msg
         );
+    }
+
+    private static void assertPaginationConfig(SessionHandleConfig config, int waitTimeSecs, int maxRowsInBuffer,
+                                               int maxRowsPerPage) {
+        Assert.assertEquals(config.getWaitTimeSecs().intValue(), waitTimeSecs);
+        Assert.assertEquals(config.getMaxRowsInBuffer().intValue(), maxRowsInBuffer);
+        Assert.assertEquals(config.getMaxRowsPerPage().intValue(), maxRowsPerPage);
     }
 
     @Test(groups = {"UNIT"})
@@ -154,6 +162,8 @@ public class TestDatabendDriverUri {
         Assert.assertEquals("\\N", uri.nullDisplay());
         Assert.assertEquals("base64", uri.binaryFormat());
         Assert.assertEquals("enable", uri.getSslmode());
+        assertPaginationConfig(uri.toSessionHandleConfig(), PaginationOptions.getDefaultWaitTimeSec(),
+                PaginationOptions.getDefaultMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsPerPage());
     }
 
     @Test(groups = {"UNIT"})
@@ -178,6 +188,7 @@ public class TestDatabendDriverUri {
         Assert.assertTrue(uri.presignedUrlDisabled().booleanValue());
         Assert.assertTrue(uri.copyPurge().booleanValue());
         Assert.assertEquals("", uri.binaryFormat().toString());
+        assertPaginationConfig(uri.toSessionHandleConfig(), 1, 10, 5);
     }
 
     @Test(groups = {"UNIT"})

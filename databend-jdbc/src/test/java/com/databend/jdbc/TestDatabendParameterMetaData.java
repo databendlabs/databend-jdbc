@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+//import com.databend.jdbc.internal.data.DatabendDataType;
 import com.databend.jdbc.internal.data.DatabendDataType;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
@@ -46,7 +47,9 @@ public class TestDatabendParameterMetaData {
                 Assert.assertEquals(ps.getParameterMetaData().getPrecision(3), 1024 * 1024 * 1024);
                 Assert.assertEquals(ps.getParameterMetaData().getScale(3), 0);
                 Assert.assertEquals(ps.getParameterMetaData().getParameterClassName(3), String.class.getName());
-                Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(3), DatabendDataType.STRING.name().toLowerCase());
+                if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                    Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(3), DatabendDataType.STRING.name().toLowerCase());
+                }
             }
         }
 
@@ -58,7 +61,9 @@ public class TestDatabendParameterMetaData {
             Assert.assertEquals(ps.getParameterMetaData().getPrecision(2), 10);
             Assert.assertEquals(ps.getParameterMetaData().getScale(2), 0);
             Assert.assertEquals(ps.getParameterMetaData().getParameterClassName(2), Integer.class.getName());
-            Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.INT_32.getDisplayName().toLowerCase());
+            if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.INT_32.getDisplayName().toLowerCase());
+            }
         }
 
         try (Connection conn = Utils.createConnection();
@@ -69,7 +74,9 @@ public class TestDatabendParameterMetaData {
             Assert.assertEquals(ps.getParameterMetaData().getPrecision(2), 0);
             Assert.assertEquals(ps.getParameterMetaData().getScale(2), 0);
             Assert.assertEquals(ps.getParameterMetaData().getParameterClassName(2), String.class.getName());
-            Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.VARIANT.getDisplayName().toLowerCase());
+            if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                Assert.assertEquals(ps.getParameterMetaData().getParameterTypeName(2), DatabendDataType.VARIANT.getDisplayName().toLowerCase());
+            }
         }
     }
 }

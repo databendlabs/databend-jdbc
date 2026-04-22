@@ -131,9 +131,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return sb.toString();
     }
 
-    SessionState getSession() {
-        return this.sessionHandle.getSession();
-    }
 
     @Override
     public Statement createStatement()
@@ -540,7 +537,6 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     String binaryFormat() {
         return this.driverUri.binaryFormat();
     }
-
 
     public URI getURI() {
         return this.sessionHandle.getBaseUri();
