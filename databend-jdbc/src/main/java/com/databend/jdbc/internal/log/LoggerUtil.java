@@ -1,8 +1,4 @@
-package com.databend.jdbc;
-
-import com.databend.jdbc.log.DatabendLogger;
-import com.databend.jdbc.log.JDKLogger;
-import com.databend.jdbc.log.SLF4JLogger;
+package com.databend.jdbc.internal.log;
 
 import java.io.BufferedReader;
 import java.io.ByteArrayInputStream;

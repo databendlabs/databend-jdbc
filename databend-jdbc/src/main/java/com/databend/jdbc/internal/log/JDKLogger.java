@@ -1,4 +1,4 @@
-package com.databend.jdbc.log;
+package com.databend.jdbc.internal.log;
 
 import java.util.logging.Level;
 
