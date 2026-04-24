@@ -19,8 +19,10 @@ import okhttp3.HttpUrl;
 import okhttp3.MediaType;
 import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
 import okhttp3.Request;
 import okhttp3.RequestBody;
+import okhttp3.Response;
 import okio.BufferedSink;
 import okio.Okio;
 import okio.Source;
@@ -29,9 +31,12 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.sql.SQLException;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.List;
@@ -58,11 +63,14 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private static final ObjectMapper objectMapper = new ObjectMapper();
     private static final JsonCodec<SessionState> SESSION_JSON_CODEC = jsonCodec(SessionState.class);
     private static final String STREAMING_LOAD_PATH = "/v1/streaming_load";
+    private static final String UPLOAD_TO_STAGE_PATH = "/v1/upload_to_stage";
     private static final String LOGIN_PATH = "/v1/session/login";
     private static final String LOGOUT_PATH = "/v1/session/logout";
     private static final String HEARTBEAT_PATH = "/v1/session/heartbeat";
     private static final Semver STREAMING_LOAD_MIN_VERSION = new Semver("1.2.781");
     private static final Semver HEARTBEAT_MIN_VERSION = new Semver("1.2.709");
+    private static final int MAX_STAGE_UPLOAD_RETRY_ATTEMPTS = 20;
+    private static final Duration STAGE_UPLOAD_RETRY_TIMEOUT = Duration.ofMinutes(5);
 
     private static volatile ExecutorService heartbeatScheduler = null;
 
@@ -268,9 +276,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             }
 
             if (this.presignDisabled) {
-                DatabendPresignClient client =
-                        new DatabendPresignClientV1(httpClient, this.config.getBaseUri().toString(), this.config.getWarehouse());
-                client.presignUpload(null, dataStream, normalizedStage, normalizedPrefix + "/", destFileName, fileSize, true);
+                uploadToStage(normalizedStage, normalizedPrefix + "/", destFileName, dataStream, fileSize);
                 return;
             }
 
@@ -282,6 +288,29 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
             throw new SQLException(e);
         }
+    }
+
+    private void uploadToStage(
+            String stageName,
+            String relativePath,
+            String fileName,
+            InputStream inputStream,
+            long fileSize) throws IOException {
+        RequestBody requestBody = new MultipartBody.Builder()
+                .setType(MultipartBody.FORM)
+                .addFormDataPart("upload", fileName, new StageUploadRequestBody(inputStream, fileSize))
+                .build();
+
+        Request.Builder builder = new Request.Builder()
+                .url(buildUrl(UPLOAD_TO_STAGE_PATH))
+                .addHeader(QueryRequestConfig.X_DATABEND_STAGE_NAME, stageName)
+                .addHeader(QueryRequestConfig.X_DATABEND_RELATIVE_PATH, relativePath)
+                .put(requestBody);
+        if (this.config.getWarehouse() != null && !this.config.getWarehouse().isEmpty()) {
+            builder.addHeader(QueryRequestConfig.DATABEND_WAREHOUSE_HEADER, this.config.getWarehouse());
+        }
+
+        executeStageUpload(builder.build());
     }
 
     public InputStream downloadStream(String stageName, String path) throws SQLException {
@@ -424,6 +453,118 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private HttpUrl buildUrl(String path) {
         HttpUrl url = HttpUrl.get(this.config.getBaseUri().toString());
         return url.newBuilder().encodedPath(path).build();
+    }
+
+    private void executeStageUpload(Request request) throws IOException {
+        requireNonNull(request, "request is null");
+
+        OkHttpClient uploadClient = httpClient.newBuilder()
+                .connectTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(900, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+                .retryOnConnectionFailure(true)
+                .protocols(Arrays.asList(Protocol.HTTP_1_1))
+                .addInterceptor(chain -> {
+                    Request chainedRequest = chain.request();
+                    boolean oneShot = chainedRequest.body() != null && chainedRequest.body().isOneShot();
+                    int retryCount = 0;
+                    Response response = null;
+                    while (retryCount < 3) {
+                        try {
+                            response = chain.proceed(chainedRequest);
+                            if (response.isSuccessful()) {
+                                return response;
+                            }
+                            if (oneShot) {
+                                return response;
+                            }
+                            response.close();
+                        }
+                        catch (IOException e) {
+                            if (retryCount == 2 || oneShot) {
+                                throw e;
+                            }
+                        }
+                        retryCount++;
+
+                        long waitTimeMs = (long) (Math.pow(2, retryCount) * 1000);
+                        try {
+                            MILLISECONDS.sleep(waitTimeMs);
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new IOException("Upload interrupted", e);
+                        }
+                    }
+                    return response;
+                })
+                .build();
+
+        long start = System.nanoTime();
+        long attempts = 0;
+        Exception cause = null;
+        while (true) {
+            if (attempts > 0) {
+                logger.info("try to upload to stage again: " + attempts);
+                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
+                    logger.warning("Upload to stage failed, error is: " + cause);
+                    throw new RuntimeException(String.format(
+                            "Error upload to stage (attempts: %s, duration: %s)",
+                            attempts,
+                            sinceStart), cause);
+                }
+
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException e) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("StatementClient thread was interrupted");
+                }
+            }
+            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
+                throw new IOException("Upload failed and request body is not replayable", cause);
+            }
+            attempts++;
+
+            Response response = null;
+            try {
+                response = uploadClient.newCall(request).execute();
+                if (response.isSuccessful()) {
+                    return;
+                }
+                if (response.code() == 401) {
+                    throw new RuntimeException("Error upload to stage, Unauthorized user: "
+                            + response.code() + " " + response.message());
+                }
+                if (response.code() >= 503) {
+                    cause = new RuntimeException("Error upload to stage, service unavailable: "
+                            + response.code() + " " + response.message());
+                }
+                else if (response.code() >= 400) {
+                    cause = new RuntimeException("Error upload to stage, configuration error: "
+                            + response.code() + " " + response.message());
+                }
+            }
+            catch (SocketTimeoutException e) {
+                logger.warning("Error upload to stage, socket timeout: " + e.getMessage());
+                cause = new RuntimeException("Error upload to stage, request is "
+                        + request + " socket timeout: " + e.getMessage());
+            }
+            catch (RuntimeException e) {
+                cause = e;
+            }
+            finally {
+                if (response != null) {
+                    try {
+                        response.close();
+                    }
+                    catch (Exception ignored) {
+                    }
+                }
+            }
+        }
     }
 
     private MultipartBody buildMultipartBody(InputStream inputStream, long fileSize) {
@@ -607,6 +748,37 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         private PresignedRequestContext(Headers headers, String url) {
             this.headers = headers;
             this.url = url;
+        }
+    }
+
+    private static final class StageUploadRequestBody extends RequestBody {
+        private final InputStream inputStream;
+        private final long fileSize;
+
+        private StageUploadRequestBody(InputStream inputStream, long fileSize) {
+            this.inputStream = requireNonNull(inputStream, "inputStream is null");
+            this.fileSize = fileSize;
+        }
+
+        @Override
+        public MediaType contentType() {
+            return null;
+        }
+
+        @Override
+        public long contentLength() {
+            return fileSize;
+        }
+
+        @Override
+        public boolean isOneShot() {
+            return true;
+        }
+
+        @Override
+        public void writeTo(BufferedSink sink) throws IOException {
+            Source source = Okio.source(inputStream);
+            sink.writeAll(source);
         }
     }
 

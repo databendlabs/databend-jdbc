@@ -1,9 +1,7 @@
 package com.databend.jdbc.cloud;
 
 import okhttp3.Headers;
-import okhttp3.HttpUrl;
 import okhttp3.MediaType;
-import okhttp3.MultipartBody;
 import okhttp3.OkHttpClient;
 import okhttp3.Protocol;
 import okhttp3.Request;
@@ -13,9 +11,6 @@ import okhttp3.ResponseBody;
 import okio.BufferedSink;
 import okio.Okio;
 import okio.Source;
-import org.checkerframework.checker.nullness.qual.NonNull;
-
-import javax.annotation.Nullable;
 
 import java.io.File;
 import java.io.IOException;
@@ -28,9 +23,6 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import static com.databend.jdbc.internal.session.QueryRequestConfig.DATABEND_WAREHOUSE_HEADER;
-import static com.databend.jdbc.internal.session.QueryRequestConfig.X_DATABEND_RELATIVE_PATH;
-import static com.databend.jdbc.internal.session.QueryRequestConfig.X_DATABEND_STAGE_NAME;
 import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
@@ -40,19 +32,10 @@ public class DatabendPresignClientV1
 {
 
     private static final int MaxRetryAttempts = 20;
-
-    private static final Duration RetryTimeout = Duration.ofMinutes(5);
     private final OkHttpClient client;
-    private final String uri;
-    private final String warehouse;
     private static final Logger logger = Logger.getLogger(DatabendPresignClientV1.class.getPackage().getName());
 
     public DatabendPresignClientV1(OkHttpClient client, String uri)
-    {
-        this(client, uri, null);
-    }
-
-    public DatabendPresignClientV1(OkHttpClient client, String uri, String warehouse)
     {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
@@ -96,44 +79,6 @@ public class DatabendPresignClientV1
                     }
                     return response;
                 }).build();
-        this.uri = uri;
-        this.warehouse = warehouse;
-    }
-
-    private void uploadFromStream(InputStream inputStream, String stageName, String relativePath, String name, long fileSize)
-            throws IOException
-    {
-        // multipart upload input stream into /v1/upload_to_stage
-        RequestBody requestBody = new MultipartBody.Builder()
-                .setType(MultipartBody.FORM)
-                .addFormDataPart("upload", name, new InputStreamRequestBody(null, inputStream, fileSize))
-                .build();
-        Headers.Builder headersBuilder = new Headers.Builder()
-                .add(X_DATABEND_STAGE_NAME, stageName)
-                .add(X_DATABEND_RELATIVE_PATH, relativePath);
-        if (this.warehouse != null && !this.warehouse.isEmpty()) {
-            headersBuilder.add(DATABEND_WAREHOUSE_HEADER, this.warehouse);
-        }
-        Headers headers = headersBuilder.build();
-
-        HttpUrl url = HttpUrl.get(this.uri);
-        url = new HttpUrl.Builder()
-                .scheme(url.scheme())
-                .host(url.host())
-                .port(url.port())
-                .encodedPath("/v1/upload_to_stage")
-                .build();
-        Request request = new Request.Builder()
-                .url(url)
-                .headers(headers)
-                .put(requestBody)
-                .build();
-        try {
-            executeInternal(request, true);
-        }
-        catch (IOException e) {
-            throw new IOException("uploadFromStreamAPI failed", e);
-        }
     }
 
     private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl, long fileSize)
@@ -238,20 +183,6 @@ public class DatabendPresignClientV1
     }
 
     @Override
-    public void presignUpload(File srcFile, InputStream inputStream, String stageName, String relativePath, String name, long fileSize, boolean uploadFromStream)
-            throws IOException
-    {
-        if (!uploadFromStream) {
-            try (InputStream it = Files.newInputStream(srcFile.toPath())) {
-                uploadFromStream(it, stageName, relativePath, name, fileSize);
-            }
-        }
-        else {
-            uploadFromStream(inputStream, stageName, relativePath, name, fileSize);
-        }
-    }
-
-    @Override
     public void presignDownload(String destFileName, Headers headers, String presignedUrl)
     {
         Request r = getRequest(headers, presignedUrl);
@@ -312,52 +243,5 @@ public class DatabendPresignClientV1
                 .put(requestBody)
                 .headers(headers)
                 .build();
-    }
-}
-
-class InputStreamRequestBody
-        extends RequestBody
-{
-    private final InputStream inputStream;
-    private final MediaType contentType;
-    private final long fileSize;
-    private static final Logger logger = Logger.getLogger(InputStreamRequestBody.class.getPackage().getName());
-
-    public InputStreamRequestBody(MediaType contentType, InputStream inputStream, long fileSize)
-    {
-        if (inputStream == null) {
-            throw new NullPointerException("inputStream == null");
-        }
-        this.contentType = contentType;
-        this.inputStream = inputStream;
-        this.fileSize = fileSize;
-    }
-
-    @Nullable
-    @Override
-    public MediaType contentType()
-    {
-        return contentType;
-    }
-
-    @Override
-    public long contentLength()
-    {
-        // return the actual file size
-        return fileSize;
-//        return inputStream.available() == 0 ? -1 : inputStream.available();
-    }
-
-    @Override
-    public boolean isOneShot() {
-        return true;
-    }
-
-    @Override
-    public void writeTo(@NonNull BufferedSink sink)
-            throws IOException
-    {
-        Source source = Okio.source(inputStream);
-        sink.writeAll(source);
     }
 }
