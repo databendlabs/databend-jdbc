@@ -1,4 +1,4 @@
-package com.databend.jdbc.cloud;
+package com.databend.jdbc.internal.http;
 
 import okhttp3.Headers;
 import okhttp3.MediaType;

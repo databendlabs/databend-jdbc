@@ -1,9 +1,9 @@
 package com.databend.jdbc.internal.session;
 
-import com.databend.jdbc.cloud.DatabendPresignClient;
-import com.databend.jdbc.cloud.DatabendPresignClientV1;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.exception.DatabendSessionException;
+import com.databend.jdbc.internal.http.DatabendPresignClient;
+import com.databend.jdbc.internal.http.DatabendPresignClientV1;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
 import com.databend.jdbc.internal.query.QueryResultPages;
