@@ -1,13 +1,13 @@
 package com.databend.jdbc;
 
-import com.databend.client.QueryResults;
-import com.databend.client.QueryRowField;
-import com.databend.client.data.DatabendDataType;
-import com.databend.client.data.DatabendRawType;
-import com.databend.client.data.DatabendTypes;
-import com.databend.client.errors.QueryErrors;
+import com.databend.jdbc.internal.data.DatabendDataType;
+import com.databend.jdbc.internal.data.DatabendRawType;
+import com.databend.jdbc.internal.data.DatabendTypes;
+import com.databend.jdbc.internal.data.IntervalCodec;
+import com.databend.jdbc.internal.error.QueryError;
+import com.databend.jdbc.internal.query.QueryResults;
+import com.databend.jdbc.internal.query.QueryRowField;
 import com.databend.jdbc.annotation.NotImplemented;
-import com.databend.jdbc.exception.DatabendUnsupportedOperationException;
 import com.databend.jdbc.exception.DatabendSQLException;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -150,7 +150,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     }
 
     static SQLException resultsException(QueryResults results, String originalSQL) {
-        QueryErrors error = requireNonNull(results.getError());
+        QueryError error = requireNonNull(results.getError());
         String message = format("SQL: (%s) Query failed (query_id=%s): %s", originalSQL, results.getQueryId(), error.getMessage());
         return new SQLException(message, String.valueOf(error.getCode()));
     }
@@ -724,7 +724,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             if (!(value instanceof String)) {
                 throw new SQLDataException("Interval value is not textual: " + value.getClass().getName());
             }
-            return Interval.decode((String) value);
+            return IntervalCodec.decode((String) value);
         }
         return value;
     }
@@ -1411,7 +1411,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     @Override
     @NotImplemented
     public int getHoldability() throws SQLException {
-        throw new DatabendUnsupportedOperationException();
+        throw new SQLFeatureNotSupportedException("getHoldability");
     }
 
     @Override

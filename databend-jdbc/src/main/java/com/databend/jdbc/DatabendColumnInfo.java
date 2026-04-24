@@ -1,7 +1,7 @@
 package com.databend.jdbc;
 
-import com.databend.client.data.DatabendRawType;
-import com.databend.client.data.DatabendTypes;
+import com.databend.jdbc.internal.data.DatabendRawType;
+import com.databend.jdbc.internal.data.DatabendTypes;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Strings;
 import com.google.common.collect.ImmutableList;

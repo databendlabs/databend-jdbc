@@ -1,9 +1,10 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendClient;
-import com.databend.client.QueryResults;
-import com.databend.client.StageAttachment;
 import com.databend.jdbc.annotation.NotImplemented;
+import com.databend.jdbc.internal.query.QueryResultPages;
+import com.databend.jdbc.internal.query.QueryResults;
+import com.databend.jdbc.internal.query.StageAttachment;
+import com.databend.jdbc.internal.session.QueryLiveness;
 
 import java.sql.Connection;
 import java.sql.ResultSet;
@@ -26,7 +27,7 @@ public class DatabendStatement implements Statement {
     private final Consumer<DatabendStatement> onClose;
     private int currentUpdateCount = -1;
     private final AtomicReference<DatabendResultSet> currentResult = new AtomicReference<>();
-    private final AtomicReference<DatabendClient> executingClient = new AtomicReference<>();
+    private final AtomicReference<QueryResultPages> executingQueryPages = new AtomicReference<>();
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
 
@@ -56,9 +57,9 @@ public class DatabendStatement implements Statement {
             return;
         }
         onClose.accept(this);
-        DatabendClient client = executingClient.get();
-        if (client != null) {
-            client.close();
+        QueryResultPages queryPages = executingQueryPages.get();
+        if (queryPages != null) {
+            queryPages.close();
         }
         closeResultSet();
     }
@@ -115,9 +116,9 @@ public class DatabendStatement implements Statement {
     public void cancel()
             throws SQLException {
         checkOpen();
-        DatabendClient client = executingClient.get();
-        if (client != null) {
-            client.close();
+        QueryResultPages queryPages = executingQueryPages.get();
+        if (queryPages != null) {
+            queryPages.close();
         }
         closeResultSet();
     }
@@ -168,37 +169,37 @@ public class DatabendStatement implements Statement {
     final boolean internalExecute(String sql, StageAttachment attachment) throws SQLException {
         clearCurrentResults();
         checkOpen();
-        DatabendClient client = null;
+        QueryResultPages queryPages = null;
         DatabendResultSet resultSet = null;
 
         try {
             if (attachment == null) {
-                client = connection().startQuery(sql);
+                queryPages = connection().startQuery(sql);
             } else {
-                client = connection().startQuery(sql, attachment);
+                queryPages = connection().startQuery(sql, attachment);
             }
-            if (!client.hasNext()) {
-                if (client.getResults() != null && client.getResults().getError() != null) {
-                    throw resultsException(client.getResults(), sql);
+            if (!queryPages.hasNext()) {
+                if (queryPages.getResults() != null && queryPages.getResults().getError() != null) {
+                    throw resultsException(queryPages.getResults(), sql);
                 }
             }
-            executingClient.set(client);
-            while (client.hasNext()) {
-                QueryResults results = client.getResults();
+            executingQueryPages.set(queryPages);
+            while (queryPages.hasNext()) {
+                QueryResults results = queryPages.getResults();
                 List<List<Object>> data = results.getData();
                 if (data == null || data.isEmpty()) {
-                    client.advance();
+                    queryPages.advance();
                 } else {
                     break;
                 }
             }
-            resultSet = DatabendResultSet.create(this, client, maxRows.get(), connection().getServerCapability());
+            resultSet = DatabendResultSet.create(this, queryPages, maxRows.get(), connection().getServerCapability());
             currentResult.set(resultSet);
             if (isQueryStatement(sql)) {
                 // Always -1 when returning a ResultSet with query statement
                 currentUpdateCount = -1;
             } else {
-                QueryResults results = client.getResults();
+                QueryResults results = queryPages.getResults();
                 if (sql.toLowerCase().startsWith("update") || sql.toLowerCase().startsWith("delete")) {
                     List<List<Object>> data = results.getData();
                     if (data != null && !data.isEmpty() && data.get(0) != null && !data.get(0).isEmpty()) {
@@ -226,13 +227,13 @@ public class DatabendStatement implements Statement {
             throw new SQLException(
                     "Error executing query: " + "SQL: " + sql + ", error = " + e.getMessage() + ", cause: " + e.getCause(), e);
         } finally {
-            executingClient.set(null);
+            executingQueryPages.set(null);
             if (currentResult.get() == null) {
                 if (resultSet != null) {
                     resultSet.close();
                 }
-                if (client != null) {
-                    client.close();
+                if (queryPages != null) {
+                    queryPages.close();
                 }
             }
         }

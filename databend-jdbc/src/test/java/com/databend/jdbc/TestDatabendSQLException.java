@@ -1,8 +1,8 @@
 package com.databend.jdbc;
 
-import com.databend.client.QueryResults;
-import com.databend.client.errors.QueryErrors;
 import com.databend.jdbc.exception.DatabendSQLException;
+import com.databend.jdbc.internal.error.QueryError;
+import com.databend.jdbc.internal.query.QueryResults;
 import org.testng.annotations.Test;
 
 import java.sql.SQLException;
@@ -30,7 +30,7 @@ public class TestDatabendSQLException {
                 null,
                 null,
                 null,
-                QueryErrors.builder().setCode(1001).setMessage("syntax error").build(),
+                QueryError.builder().setCode(1001).setMessage("syntax error").build(),
                 null,
                 null,
                 0L,

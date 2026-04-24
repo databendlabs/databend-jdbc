@@ -5,6 +5,14 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.StringJoiner;
 
+/**
+ * <strong>Deprecated.</strong> This parameter object only exists for the deprecated
+ * {@code FileTransferAPI.copyIntoTable(...)} flow.
+ * <p>
+ * Deprecated since version 4.0.1. Scheduled for removal in a future release.
+ * Please execute {@code COPY INTO ...} SQL directly instead.
+ */
+@Deprecated
 public class DatabendCopyParams {
     private static final String defaultType = "CSV";
     private final List<String> files;

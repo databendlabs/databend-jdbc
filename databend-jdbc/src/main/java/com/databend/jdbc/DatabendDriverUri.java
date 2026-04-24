@@ -1,15 +1,18 @@
 package com.databend.jdbc;
 
-import com.databend.jdbc.util.GlobalCookieJar;
-import com.databend.jdbc.util.URLUtils;
+import com.databend.jdbc.internal.session.DatabendSessionCookieJar;
+import com.databend.jdbc.internal.session.SessionHandleConfig;
+import com.databend.jdbc.internal.session.SessionState;
 import com.google.common.base.Splitter;
 import com.google.common.collect.Maps;
 import com.google.common.net.HostAndPort;
 import okhttp3.Cookie;
 import okhttp3.OkHttpClient;
 
+import java.io.UnsupportedEncodingException;
 import java.net.URI;
 import java.net.URISyntaxException;
+import java.net.URLEncoder;
 import java.sql.SQLException;
 import java.util.AbstractMap;
 import java.util.HashMap;
@@ -20,8 +23,9 @@ import java.util.Map;
 import java.util.Properties;
 import java.util.concurrent.TimeUnit;
 import java.util.logging.Logger;
+import java.nio.charset.StandardCharsets;
 
-import static com.databend.client.OkHttpUtils.*;
+import static com.databend.jdbc.internal.http.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
 import static com.databend.jdbc.DatabendConstant.ENABLE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
@@ -178,7 +182,7 @@ final class DatabendDriverUri {
             if (colonPos > 0) {
                 String user = userPass.substring(0, colonPos);
                 String pass = userPass.substring(colonPos + 1);
-                String encodePass = URLUtils.urlEncode(pass);
+                String encodePass = urlEncode(pass);
                 properties.put(USER.getKey(), user);
                 properties.put(ConnectionProperties.PASSWORD.getKey(), encodePass);
             } else {
@@ -187,6 +191,14 @@ final class DatabendDriverUri {
             url = url.substring(atPos + 1);
         }
         return url;
+    }
+
+    private static String urlEncode(String target) {
+        try {
+            return URLEncoder.encode(target, StandardCharsets.UTF_8.toString());
+        } catch (UnsupportedEncodingException e) {
+            return null;
+        }
     }
 
     private static void setProperties(Properties properties, Map<String, String> values) {
@@ -299,10 +311,6 @@ final class DatabendDriverUri {
         return uri;
     }
 
-    public URI getUri(String query_id) {
-        return getUri();
-    }
-
     public String getDatabase() {
         return database;
     }
@@ -379,13 +387,33 @@ final class DatabendDriverUri {
         return sessionSettings;
     }
 
+    public SessionHandleConfig toSessionHandleConfig() {
+        SessionState initialSession = new SessionState.Builder()
+                .setDatabase(this.database)
+                .setSettings(this.sessionSettings)
+                .build();
+        return SessionHandleConfig.builder()
+                .setBaseUri(this.uri)
+                .setQueryTimeoutSecs(this.queryTimeout)
+                .setConnectionTimeoutSecs(this.connectionTimeout)
+                .setSocketTimeoutSecs(this.socketTimeout)
+                .setWaitTimeSecs(this.waitTimeSecs)
+                .setMaxRowsInBuffer(this.maxRowsInBuffer)
+                .setMaxRowsPerPage(this.maxRowsPerPage)
+                .setWarehouse(this.warehouse)
+                .setTenant(this.tenant)
+                .setDebug(this.debug)
+                .setInitialSession(initialSession)
+                .build();
+    }
+
     public Properties getProperties() {
         return properties;
     }
 
     public void setupClient(OkHttpClient.Builder builder) throws SQLException {
         try {
-            GlobalCookieJar cookieJar = new GlobalCookieJar();
+            DatabendSessionCookieJar cookieJar = new DatabendSessionCookieJar();
             cookieJar.add(new Cookie.Builder().name("cookie_enabled").value("true").domain("not_used").build());
             builder.cookieJar(cookieJar);
 

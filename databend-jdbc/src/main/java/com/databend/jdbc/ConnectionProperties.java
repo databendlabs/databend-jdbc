@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.PaginationOptions;
+import com.databend.jdbc.internal.session.PaginationOptions;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 

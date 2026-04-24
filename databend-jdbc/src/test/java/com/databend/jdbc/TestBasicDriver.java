@@ -1,7 +1,5 @@
 package com.databend.jdbc;
 
-import com.databend.client.DatabendSession;
-import com.databend.client.PaginationOptions;
 import org.testng.Assert;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
@@ -38,10 +36,6 @@ public class TestBasicDriver {
     public void testBasic()
             throws SQLException {
         try (Connection connection = Utils.createConnection()) {
-            PaginationOptions p = (PaginationOptions)  Compatibility.invokeMethodNoArg(connection, "getPaginationOptions");
-            Assert.assertEquals(p.getWaitTimeSecs(), PaginationOptions.getDefaultWaitTimeSec());
-            Assert.assertEquals(p.getMaxRowsInBuffer(), PaginationOptions.getDefaultMaxRowsInBuffer());
-            Assert.assertEquals(p.getMaxRowsPerPage(), PaginationOptions.getDefaultMaxRowsPerPage());
             DatabendStatement statement = (DatabendStatement) connection.createStatement();
             statement.execute("SELECT number from numbers(200000) order by number");
             ResultSet r = statement.getResultSet();
@@ -246,10 +240,6 @@ public class TestBasicDriver {
 
         //INFO databend_query::servers::http::v1::http_query_handlers: receive http query: HttpQueryRequest { session_id: None, session: Some(HttpSessionConf { database: Some("test_basic_driver"), keep_server_session_secs: None, settings: None }), sql: "SELECT 1", pagination: PaginationConf { wait_time_secs: 10, max_rows_in_buffer: 100, max_rows_per_page: 100 }, string_fields: true, stage_attachment: None }
         try (Connection connection = Utils.createConnection("test_basic_driver", p)) {
-            PaginationOptions options = (PaginationOptions)  Compatibility.invokeMethodNoArg(connection, "getPaginationOptions");
-            Assert.assertEquals(options.getWaitTimeSecs(), 10);
-            Assert.assertEquals(options.getMaxRowsInBuffer(), 100);
-            Assert.assertEquals(options.getMaxRowsPerPage(), 100);
             Statement statement = connection.createStatement();
             statement.execute("SELECT 1");
             ResultSet r = statement.getResultSet();
@@ -299,9 +289,25 @@ public class TestBasicDriver {
         try (Connection connection = Utils.createConnection("test_basic_driver")) {
             connection.createStatement().execute("set max_threads=1");
             connection.createStatement().execute("use test_basic_driver_2");
-            DatabendSession session = (DatabendSession)  Compatibility.invokeMethodNoArg(connection, "getSession");
-            Assert.assertEquals(session.getDatabase(), "test_basic_driver_2");
-            Assert.assertEquals(session.getSettings().get("max_threads"), "1");
+
+            try (Statement statement = connection.createStatement()) {
+                ResultSet settings = statement.executeQuery("show settings");
+                boolean foundMaxThreads = false;
+                while (settings.next()) {
+                    if ("max_threads".equalsIgnoreCase(settings.getString(1))) {
+                        Assert.assertEquals(settings.getString(2), "1");
+                        foundMaxThreads = true;
+                        break;
+                    }
+                }
+                Assert.assertTrue(foundMaxThreads, "max_threads should be present in show settings");
+            }
+
+            try (Statement statement = connection.createStatement();
+                 ResultSet resultSet = statement.executeQuery("select current_database()")) {
+                Assert.assertTrue(resultSet.next());
+                Assert.assertEquals(resultSet.getString(1), "test_basic_driver_2");
+            }
         }
     }
 

@@ -1,6 +1,6 @@
 package com.databend.jdbc;
 
-import com.databend.client.QueryRowField;
+import com.databend.jdbc.internal.query.QueryRowField;
 
 import java.sql.SQLException;
 import java.sql.Statement;

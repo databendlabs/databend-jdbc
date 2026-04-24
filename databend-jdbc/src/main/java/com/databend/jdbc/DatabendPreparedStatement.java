@@ -1,8 +1,11 @@
 package com.databend.jdbc;
 
-import com.databend.client.StageAttachment;
-import com.databend.client.data.DatabendRawType;
-import com.databend.jdbc.parser.BatchInsertUtils;
+import com.databend.jdbc.internal.data.DatabendRawType;
+import com.databend.jdbc.internal.data.IntervalCodec;
+import com.databend.jdbc.internal.binding.BatchInsertUtils;
+import com.databend.jdbc.internal.binding.RawStatementWrapper;
+import com.databend.jdbc.internal.binding.StatementUtil;
+import com.databend.jdbc.internal.query.StageAttachment;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
@@ -20,8 +23,8 @@ import java.util.regex.Matcher;
 import java.util.stream.Collectors;
 
 import static com.databend.jdbc.DatabendConstant.*;
-import static com.databend.jdbc.ObjectCasts.*;
-import static com.databend.jdbc.StatementUtil.replaceParameterMarksWithValues;
+import static com.databend.jdbc.internal.binding.ObjectCasts.*;
+import static com.databend.jdbc.internal.binding.StatementUtil.replaceParameterMarksWithValues;
 import static java.lang.String.format;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_DATE;
 import static java.time.format.DateTimeFormatter.ISO_LOCAL_TIME;
@@ -619,7 +622,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
 
     private void setDurationLiteral(int parameterIndex, Duration duration) throws SQLException {
         try {
-            setString(parameterIndex, Interval.encode(duration));
+            setString(parameterIndex, IntervalCodec.encode(duration));
         } catch (IllegalArgumentException ex) {
             throw new SQLException("Failed to encode Duration for interval parameter", ex);
         }

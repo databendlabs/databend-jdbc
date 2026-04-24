@@ -80,8 +80,8 @@ public class Compatibility {
         return false;
     }
 
-    boolean isNewInterface() {
-        return driverVersion == null || driverVersion.isGreaterThanOrEqualTo(new Semver("4.0.1"));
+    public static boolean driverIsGreaterThan(String ver) {
+        return driverVersion == null || driverVersion.isGreaterThan(new Semver(ver));
     }
 
     static Object invokeMethod(Object target, String methodName,
