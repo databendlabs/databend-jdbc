@@ -225,6 +225,17 @@ public class TestDatabendDriverUri {
         Assert.assertFalse(uri.getStrNullAsNull());
     }
 
+    @Test(groups = {"UNIT"})
+    public void testQueryResultFormat() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:8000/default?query_result_format=arrow", null);
+        Assert.assertEquals(uri.getQueryResultFormat(), "arrow");
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testInvalidQueryResultFormat() {
+        assertInvalid("jdbc:databend://localhost:8000/default?query_result_format=csv", "Connection property 'query_result_format' value is invalid: csv");
+    }
+
     @Test(groups = "IT")
     public void TestSetSchema() throws SQLException {
         try (Connection connection = Utils.createConnection()) {
@@ -233,6 +244,16 @@ public class TestDatabendDriverUri {
             connection.setSchema("test2");
             Assert.assertEquals(connection.getSchema(), "test2");
             connection.createStatement().execute("insert into test2 values (1)");
+        }
+    }
+
+    @Test(groups = "IT")
+    public void TestSetSchemaFailureDoesNotUpdateLocalState() throws SQLException {
+        try (Connection connection = Utils.createConnection("default")) {
+            SQLException exception = Assert.expectThrows(SQLException.class,
+                    () -> connection.setSchema("test_schema_missing"));
+            Assert.assertNotNull(exception);
+            Assert.assertEquals(connection.getSchema(), "default");
         }
     }
 

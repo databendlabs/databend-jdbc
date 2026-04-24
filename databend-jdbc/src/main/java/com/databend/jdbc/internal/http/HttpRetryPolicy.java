@@ -1,12 +1,15 @@
 package com.databend.jdbc.internal.http;
 
 import com.databend.jdbc.internal.error.CloudErrors;
+import okhttp3.Headers;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
 
 import java.io.IOException;
 import java.net.ConnectException;
+import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
@@ -20,12 +23,22 @@ public class HttpRetryPolicy {
     private static final Logger logger = Logger.getLogger(HttpRetryPolicy.class.getPackage().getName());
 
     public static class ResponseWithBody {
-        public Response response;
-        public String body;
+        public final int statusCode;
+        public final String statusMessage;
+        public final Headers headers;
+        public final MediaType contentType;
+        public final byte[] body;
 
-        public ResponseWithBody(Response response, String body) {
-            this.response = response;
+        public ResponseWithBody(Response response, byte[] body) {
+            this.statusCode = response.code();
+            this.statusMessage = response.message();
+            this.headers = response.headers();
+            this.contentType = response.body().contentType();
             this.body = body;
+        }
+
+        public String bodyString() {
+            return new String(body, StandardCharsets.UTF_8);
         }
     }
 
@@ -98,7 +111,7 @@ public class HttpRetryPolicy {
                 int code = response.code();
                 if (code != 200) {
                     if (shouldIgnore(code)) {
-                        return new ResponseWithBody(response, "");
+                        return new ResponseWithBody(response, new byte[0]);
                     }
                     String body = response.body().string();
                     if (!shouldRetry(code, body)) {
@@ -106,7 +119,7 @@ public class HttpRetryPolicy {
                         break;
                     }
                 } else {
-                    String body = response.body().string();
+                    byte[] body = response.body().bytes();
                     return new ResponseWithBody(response, body);
                 }
             } catch (IOException e) {

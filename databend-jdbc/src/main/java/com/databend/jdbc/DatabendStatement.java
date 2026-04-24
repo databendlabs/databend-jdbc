@@ -3,6 +3,8 @@ package com.databend.jdbc;
 import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.internal.query.QueryResultPages;
 import com.databend.jdbc.internal.query.QueryResults;
+import com.databend.jdbc.internal.query.QueryRowField;
+import com.databend.jdbc.internal.query.ResultPage;
 import com.databend.jdbc.internal.query.StageAttachment;
 import com.databend.jdbc.internal.session.QueryLiveness;
 
@@ -12,7 +14,9 @@ import java.sql.SQLException;
 import java.sql.SQLFeatureNotSupportedException;
 import java.sql.SQLWarning;
 import java.sql.Statement;
+import java.util.Collections;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.concurrent.atomic.AtomicReference;
@@ -26,7 +30,7 @@ public class DatabendStatement implements Statement {
     private final AtomicReference<DatabendConnection> connection;
     private final Consumer<DatabendStatement> onClose;
     private int currentUpdateCount = -1;
-    private final AtomicReference<DatabendResultSet> currentResult = new AtomicReference<>();
+    private final AtomicReference<ResultSet> currentResult = new AtomicReference<>();
     private final AtomicReference<QueryResultPages> executingQueryPages = new AtomicReference<>();
     private final AtomicLong maxRows = new AtomicLong();
     private final AtomicBoolean closeOnCompletion = new AtomicBoolean();
@@ -170,7 +174,7 @@ public class DatabendStatement implements Statement {
         clearCurrentResults();
         checkOpen();
         QueryResultPages queryPages = null;
-        DatabendResultSet resultSet = null;
+        ResultSet resultSet = null;
 
         try {
             if (attachment == null) {
@@ -187,14 +191,14 @@ public class DatabendStatement implements Statement {
             while (queryPages.hasNext()) {
                 QueryResults results = queryPages.getResults();
                 List<List<Object>> data = results.getData();
-                if (data == null || data.isEmpty()) {
+                ResultPage page = queryPages.getPage();
+                boolean pageHasRows = page != null && page.getRowCount() > 0;
+                if ((data == null || data.isEmpty()) && !pageHasRows) {
                     queryPages.advance();
                 } else {
                     break;
                 }
             }
-            resultSet = DatabendResultSet.create(this, queryPages, maxRows.get(), connection().getServerCapability());
-            currentResult.set(resultSet);
             if (isQueryStatement(sql)) {
                 // Always -1 when returning a ResultSet with query statement
                 currentUpdateCount = -1;
@@ -211,13 +215,24 @@ public class DatabendStatement implements Statement {
                             currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                         }
                     } else {
-                        // if data is empty, use writeProgress.rows
-                        currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
+                        Integer updateCount = getUpdateCountFromPage(queryPages);
+                        currentUpdateCount = updateCount != null
+                                ? updateCount
+                                : results.getStats().getWriteProgress().getRows().intValue();
                     }
                 } else {
                     currentUpdateCount = results.getStats().getWriteProgress().getRows().intValue();
                 }
             }
+            if (shouldUseSyntheticResultSet(sql, queryPages)) {
+                resultSet = new DatabendUnboundQueryResultSet(Optional.<Statement>empty(),
+                        Collections.emptyList(),
+                        Collections.<List<Object>>singletonList(Collections.emptyList()).iterator());
+            } else {
+                resultSet = DatabendResultSet.create(this, queryPages, maxRows.get(), connection().getServerCapability());
+            }
+            connection().refreshCurrentSchemaFromSession();
+            currentResult.set(resultSet);
             return true;
         } catch (RuntimeException e) {
             SQLException sqlException = SqlExceptions.findSQLException(e);
@@ -239,8 +254,48 @@ public class DatabendStatement implements Statement {
         }
     }
 
-    final boolean isQueryStatement(String sql) {
-        return sql.toLowerCase().startsWith("select") || sql.toLowerCase().startsWith("show");
+    static boolean isQueryStatement(String sql) {
+        String normalized = sql.trim().toLowerCase();
+        return normalized.startsWith("select")
+                || normalized.startsWith("show")
+                || normalized.startsWith("list");
+    }
+
+    private boolean shouldUseSyntheticResultSet(String sql, QueryResultPages queryPages) throws SQLException {
+        return shouldUseSyntheticResultSet(sql, queryPages, currentUpdateCount);
+    }
+
+    static boolean shouldUseSyntheticResultSet(String sql, QueryResultPages queryPages, int currentUpdateCount) throws SQLException {
+        if (isQueryStatement(sql) || queryPages.hasNext()) {
+            return false;
+        }
+        QueryResults results = queryPages.getResults();
+        List<List<Object>> data = results == null ? null : results.getData();
+        if (data != null && !data.isEmpty()) {
+            return false;
+        }
+        if (hasSchema(queryPages, results)) {
+            return false;
+        }
+        return currentUpdateCount >= 0;
+    }
+
+    private static boolean hasSchema(QueryResultPages queryPages, QueryResults results) {
+        List<QueryRowField> pageSchema = queryPages.getSchema();
+        if (pageSchema != null && !pageSchema.isEmpty()) {
+            return true;
+        }
+        List<QueryRowField> resultsSchema = results == null ? null : results.getSchema();
+        return resultsSchema != null && !resultsSchema.isEmpty();
+    }
+
+    private Integer getUpdateCountFromPage(QueryResultPages queryPages) throws SQLException {
+        ResultPage page = queryPages.getPage();
+        if (page == null || page.getRowCount() <= 0) {
+            return null;
+        }
+        Object updateCount = page.getValue(0, 0);
+        return updateCount instanceof Number ? ((Number) updateCount).intValue() : null;
     }
 
     @Override
@@ -456,10 +511,9 @@ public class DatabendStatement implements Statement {
     }
 
     QueryLiveness queryLiveness() {
-        DatabendResultSet r = currentResult.get();
-
-        if (r != null) {
-            return r.getLiveness();
+        ResultSet r = currentResult.get();
+        if (r instanceof DatabendResultSet) {
+            return ((DatabendResultSet) r).getLiveness();
         }
         return null;
     }

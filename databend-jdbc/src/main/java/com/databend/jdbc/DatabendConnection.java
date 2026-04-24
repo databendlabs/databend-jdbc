@@ -4,7 +4,9 @@ import com.databend.jdbc.annotation.NotImplemented;
 import com.databend.jdbc.cloud.DatabendCopyParams;
 import com.databend.jdbc.exception.DatabendFailedToPingException;
 import com.databend.jdbc.exception.DatabendSQLException;
+import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.query.QueryResultPages;
+import com.databend.jdbc.internal.query.QueryResults;
 import com.databend.jdbc.internal.query.StageAttachment;
 import com.databend.jdbc.internal.session.Capability;
 import com.databend.jdbc.internal.session.DatabendSessionHandle;
@@ -44,6 +46,8 @@ import java.util.logging.FileHandler;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.logging.SimpleFormatter;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static com.google.common.base.Preconditions.checkState;
@@ -53,6 +57,7 @@ import static java.util.Objects.requireNonNull;
 public class DatabendConnection implements Connection, DatabendConnectionExtension, FileTransferAPI {
 
     private static final Logger logger = Logger.getLogger(DatabendConnection.class.getPackage().getName());
+    private static final Pattern STREAMING_LOAD_TARGET_PATTERN = Pattern.compile("(?is)^(\\s*insert\\s+into\\s+)([^\\s(]+)(.*)$");
 
     private final AtomicBoolean closed = new AtomicBoolean();
     private final AtomicBoolean autoCommit = new AtomicBoolean(true);
@@ -369,14 +374,12 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     @Override
     public Statement createStatement(int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException {
-//        checkHoldability(resultSetHoldability);
         return createStatement(resultSetType, resultSetConcurrency);
     }
 
     @Override
     public PreparedStatement prepareStatement(String sql, int resultSetType, int resultSetConcurrency, int resultSetHoldability)
             throws SQLException {
-//        checkHoldability(resultSetHoldability);
         return prepareStatement(sql, resultSetType, resultSetConcurrency);
     }
 
@@ -395,13 +398,13 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     @Override
     public PreparedStatement prepareStatement(String s, int[] ints)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement(String s, int[] ints)");
     }
 
     @Override
     public PreparedStatement prepareStatement(String s, String[] strings)
             throws SQLException {
-        throw new SQLFeatureNotSupportedException("prepareStatement");
+        throw new SQLFeatureNotSupportedException("prepareStatement(String s, String[] strings)");
     }
 
     @Override
@@ -481,8 +484,8 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
     public void setSchema(String schema)
             throws SQLException {
         checkOpen();
-        this.schema.set(schema);
-        this.startQuery("use " + schema);
+        executeControlQuery("use " + schema);
+        refreshCurrentSchemaFromSession();
     }
 
     @Override
@@ -553,14 +556,18 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         }
     }
     QueryResultPages startQuery(String sql) throws SQLException {
-        return startQuery(sql, null);
+        return startQuery(sql, null, null);
     }
 
     QueryResultPages startQuery(String sql, StageAttachment attach) throws SQLException {
+        return startQuery(sql, attach, null);
+    }
+
+    QueryResultPages startQuery(String sql, StageAttachment attach, QueryResultFormat queryResultFormatOverride) throws SQLException {
         String queryId = UUID.randomUUID().toString().replace("-", "");
         QueryResultPages queryPages;
         try {
-            queryPages = sessionHandle.startQuery(queryId, sql, attach);
+            queryPages = sessionHandle.startQuery(queryId, sql, attach, queryResultFormatOverride);
         } catch (RuntimeException e) {
             String message = e.getMessage() == null ? e.toString() : e.getMessage();
             throw new DatabendSQLException("Failed to start query: " + message, queryId, e);
@@ -619,11 +626,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         requireNonNull(p.getDatabaseTableName(), "tableName is null");
         requireNonNull(p.getDatabendStage(), "stage is null");
         String sql = getCopyIntoSql(database, p);
-        Statement statement = this.createStatement();
-        statement.execute(sql);
-        ResultSet rs = statement.getResultSet();
-        while (rs.next()) {
-        }
+        executeControlQuery(sql);
     }
 
     @Override
@@ -637,7 +640,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         }
 
         if (loadMethod.equals(LoadMethod.STREAMING)) {
-            return this.sessionHandle.streamingLoad(sql, inputStream, fileSize);
+            return this.sessionHandle.streamingLoad(qualifyStreamingLoadTarget(sql), inputStream, fileSize);
         } else {
             Instant now = Instant.now();
             long nanoTimestamp = now.getEpochSecond() * 1_000_000_000 + now.getNano();
@@ -645,12 +648,28 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
             String location = "~/_databend_load/" + fileName;
             sql = sql.replace("_databend_load", location);
             uploadStream("~", "_databend_load", inputStream, fileName, fileSize, false);
-            Statement statement = this.createStatement();
-            statement.execute(sql);
-            ResultSet rs = statement.getResultSet();
-            while (rs.next()) {
+            QueryResults results = executeControlQuery(sql);
+            return results.getStats().getWriteProgress().getRows().intValue();
+        }
+    }
+
+    private QueryResults executeControlQuery(String sql) throws SQLException {
+        QueryResultPages queryPages = startQuery(sql, null, QueryResultFormat.JSON);
+        try {
+            QueryResults results = queryPages.getResults();
+            while (queryPages.hasNext()) {
+                if (results != null && results.getError() != null) {
+                    throw AbstractDatabendResultSet.resultsException(results, sql);
+                }
+                queryPages.advance();
+                results = queryPages.getResults();
             }
-            return statement.getUpdateCount();
+            if (results != null && results.getError() != null) {
+                throw AbstractDatabendResultSet.resultsException(results, sql);
+            }
+            return results;
+        } finally {
+            queryPages.close();
         }
     }
 
@@ -667,5 +686,33 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
 
     boolean isHeartbeatStopped() {
         return this.sessionHandle.isHeartbeatStopped();
+    }
+
+    void refreshCurrentSchemaFromSession() {
+        SessionState currentSession = this.sessionHandle.getSession();
+        if (currentSession == null) {
+            return;
+        }
+        String currentDatabase = currentSession.getDatabase();
+        if (currentDatabase == null || currentDatabase.isEmpty()) {
+            return;
+        }
+        this.schema.set(currentDatabase);
+    }
+
+    private String qualifyStreamingLoadTarget(String sql) {
+        String currentSchema = schema.get();
+        if (currentSchema == null || currentSchema.isEmpty()) {
+            return sql;
+        }
+        Matcher matcher = STREAMING_LOAD_TARGET_PATTERN.matcher(sql);
+        if (!matcher.matches()) {
+            return sql;
+        }
+        String target = matcher.group(2);
+        if (target.indexOf('.') >= 0) {
+            return sql;
+        }
+        return matcher.group(1) + currentSchema + "." + target + matcher.group(3);
     }
 }

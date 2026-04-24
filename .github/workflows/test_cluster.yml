@@ -36,8 +36,18 @@ jobs:
           DATABEND_QUERY_VERSION: ${{ matrix.version }}
 
       - name: Test with conn to nginx
-        run: mvn test -DexcludedGroups=FLAKY
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-DexcludedGroups=FLAKY'
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
           DATABEND_TEST_CONN_PORT: 8000
           DATABEND_QUERY_VERSION: ${{ matrix.version }}
+
+      - name: Test Arrow IT with conn to nginx
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-Dgroups=IT -DexcludedGroups=FLAKY'
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          DATABEND_TEST_CONN_PORT: 8000
+          DATABEND_QUERY_VERSION: ${{ matrix.version }}
+          DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT: arrow

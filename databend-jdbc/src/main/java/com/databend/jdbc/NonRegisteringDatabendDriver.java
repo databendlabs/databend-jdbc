@@ -27,7 +27,7 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
 
     private static OkHttpClient newHttpClient() {
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
-                .addInterceptor(userAgentInterceptor(DRIVER_NAME + "/" + DRIVER_VERSION));
+                .addInterceptor(userAgentInterceptor(USER_AGENT_VALUE));
         return builder.build();
     }
 

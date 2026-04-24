@@ -5,11 +5,13 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
+import org.testng.SkipException;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
+import java.math.BigDecimal;
 import java.sql.*;
 import java.time.*;
 import java.util.Calendar;
@@ -30,6 +32,30 @@ public class TestTypes {
                 {true,},
                 {false,},
         };
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetDecimalByQueryResultFormat()
+            throws SQLException {
+        String queryResultFormat = currentQueryResultFormat();
+        if ("arrow".equals(queryResultFormat)) {
+            throw new SkipException("TODO: re-enable after Arrow Decimal64/Decimal128 compatibility is fixed");
+        }
+
+        String sql = "select cast(123.456789012345 as decimal(15, 12)) as a";
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
+            ResultSet resultSet = statement.executeQuery(sql);
+            Assert.assertTrue(resultSet.next());
+            ResultSetMetaData metaData = resultSet.getMetaData();
+            Assert.assertEquals(metaData.getColumnType(1), Types.DECIMAL);
+            Assert.assertEquals(metaData.getPrecision(1), 15);
+            Assert.assertEquals(metaData.getScale(1), 12);
+            Assert.assertTrue(resultSet.getObject(1) instanceof BigDecimal);
+            Assert.assertEquals(resultSet.getBigDecimal(1).toPlainString(), "123.456789012345");
+            Assert.assertEquals(resultSet.getBigDecimal("a").toPlainString(), "123.456789012345");
+            Assert.assertFalse(resultSet.next());
+        }
     }
 
     @Test(groups = {"IT"}, dataProvider = "flag")
@@ -506,4 +532,13 @@ public class TestTypes {
             Assert.assertFalse(r.next());
         }
     }
+
+    private static String currentQueryResultFormat() {
+        String queryResultFormat = System.getenv("DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT");
+        if (queryResultFormat == null || queryResultFormat.trim().isEmpty()) {
+            return "json";
+        }
+        return queryResultFormat.trim().toLowerCase();
+    }
+
 }

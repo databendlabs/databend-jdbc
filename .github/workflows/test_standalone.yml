@@ -50,7 +50,15 @@ jobs:
           docker logs ${cid}
           curl -u databend:databend  --request POST localhost:8000/v1/query --header 'Content-Type:application/json' --data-raw '{"sql":"select 1"}'
 
-      - name: Run Maven clean deploy with release profile
-        run: mvn test -DexcludedGroups=MULTI_HOST,FLAKY
+      - name: Run Tests
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-DexcludedGroups=FLAKY'
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Run Arrow IT
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-Dgroups=IT -DexcludedGroups=FLAKY'
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+          DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT: arrow

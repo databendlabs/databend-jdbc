@@ -4,7 +4,7 @@ import com.databend.jdbc.internal.session.SessionState;
 import okhttp3.Request;
 
 import java.io.Closeable;
-import java.util.Map;
+import java.util.List;
 
 public interface QueryResultPages extends Closeable {
     String getQuery();
@@ -16,9 +16,11 @@ public interface QueryResultPages extends Closeable {
 
     String getNodeID();
 
-    Map<String, String> getAdditionalHeaders();
-
     QueryResults getResults();
+
+    List<QueryRowField> getSchema();
+
+    ResultPage getPage();
 
     boolean execute(Request request);
 

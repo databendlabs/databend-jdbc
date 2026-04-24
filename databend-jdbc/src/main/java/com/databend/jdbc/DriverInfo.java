@@ -16,11 +16,12 @@ import static com.google.common.base.Verify.verify;
 import static com.google.common.io.Resources.getResource;
 import static java.lang.Integer.parseInt;
 
-final class DriverInfo {
+public final class DriverInfo {
     static final String DRIVER_NAME;
     static final String DRIVER_VERSION;
     static final int DRIVER_VERSION_MAJOR;
     static final int DRIVER_VERSION_MINOR;
+    public static final String USER_AGENT_VALUE;
 
     private DriverInfo() {
     }
@@ -40,6 +41,7 @@ final class DriverInfo {
 
             verify(!isNullOrEmpty(DRIVER_NAME), "driverName is null or empty");
             verify(!isNullOrEmpty(DRIVER_VERSION), "driverVersion is null or empty");
+            USER_AGENT_VALUE = DRIVER_NAME + "/" + DRIVER_VERSION;
 
             Matcher matcher = Pattern.compile("^(\\d+)(\\.(\\d+))?($|[.-])").matcher(DRIVER_VERSION);
             verify(matcher.find(), "driverVersion is invalid: %s", DRIVER_VERSION);

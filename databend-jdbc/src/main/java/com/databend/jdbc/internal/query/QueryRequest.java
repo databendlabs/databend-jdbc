@@ -12,6 +12,7 @@ public class QueryRequest {
     private final PaginationOptions paginationOptions;
     private final SessionState session;
     private final StageAttachment stageAttachment;
+    private final Integer arrowResultVersionMax;
 
     @JsonCreator
     public QueryRequest(
@@ -19,12 +20,14 @@ public class QueryRequest {
             @JsonProperty("session_id") String sessionId,
             @JsonProperty("pagination") PaginationOptions paginationOptions,
             @JsonProperty("session") SessionState session,
-            @JsonProperty("stage_attachment") StageAttachment stageAttachment) {
+            @JsonProperty("stage_attachment") StageAttachment stageAttachment,
+            @JsonProperty("arrow_result_version_max") Integer arrowResultVersionMax) {
         this.sql = sql;
         this.sessionId = sessionId;
         this.paginationOptions = paginationOptions;
         this.session = session;
         this.stageAttachment = stageAttachment;
+        this.arrowResultVersionMax = arrowResultVersionMax;
     }
 
     public static Builder builder() {
@@ -56,6 +59,11 @@ public class QueryRequest {
         return stageAttachment;
     }
 
+    @JsonProperty("arrow_result_version_max")
+    public Integer getArrowResultVersionMax() {
+        return arrowResultVersionMax;
+    }
+
     @Override
     public String toString() {
         try {
@@ -71,6 +79,7 @@ public class QueryRequest {
         private PaginationOptions paginationOptions;
         private SessionState session;
         private StageAttachment stageAttachment;
+        private Integer arrowResultVersionMax;
 
         public Builder setSql(String sql) {
             this.sql = sql;
@@ -97,8 +106,13 @@ public class QueryRequest {
             return this;
         }
 
+        public Builder setArrowResultVersionMax(Integer arrowResultVersionMax) {
+            this.arrowResultVersionMax = arrowResultVersionMax;
+            return this;
+        }
+
         public QueryRequest build() {
-            return new QueryRequest(sql, sessionId, paginationOptions, session, stageAttachment);
+            return new QueryRequest(sql, sessionId, paginationOptions, session, stageAttachment, arrowResultVersionMax);
         }
     }
 }

@@ -1,5 +1,6 @@
 package com.databend.jdbc.internal.session;
 
+import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.query.StageAttachment;
 
 import java.util.HashMap;
@@ -26,13 +27,14 @@ public class QueryRequestConfig {
     private final Integer queryTimeoutSecs;
     private final Integer connectionTimeout;
     private final Integer socketTimeout;
+    private final QueryResultFormat queryResultFormat;
     private final PaginationOptions paginationOptions;
     private final StageAttachment stageAttachment;
     private final Map<String, String> additionalHeaders;
     private final int retryAttempts;
 
     public QueryRequestConfig(String host) {
-        this(host, SessionState.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, PaginationOptions.defaultPaginationOptions(), new HashMap<>(), null, DEFAULT_RETRY_ATTEMPTS);
+        this(host, SessionState.createDefault(), DEFAULT_QUERY_TIMEOUT, DEFAULT_CONNECTION_TIMEOUT, DEFAULT_SOCKET_TIMEOUT, QueryResultFormat.JSON, PaginationOptions.defaultPaginationOptions(), new HashMap<>(), null, DEFAULT_RETRY_ATTEMPTS);
     }
 
     public QueryRequestConfig(String host, String database) {
@@ -42,18 +44,20 @@ public class QueryRequestConfig {
         this.queryTimeoutSecs = DEFAULT_QUERY_TIMEOUT;
         this.connectionTimeout = DEFAULT_CONNECTION_TIMEOUT;
         this.socketTimeout = DEFAULT_SOCKET_TIMEOUT;
+        this.queryResultFormat = QueryResultFormat.JSON;
         this.paginationOptions = PaginationOptions.defaultPaginationOptions();
         this.additionalHeaders = new HashMap<>();
         this.stageAttachment = null;
         this.retryAttempts = DEFAULT_RETRY_ATTEMPTS;
     }
 
-    public QueryRequestConfig(String host, SessionState session, Integer queryTimeoutSecs, Integer connectionTimeout, Integer socketTimeout, PaginationOptions paginationOptions, Map<String, String> additionalHeaders, StageAttachment stageAttachment, int retryAttempts) {
+    public QueryRequestConfig(String host, SessionState session, Integer queryTimeoutSecs, Integer connectionTimeout, Integer socketTimeout, QueryResultFormat queryResultFormat, PaginationOptions paginationOptions, Map<String, String> additionalHeaders, StageAttachment stageAttachment, int retryAttempts) {
         this.host = host;
         this.session = session;
         this.queryTimeoutSecs = queryTimeoutSecs;
         this.connectionTimeout = connectionTimeout;
         this.socketTimeout = socketTimeout;
+        this.queryResultFormat = queryResultFormat;
         this.paginationOptions = paginationOptions;
         this.additionalHeaders = additionalHeaders;
         this.stageAttachment = stageAttachment;
@@ -84,6 +88,10 @@ public class QueryRequestConfig {
         return socketTimeout;
     }
 
+    public QueryResultFormat getQueryResultFormat() {
+        return queryResultFormat;
+    }
+
     public PaginationOptions getPaginationOptions() {
         return paginationOptions;
     }
@@ -106,6 +114,7 @@ public class QueryRequestConfig {
         private Integer queryTimeoutSecs;
         private Integer connectionTimeout;
         private Integer socketTimeout;
+        private QueryResultFormat queryResultFormat = QueryResultFormat.JSON;
         private PaginationOptions paginationOptions;
         private StageAttachment stageAttachment;
         private Map<String, String> additionalHeaders;
@@ -128,6 +137,11 @@ public class QueryRequestConfig {
 
         public Builder setSocketTimeout(Integer timeout) {
             this.socketTimeout = timeout;
+            return this;
+        }
+
+        public Builder setQueryResultFormat(QueryResultFormat queryResultFormat) {
+            this.queryResultFormat = queryResultFormat;
             return this;
         }
 
@@ -160,7 +174,7 @@ public class QueryRequestConfig {
         }
 
         public QueryRequestConfig build() {
-            return new QueryRequestConfig(host, session, queryTimeoutSecs, connectionTimeout, socketTimeout, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
+            return new QueryRequestConfig(host, session, queryTimeoutSecs, connectionTimeout, socketTimeout, queryResultFormat, paginationOptions, additionalHeaders, stageAttachment, retryAttempts);
         }
     }
 }
