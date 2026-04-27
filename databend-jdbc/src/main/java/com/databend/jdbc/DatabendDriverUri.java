@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.session.DatabendSessionCookieJar;
 import com.databend.jdbc.internal.session.SessionHandleConfig;
 import com.databend.jdbc.internal.session.SessionState;
@@ -56,6 +57,7 @@ final class DatabendDriverUri {
     private final boolean copyPurge;
     private final String nullDisplay;
     private final String binaryFormat;
+    private final QueryResultFormat queryResultFormat;
     private final String database;
     private final boolean presignedUrlDisabled;
     private final String presign;
@@ -89,6 +91,7 @@ final class DatabendDriverUri {
         this.copyPurge = COPY_PURGE.getValue(properties).orElse(true);
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
         this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("");
+        this.queryResultFormat = QueryResultFormat.fromValue(QUERY_RESULT_FORMAT.getValue(properties).orElse("json"));
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);
@@ -359,6 +362,10 @@ final class DatabendDriverUri {
         return binaryFormat;
     }
 
+    public String getQueryResultFormat() {
+        return queryResultFormat.value();
+    }
+
     public Integer getConnectionTimeout() {
         return connectionTimeout;
     }
@@ -397,6 +404,7 @@ final class DatabendDriverUri {
                 .setQueryTimeoutSecs(this.queryTimeout)
                 .setConnectionTimeoutSecs(this.connectionTimeout)
                 .setSocketTimeoutSecs(this.socketTimeout)
+                .setQueryResultFormat(this.queryResultFormat)
                 .setWaitTimeSecs(this.waitTimeSecs)
                 .setMaxRowsInBuffer(this.maxRowsInBuffer)
                 .setMaxRowsPerPage(this.maxRowsPerPage)

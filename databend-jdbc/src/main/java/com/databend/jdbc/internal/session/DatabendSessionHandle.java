@@ -1,5 +1,6 @@
 package com.databend.jdbc.internal.session;
 
+import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.exception.DatabendSessionException;
 import com.databend.jdbc.internal.http.DatabendPresignClient;
@@ -54,7 +55,6 @@ import java.util.logging.Logger;
 import java.util.zip.GZIPOutputStream;
 
 import static com.databend.jdbc.internal.http.JsonCodec.jsonCodec;
-import static com.databend.jdbc.internal.query.RestQueryResultPages.MEDIA_TYPE_JSON;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
@@ -67,6 +67,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private static final String LOGIN_PATH = "/v1/session/login";
     private static final String LOGOUT_PATH = "/v1/session/logout";
     private static final String HEARTBEAT_PATH = "/v1/session/heartbeat";
+    private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     private static final Semver STREAMING_LOAD_MIN_VERSION = new Semver("1.2.781");
     private static final Semver HEARTBEAT_MIN_VERSION = new Semver("1.2.709");
     private static final int MAX_STAGE_UPLOAD_RETRY_ATTEMPTS = 20;
@@ -82,6 +83,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private final HeartbeatManager heartbeatManager = new HeartbeatManager();
     private volatile String routeHint;
     private volatile Semver serverVersion;
+    private volatile Integer serverMaxArrowResultVersion;
     private volatile boolean presignDisabled;
 
     public DatabendSessionHandle(
@@ -113,14 +115,18 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     requestHelper(LOGIN_PATH, HttpMethod.POST, requestBody, headers, retryPolicy);
 
             // old server does not support this API
-            if (response.response.code() != 400) {
+            if (response.statusCode != 400) {
                 JsonNode json = objectMapper.readTree(response.body);
                 JsonNode versionNode = json.get("version");
                 if (versionNode != null && !versionNode.isNull()) {
                     this.serverVersion = new Semver(versionNode.asText());
                 }
+                JsonNode serverMaxArrowResultVersionNode = json.get("server_max_arrow_result_version");
+                if (serverMaxArrowResultVersionNode != null && !serverMaxArrowResultVersionNode.isNull()) {
+                    this.serverMaxArrowResultVersion = serverMaxArrowResultVersionNode.asInt();
+                }
             }
-        } catch (JsonProcessingException e) {
+        } catch (IOException e) {
             throw new DatabendSessionException("Failed to encode login request", e);
         }
     }
@@ -177,21 +183,25 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
 
     public QueryResultPages startQuery(String sql, StageAttachment attach) throws SQLException {
         String queryId = UUID.randomUUID().toString().replace("-", "");
-        return startQuery(queryId, sql, attach);
+        return startQuery(queryId, sql, attach, null);
     }
 
     public QueryResultPages startQuery(String queryId, String sql, StageAttachment attach) throws SQLException {
+        return startQuery(queryId, sql, attach, null);
+    }
+
+    public QueryResultPages startQuery(String queryId, String sql, StageAttachment attach, QueryResultFormat queryResultFormatOverride) throws SQLException {
         SessionState currentSession = this.session.get();
         if (currentSession == null || !currentSession.inActiveTransaction()) {
             this.routeHint = uriRouteHint(this.config.getBaseUri().toString());
         }
-        QueryRequestConfig.Builder builder = makeRequestConfig(queryId, this.config.getBaseUri().toString());
+        QueryRequestConfig.Builder builder = makeRequestConfig(queryId, this.config.getBaseUri().toString(), queryResultFormatOverride);
         if (attach != null) {
             builder.setStageAttachment(attach);
         }
-        QueryRequestConfig settings = builder.build();
+        QueryRequestConfig requestConfig = builder.build();
         try {
-            QueryResultPages pages = new RestQueryResultPages(httpClient, sql, settings, this, lastNodeID);
+            QueryResultPages pages = new RestQueryResultPages(httpClient, sql, requestConfig, this, lastNodeID);
             Long timeout = pages.getResults().getResultTimeoutSecs();
             if (timeout != null && timeout != 0) {
                 heartbeatManager.onStartQuery(timeout);
@@ -226,7 +236,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                                 + ", message=" + error.get("message").asText());
             }
 
-            String encodedSession = response.response.headers().get(QueryRequestConfig.DATABEND_QUERY_CONTEXT_HEADER);
+            String encodedSession = response.headers.get(QueryRequestConfig.DATABEND_QUERY_CONTEXT_HEADER);
             if (encodedSession != null) {
                 byte[] bytes = Base64.getUrlDecoder().decode(encodedSession);
                 String sessionJson = new String(bytes);
@@ -243,8 +253,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     return rows;
                 }
             }
-            throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.body);
-        } catch (JsonProcessingException e) {
+            throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.bodyString());
+        } catch (IOException e) {
             throw new DatabendSessionException("Failed to parse streaming load response", e);
         }
     }
@@ -282,7 +292,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
 
             PresignedRequestContext presigned = getPresignedRequest(PresignMethod.UPLOAD, normalizedStage, destination);
             DatabendPresignClient client =
-                    new DatabendPresignClientV1(new OkHttpClient(), this.config.getBaseUri().toString());
+                    new DatabendPresignClientV1(httpClient, this.config.getBaseUri().toString());
             client.presignUpload(null, dataStream, presigned.headers, presigned.url, fileSize, true);
         } catch (RuntimeException | IOException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
@@ -351,7 +361,6 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         if (this.routeHint != null && !this.routeHint.isEmpty()) {
             additionalHeaders.put(QueryRequestConfig.X_DATABEND_ROUTE_HINT, this.routeHint);
         }
-        additionalHeaders.put("User-Agent", RestQueryResultPages.USER_AGENT_VALUE);
         return additionalHeaders;
     }
 
@@ -391,16 +400,34 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     }
 
     private QueryRequestConfig.Builder makeRequestConfig(String queryId, String host) {
+        return makeRequestConfig(queryId, host, null);
+    }
+
+    private QueryRequestConfig.Builder makeRequestConfig(String queryId, String host, QueryResultFormat queryResultFormatOverride) {
         Map<String, String> additionalHeaders = newAdditionalHeaders();
         additionalHeaders.put(QueryRequestConfig.X_DATABEND_QUERY_ID, queryId);
+        QueryResultFormat queryResultFormat = queryResultFormatOverride == null
+                ? this.config.getQueryResultFormat()
+                : queryResultFormatOverride;
+        if (queryResultFormat == QueryResultFormat.ARROW && !supportsArrowTransport()) {
+            queryResultFormat = QueryResultFormat.JSON;
+        }
         return QueryRequestConfig.builder()
                 .setSession(this.session.get())
                 .setHost(host)
                 .setQueryTimeoutSecs(this.config.getQueryTimeoutSecs())
                 .setConnectionTimeout(this.config.getConnectionTimeoutSecs())
                 .setSocketTimeout(this.config.getSocketTimeoutSecs())
+                .setQueryResultFormat(queryResultFormat)
                 .setPaginationOptions(getPaginationOptions())
                 .setAdditionalHeaders(additionalHeaders);
+    }
+
+    private boolean supportsArrowTransport() {
+        if (this.serverMaxArrowResultVersion != null) {
+            return this.serverMaxArrowResultVersion > 0;
+        }
+        return this.serverVersion != null && new Capability(this.serverVersion).arrowData();
     }
 
     private void logout() throws SQLException {
@@ -641,7 +668,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private PresignedRequestContext getPresignedRequest(PresignMethod method, String stageName, String fileName)
             throws SQLException {
         String sql = buildPresignSql(method, stageName, fileName);
-        QueryResultPages pages = startQuery(sql);
+        QueryResultPages pages = startQuery(UUID.randomUUID().toString().replace("-", ""), sql, null, QueryResultFormat.JSON);
         try {
             while (pages.hasNext()) {
                 QueryResults results = pages.getResults();

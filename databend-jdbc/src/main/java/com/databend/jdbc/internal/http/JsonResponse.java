@@ -3,9 +3,9 @@ package com.databend.jdbc.internal.http;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import okhttp3.Headers;
 import okhttp3.MediaType;
-import okhttp3.Response;
 
 import javax.annotation.Nullable;
+import java.nio.charset.StandardCharsets;
 
 import static com.google.common.base.MoreObjects.toStringHelper;
 import static java.lang.String.format;
@@ -15,47 +15,40 @@ public final class JsonResponse<T> {
     private final int statusCode;
     private final String statusMessage;
     private final Headers headers;
-    @Nullable
-    private final String responseBody;
     private final boolean hasValue;
     private final T value;
     private final IllegalArgumentException exception;
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, String responseBody) {
+    private JsonResponse(int statusCode, String statusMessage, Headers headers) {
         this.statusCode = statusCode;
         this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
-        this.responseBody = requireNonNull(responseBody, "responseBody is null");
         this.hasValue = false;
         this.value = null;
         this.exception = null;
     }
 
-    private JsonResponse(int statusCode, String statusMessage, Headers headers, @Nullable String responseBody, @Nullable T value, @Nullable IllegalArgumentException exception) {
+    private JsonResponse(int statusCode, String statusMessage, Headers headers, @Nullable T value, @Nullable IllegalArgumentException exception) {
         this.statusCode = statusCode;
         this.statusMessage = statusMessage;
         this.headers = requireNonNull(headers, "headers is null");
-        this.responseBody = responseBody;
         this.value = value;
         this.exception = exception;
         this.hasValue = (exception == null);
     }
 
     public static <T> JsonResponse<T> decode(JsonCodec<T> codec, HttpRetryPolicy.ResponseWithBody responseWithBody) {
-        Response response = responseWithBody.response;
-        String body = responseWithBody.body;
-        if (isJson(response.body().contentType())) {
+        String body = new String(responseWithBody.body, StandardCharsets.UTF_8);
+        if (isJson(responseWithBody.contentType)) {
             try {
                 T value = codec.fromJson(body);
-                return new JsonResponse<>(response.code(), response.message(), response.headers(), body, value, null);
+                return new JsonResponse<>(responseWithBody.statusCode, responseWithBody.statusMessage, responseWithBody.headers, value, null);
             } catch (JsonProcessingException e) {
-                String message = body != null
-                        ? format("Unable to create %s from JSON response:\n[%s]", codec.getType(), body)
-                        : format("Unable to create %s from JSON response", codec.getType());
+                String message = format("Unable to create %s from JSON response:\n[%s]", codec.getType(), body);
                 throw new IllegalArgumentException(message, e);
             }
         }
-        return new JsonResponse<>(response.code(), response.message(), response.headers(), body);
+        return new JsonResponse<>(responseWithBody.statusCode, responseWithBody.statusMessage, responseWithBody.headers);
     }
 
     private static boolean isJson(MediaType type) {

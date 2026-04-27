@@ -13,17 +13,13 @@ import java.sql.*;
 
 
 public class TestSpecifiedAPI {
-    static String port = System.getenv("DATABEND_TEST_CONN_PORT") != null ? System.getenv("DATABEND_TEST_CONN_PORT").trim() : "8000";
-    static String username = "databend";
-    static String password = "databend";
-
     public static String baseURL() {
-        return "jdbc:databend://localhost:" + port;
+        return Utils.baseURL();
     }
 
     public static Connection createConnection()
             throws SQLException {
-        return DriverManager.getConnection(baseURL(), username, password);
+        return DriverManager.getConnection(baseURL(), Utils.getUsername(), Utils.getPassword());
     }
 
     @Test(groups = {"IT"})

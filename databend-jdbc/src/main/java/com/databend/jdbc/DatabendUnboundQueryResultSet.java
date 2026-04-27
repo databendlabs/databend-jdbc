@@ -21,14 +21,17 @@ class DatabendUnboundQueryResultSet extends AbstractDatabendResultSet {
     private boolean closed = false;
 
     DatabendUnboundQueryResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results) {
-        super(statement, schema, results, null, "NotQueryResultSet");
+        super(statement, schema, new IteratorResultCursor(results), null, "NotQueryResultSet");
     }
 
     @Override
     public void close() throws SQLException {
-        Statement statement = getStatement();
-        if (statement != null) {
-            statement.close();
+        try {
+            Statement statement = getStatement();
+            if (statement != null) {
+                statement.close();
+            }
+        } catch (SQLException ignored) {
         }
         this.closed = true;
     }

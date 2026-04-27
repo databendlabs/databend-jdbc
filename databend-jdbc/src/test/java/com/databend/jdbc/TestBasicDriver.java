@@ -287,26 +287,48 @@ public class TestBasicDriver {
     public void testUpdateSession()
             throws SQLException {
         try (Connection connection = Utils.createConnection("test_basic_driver")) {
-            connection.createStatement().execute("set max_threads=1");
-            connection.createStatement().execute("use test_basic_driver_2");
-
-            try (Statement statement = connection.createStatement()) {
-                ResultSet settings = statement.executeQuery("show settings");
-                boolean foundMaxThreads = false;
-                while (settings.next()) {
-                    if ("max_threads".equalsIgnoreCase(settings.getString(1))) {
-                        Assert.assertEquals(settings.getString(2), "1");
-                        foundMaxThreads = true;
-                        break;
-                    }
-                }
-                Assert.assertTrue(foundMaxThreads, "max_threads should be present in show settings");
+            if (Compatibility.driverIsGreaterThan("0.4.6")) {
             }
 
-            try (Statement statement = connection.createStatement();
-                 ResultSet resultSet = statement.executeQuery("select current_database()")) {
+            try (Statement statement = connection.createStatement()) {
+                statement.execute("set max_threads=1");
+                statement.execute("use test_basic_driver_2");
+
+                try(ResultSet settings = statement.executeQuery("show settings")) {
+                    boolean foundMaxThreads = false;
+                    while (settings.next()) {
+                        if ("max_threads".equalsIgnoreCase(settings.getString(1))) {
+                            Assert.assertEquals(settings.getString(2), "1");
+                            foundMaxThreads = true;
+                            break;
+                        }
+                    }
+                    Assert.assertTrue(foundMaxThreads, "max_threads should be present in show settings");
+                }
+                try ( ResultSet resultSet = statement.executeQuery("select current_database()")) {
+                    Assert.assertTrue(resultSet.next());
+                    Assert.assertEquals(resultSet.getString(1), "test_basic_driver_2");
+                }
+                if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                    Assert.assertEquals(connection.getSchema(), "test_basic_driver_2");
+                }
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testFailedUseDoesNotUpdateSchema()
+            throws SQLException {
+        try (Connection connection = Utils.createConnection("test_basic_driver");
+             Statement statement = connection.createStatement()) {
+            String originalSchema = connection.getSchema();
+
+            assertThrows(SQLException.class, () -> statement.execute("use test_basic_driver_missing"));
+            Assert.assertEquals(connection.getSchema(), originalSchema);
+
+            try (ResultSet resultSet = statement.executeQuery("select current_database()")) {
                 Assert.assertTrue(resultSet.next());
-                Assert.assertEquals(resultSet.getString(1), "test_basic_driver_2");
+                Assert.assertEquals(resultSet.getString(1), originalSchema);
             }
         }
     }

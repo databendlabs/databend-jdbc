@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 import java.util.Map;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -40,6 +41,7 @@ public final class ConnectionProperties {
     public static final ConnectionProperty<Boolean> COPY_PURGE = new CopyPurge();
     public static final ConnectionProperty<String> NULL_DISPLAY = new NullDisplay();
     public static final ConnectionProperty<String> BINARY_FORMAT = new BinaryFormat();
+    public static final ConnectionProperty<String> QUERY_RESULT_FORMAT = new QueryResultFormatProperty();
     public static final ConnectionProperty<Integer> WAIT_TIME_SECS = new WaitTimeSecs();
 
     public static final ConnectionProperty<Integer> MAX_ROWS_IN_BUFFER = new MaxRowsInBuffer();
@@ -64,6 +66,7 @@ public final class ConnectionProperties {
             .add(QUERY_TIMEOUT)
             .add(CONNECTION_TIMEOUT)
             .add(SOCKET_TIMEOUT)
+            .add(QUERY_RESULT_FORMAT)
             .add(WAIT_TIME_SECS)
             .add(MAX_ROWS_IN_BUFFER)
             .add(MAX_ROWS_PER_PAGE)
@@ -220,6 +223,24 @@ public final class ConnectionProperties {
             extends AbstractConnectionProperty<String> {
         public BinaryFormat() {
             super("binary_format", Optional.of(""), NOT_REQUIRED, ALLOWED, STRING_CONVERTER);
+        }
+    }
+
+    private static class QueryResultFormatProperty
+            extends AbstractConnectionProperty<String> {
+        public QueryResultFormatProperty() {
+            super("query_result_format", Optional.empty(), NOT_REQUIRED, ALLOWED,
+                    QueryResultFormatProperty::normalizeQueryResultFormat,
+                    new String[]{"json", "arrow"},
+                    null);
+        }
+
+        private static String normalizeQueryResultFormat(String value) {
+            String normalized = value.trim().toLowerCase(Locale.ENGLISH);
+            if ("json".equals(normalized) || "arrow".equals(normalized)) {
+                return normalized;
+            }
+            throw new IllegalArgumentException("Unsupported query result format: " + value);
         }
     }
 

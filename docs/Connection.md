@@ -56,6 +56,29 @@ Then the above URL within warehouse DSN can be used as follows:
 
 Databend JDBC URLs accept a single host. Automatic node discovery, load balancing, and failover are not supported.
 
+## Arrow result format
+
+By default, query results are returned in JSON format. To fetch query results in Arrow format, set
+`query_result_format=arrow` in the JDBC URL:
+
+```text
+jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend?query_result_format=arrow
+```
+
+Arrow mode is used for query result fetching. If `query_result_format` is not set, the driver uses JSON.
+
+When Arrow is enabled, start the JVM with:
+
+```shell
+export JAVA_TOOL_OPTIONS='--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true'
+```
+
+Or pass the same options directly to `java`:
+
+```shell
+java --add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true -jar your-app.jar
+```
+
 ## Connection parameters
 
 The driver supports various parameters that may be set as URL parameters or as properties passed to DriverManager. Both
@@ -86,6 +109,7 @@ String url="jdbc:databend://databend:secret@0.0.0.0:8000/hello_databend";
 | copy_purge             | If True, the command will purge the files in the stage after they are loaded successfully into the table                  | false         | jdbc:databend://0.0.0.0:8000/hello_databend?copy_purge=true                                              |
 | presigned_url_disabled | whether use presigned url to upload data, generally if you use local disk as your storage layer, it should be set as true | false         | jdbc:databend://0.0.0.0:8000/hello_databend?presigned_url_disabled=true                                  |
 | presign                | Controls presign mode for data upload. Values: `auto` (enable for *.databend.com, *.databend.cn, *.tidbcloud.com hosts, disable otherwise), `detect` (probe the server to determine support), `on` (always enable), `off` (always disable). When set, takes precedence over presigned_url_disabled | none          | jdbc:databend://0.0.0.0:8000/hello_databend?presign=auto                                                |
+| query_result_format    | Query result format. Supported values: `json` and `arrow`. Default is `json`                                            | json          | jdbc:databend://0.0.0.0:8000/default?query_result_format=arrow                                          |
 | wait_time_secs         | Restful query api blocking time, if the query is not finished, the api will block for wait_time_secs seconds              | 10            | jdbc:databend://0.0.0.0:8000/hello_databend?wait_time_secs=10                                            |
 | max_rows_per_page      | the maximum rows per page in response data body                                                                           | 100000        | jdbc:databend://0.0.0.0:8000/default?max_rows_per_page=100000                                            |
 | null_display           | null value display                                                                                                        | \N            | jdbc:databend://0.0.0.0:8000/hello_databend?null_display=null                                            |

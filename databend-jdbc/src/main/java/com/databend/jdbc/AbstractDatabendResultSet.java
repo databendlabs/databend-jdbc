@@ -26,7 +26,6 @@ import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoField;
 import java.time.temporal.TemporalAccessor;
 import java.util.Calendar;
-import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -34,7 +33,6 @@ import java.util.Optional;
 import java.util.TimeZone;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
-import java.util.concurrent.atomic.AtomicReference;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,9 +67,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private static final DateTimeFormatter TIMESTAMP_TZ_PATTERN2 = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss.SSSSSS[ XX]");
 
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
-    protected final Iterator<List<Object>> results;
+    protected final ResultCursor results;
     private final Optional<Statement> statement;
-    private final AtomicReference<List<Object>> row = new AtomicReference<>();
+    private final AtomicBoolean validRow = new AtomicBoolean();
     // Index into 'rows' of our current row (1-based)
     private final AtomicLong currentRowNumber = new AtomicLong();
     private final AtomicBoolean wasNull = new AtomicBoolean();
@@ -83,7 +81,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
 
     private final String queryId;
 
-    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, Iterator<List<Object>> results, Map<String, String> resultSetting, String queryId) {
+    AbstractDatabendResultSet(Optional<Statement> statement, List<QueryRowField> schema, ResultCursor results, Map<String, String> resultSetting, String queryId) {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
@@ -232,12 +230,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     public boolean next() throws SQLException {
         checkOpen();
         try {
-            if (!results.hasNext()) {
-                row.set(null);
+            if (!results.next()) {
+                validRow.set(false);
                 currentRowNumber.set(0);
                 return false;
             }
-            row.set(results.next());
+            validRow.set(true);
             currentRowNumber.incrementAndGet();
             return true;
         } catch (RuntimeException e) {
@@ -256,7 +254,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
 
     private void checkValidRow()
             throws SQLException {
-        if (row.get() == null) {
+        if (!validRow.get()) {
             throw new SQLException("Not on a valid row");
         }
     }
@@ -268,8 +266,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
             throw new SQLException("Invalid column index: " + index);
         }
-        Object value = null;
-        value = row.get().get(index - 1);
+        Object value = results.getValue(index - 1);
         if (value == null) {
             wasNull.set(true);
             return null;
@@ -286,6 +283,29 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
+        }
+        if (value instanceof byte[]) {
+            return new String((byte[]) value, StandardCharsets.UTF_8);
+        }
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toLocalDateTime().format(TIMESTAMP_PATTERN);
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value)
+                    .atOffset(ZoneOffset.UTC)
+                    .toInstant()
+                    .atZone(resultTimeZone)
+                    .toLocalDateTime()
+                    .format(TIMESTAMP_PATTERN);
+        }
+        if (value instanceof OffsetDateTime) {
+            return ((OffsetDateTime) value).format(TIMESTAMP_TZ_PATTERN);
+        }
+        if (value instanceof IntervalValue) {
+            return ((IntervalValue) value).asString();
+        }
+        if (value instanceof Duration) {
+            return formatInterval((Duration) value);
         }
         return value.toString();
     }
@@ -472,6 +492,20 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
+        if (value instanceof Date) {
+            Date date = (Date) value;
+            if (userTimeZone == null) {
+                return date;
+            }
+            return parseDate(date.toLocalDate().toString(), userTimeZone);
+        }
+        if (value instanceof LocalDate) {
+            LocalDate localDate = (LocalDate) value;
+            if (userTimeZone == null) {
+                return Date.valueOf(localDate);
+            }
+            return parseDate(localDate.toString(), userTimeZone);
+        }
 
         try {
             return parseDate(String.valueOf(value), userTimeZone);
@@ -492,20 +526,32 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
+        if (value instanceof Time) {
+            return (Time) value;
+        }
 
         try {
-            return parseTime((String) value, localTimeZone);
+            return parseTime(String.valueOf(value), localTimeZone);
         } catch (IllegalArgumentException e) {
             throw new SQLException("Invalid time from server: " + value, e);
         }
     }
 
     private Timestamp getTimestamp(int columnIndex, ZoneId localTimeZone)  throws SQLException {
-        String value = (String) column(columnIndex);
-        if (value == null || "null".equalsIgnoreCase(value)) {
+        Object value = column(columnIndex);
+        if (value == null || "null".equalsIgnoreCase(String.valueOf(value))) {
             return null;
         }
-        TemporalAccessor temporal = TIMESTAMP_TZ_PATTERN2.parse(value);
+        if (value instanceof Timestamp) {
+            return (Timestamp) value;
+        }
+        if (value instanceof OffsetDateTime) {
+            return Timestamp.from(((OffsetDateTime) value).toInstant());
+        }
+        if (value instanceof LocalDateTime) {
+            return Timestamp.from(((LocalDateTime) value).atOffset(ZoneOffset.UTC).toInstant());
+        }
+        TemporalAccessor temporal = TIMESTAMP_TZ_PATTERN2.parse(String.valueOf(value));
 
         LocalDateTime localDt = LocalDateTime.from(temporal);
         if (temporal.isSupported(ChronoField.OFFSET_SECONDS)) {
@@ -721,6 +767,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
         DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
         if (DatabendRawType.startsWithIgnoreCase(databendRawType.getType(), DatabendTypes.INTERVAL)) {
+            if (value instanceof IntervalValue) {
+                return ((IntervalValue) value).asDuration();
+            }
+            if (value instanceof Duration) {
+                return value;
+            }
             if (!(value instanceof String)) {
                 throw new SQLDataException("Interval value is not textual: " + value.getClass().getName());
             }
@@ -760,6 +812,9 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         Object value = column(columnIndex);
         if (value == null) {
             return null;
+        }
+        if (value instanceof BigDecimal) {
+            return (BigDecimal) value;
         }
         return parseBigDecimal(String.valueOf(value));
     }
@@ -1674,20 +1729,43 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         throw new SQLFeatureNotSupportedException("updateNClob");
     }
 
-    OffsetDateTime getOffsetDateTimeNotNull(String value, DatabendRawType type) throws SQLException{
+    OffsetDateTime getOffsetDateTimeNotNull(Object value, DatabendRawType type) throws SQLException{
+        if (value instanceof OffsetDateTime) {
+            return (OffsetDateTime) value;
+        }
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toInstant().atOffset(ZoneOffset.UTC);
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value)
+                    .atOffset(ZoneOffset.UTC)
+                    .toInstant()
+                    .atZone(resultTimeZone)
+                    .toOffsetDateTime();
+        }
+        String text = String.valueOf(value);
         DatabendDataType dataType = type.getDataType();
         if (dataType == DatabendDataType.TIMESTAMP_TZ) {
-            return OffsetDateTime.parse(value, TIMESTAMP_TZ_PATTERN);
+            return OffsetDateTime.parse(text, TIMESTAMP_TZ_PATTERN);
         }
         if (dataType == DatabendDataType.TIMESTAMP) {
-            return LocalDateTime.parse(value, TIMESTAMP_PATTERN).atZone(resultTimeZone).toOffsetDateTime();
+            return LocalDateTime.parse(text, TIMESTAMP_PATTERN).atZone(resultTimeZone).toOffsetDateTime();
         }
         throw new SQLDataException(invalidColumnType(type, "OffsetDateTime"));
     }
 
-   ZonedDateTime getZonedDateTimeNotNull(String value, DatabendRawType type) throws SQLException{
+   ZonedDateTime getZonedDateTimeNotNull(Object value, DatabendRawType type) throws SQLException{
+        if (value instanceof Timestamp) {
+            return ((Timestamp) value).toInstant().atZone(resultTimeZone);
+        }
+        if (value instanceof LocalDateTime) {
+            return ((LocalDateTime) value)
+                    .atOffset(ZoneOffset.UTC)
+                    .toInstant()
+                    .atZone(resultTimeZone);
+        }
         if (type.getDataType() == DatabendDataType.TIMESTAMP) {
-            return LocalDateTime.parse(value, TIMESTAMP_PATTERN).atZone(resultTimeZone);
+            return LocalDateTime.parse(String.valueOf(value), TIMESTAMP_PATTERN).atZone(resultTimeZone);
         }
         throw new SQLDataException(invalidColumnType(type, "ZonedDateTime"));
     }
@@ -1710,7 +1788,10 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
 
         if (type == LocalDate.class) {
-            return type.cast(LocalDate.parse((String) value));
+            if (value instanceof Date) {
+                return type.cast(((Date) value).toLocalDate());
+            }
+            return type.cast(LocalDate.parse(String.valueOf(value)));
         }
 
         if (type == Instant.class) {
@@ -1718,11 +1799,11 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         if (type == OffsetDateTime.class) {
-            return type.cast(getOffsetDateTimeNotNull((String) value, databendRawType));
+            return type.cast(getOffsetDateTimeNotNull(value, databendRawType));
         }
 
         if (type == ZonedDateTime.class) {
-            return type.cast(getZonedDateTimeNotNull((String) value, databendRawType));
+            return type.cast(getZonedDateTimeNotNull(value, databendRawType));
         }
 
         if (type == Duration.class) {
@@ -1737,6 +1818,47 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         }
 
         return (T) value;
+    }
+
+    private static String formatInterval(Duration duration) {
+        long totalMicros = Math.addExact(Math.multiplyExact(duration.getSeconds(), 1_000_000L), duration.getNano() / 1_000L);
+        boolean negative = totalMicros < 0;
+        long micros = Math.abs(totalMicros);
+        long days = micros / (24L * 60L * 60L * 1_000_000L);
+        micros %= 24L * 60L * 60L * 1_000_000L;
+        long hours = micros / (60L * 60L * 1_000_000L);
+        micros %= 60L * 60L * 1_000_000L;
+        long minutes = micros / (60L * 1_000_000L);
+        micros %= 60L * 1_000_000L;
+        long seconds = micros / 1_000_000L;
+        long fractionalMicros = micros % 1_000_000L;
+
+        StringBuilder builder = new StringBuilder();
+        if (negative) {
+            builder.append('-');
+        }
+        if (days != 0) {
+            builder.append(days).append(" day");
+            if (days != 1) {
+                builder.append('s');
+            }
+            if (hours != 0 || minutes != 0 || seconds != 0 || fractionalMicros != 0) {
+                builder.append(' ');
+            }
+        }
+        builder.append(hours).append(':');
+        if (minutes < 10) {
+            builder.append('0');
+        }
+        builder.append(minutes).append(':');
+        if (seconds < 10) {
+            builder.append('0');
+        }
+        builder.append(seconds);
+        if (fractionalMicros != 0) {
+            builder.append('.').append(String.format("%06d", fractionalMicros).replaceFirst("0+$", ""));
+        }
+        return builder.toString();
     }
 
     @Override

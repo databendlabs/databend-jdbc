@@ -1,5 +1,7 @@
 package com.databend.jdbc.internal.session;
 
+import com.databend.jdbc.internal.QueryResultFormat;
+
 import java.net.URI;
 import java.util.Objects;
 
@@ -8,6 +10,7 @@ public final class SessionHandleConfig {
     private final Integer queryTimeoutSecs;
     private final Integer connectionTimeoutSecs;
     private final Integer socketTimeoutSecs;
+    private final QueryResultFormat queryResultFormat;
     private final Integer waitTimeSecs;
     private final Integer maxRowsInBuffer;
     private final Integer maxRowsPerPage;
@@ -21,6 +24,7 @@ public final class SessionHandleConfig {
         this.queryTimeoutSecs = builder.queryTimeoutSecs;
         this.connectionTimeoutSecs = builder.connectionTimeoutSecs;
         this.socketTimeoutSecs = builder.socketTimeoutSecs;
+        this.queryResultFormat = Objects.requireNonNull(builder.queryResultFormat, "queryResultFormat is null");
         this.waitTimeSecs = builder.waitTimeSecs;
         this.maxRowsInBuffer = builder.maxRowsInBuffer;
         this.maxRowsPerPage = builder.maxRowsPerPage;
@@ -48,6 +52,10 @@ public final class SessionHandleConfig {
 
     public Integer getSocketTimeoutSecs() {
         return socketTimeoutSecs;
+    }
+
+    public QueryResultFormat getQueryResultFormat() {
+        return queryResultFormat;
     }
 
     public Integer getWaitTimeSecs() {
@@ -83,6 +91,7 @@ public final class SessionHandleConfig {
         private Integer queryTimeoutSecs;
         private Integer connectionTimeoutSecs;
         private Integer socketTimeoutSecs;
+        private QueryResultFormat queryResultFormat = QueryResultFormat.JSON;
         private Integer waitTimeSecs;
         private Integer maxRowsInBuffer;
         private Integer maxRowsPerPage;
@@ -108,6 +117,11 @@ public final class SessionHandleConfig {
 
         public Builder setSocketTimeoutSecs(Integer socketTimeoutSecs) {
             this.socketTimeoutSecs = socketTimeoutSecs;
+            return this;
+        }
+
+        public Builder setQueryResultFormat(QueryResultFormat queryResultFormat) {
+            this.queryResultFormat = queryResultFormat;
             return this;
         }
 

@@ -38,6 +38,46 @@ cd databend-jdbc
 mvn clean install -DskipTests
 ```
 
+## Testing
+
+Start the local integration test environment from `tests/Makefile`:
+
+```shell
+cd tests
+make up
+make test
+```
+
+The default `make test` command runs `databend-jdbc` tests only.
+
+### Run integration tests with Arrow
+
+To run tests with Arrow result pages, set `DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow`:
+
+```shell
+cd tests
+make test DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow TEST_MVN_ARGS='-Dgroups=IT -DexcludedGroups=FLAKY'
+```
+
+When Arrow mode is enabled through `make test`, the required JVM options are added automatically:
+
+```shell
+--add-opens=java.base/java.nio=ALL-UNNAMED
+-Dio.netty.tryReflectionSetAccessible=true
+```
+
+If you run Maven directly instead of `make test`, you must set both the Arrow test environment variable and the JVM options yourself:
+
+```shell
+JAVA_TOOL_OPTIONS='--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true' \
+DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow \
+mvn -pl databend-jdbc test -Dgroups=IT -DexcludedGroups=FLAKY
+```
+
+CI note:
+- `Standalone Test` runs the regular suite and an extra Arrow IT pass.
+- `Cluster Tests` runs the regular suite and an extra Arrow IT pass for each cluster matrix entry.
+
 ### Download jar from maven central
 
 ```shell
@@ -145,9 +185,18 @@ old Timestamp/Date are also supported, note that:
 The following code shows how to unwrap a JDBC Connection object to expose the methods of the DatabendConnection interface.
 
 ```java
+import java.sql.DriverManager;
+import java.sql.Connection;
+import java.sql.SQLException;
 import com.databend.jdbc.DatabendConnection;
-Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000");
-DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
+
+public class UnwrapExample {
+    public static void main(String[] args) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000")) {
+            DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
+        }
+    }
+}
 ```
 
 ### method `loadStreamToTable` 
@@ -175,16 +224,29 @@ example:
 
 
 ```java
+import java.io.FileInputStream;
+import java.nio.file.Files;
+import java.nio.file.Paths;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import com.databend.jdbc.DatabendConnection;
-try(Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000")) {
-    try(FileInputStream fileStream = new FileInputStream("data.csv")) {
-        // unwrap 
-        DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
-        
-        // use special stage `_databend_load`
-        String sql = "insert into my_table from @_databend_load file_format=(type=csv)";
-        
-        databendConnection.loadStreamToTable(sql, fileStream, Files.size(Paths.get("data.csv")), DatabendConnection.LoadMethod.STAGE);
+
+public class LoadStreamExample {
+    public static void main(String[] args) throws SQLException {
+        try (Connection conn = DriverManager.getConnection("jdbc:databend://localhost:8000");
+             FileInputStream fileStream = new FileInputStream("data.csv")) {
+            DatabendConnection databendConnection = conn.unwrap(DatabendConnection.class);
+
+            // use special stage `_databend_load`
+            String sql = "insert into my_table from @_databend_load file_format=(type=csv)";
+
+            databendConnection.loadStreamToTable(
+                    sql,
+                    fileStream,
+                    Files.size(Paths.get("data.csv")),
+                    DatabendConnection.LoadMethod.STAGE);
+        }
     }
 }
 
