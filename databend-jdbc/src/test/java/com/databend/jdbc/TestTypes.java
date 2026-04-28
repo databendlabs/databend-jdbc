@@ -5,7 +5,6 @@ import org.locationtech.jts.geom.Geometry;
 import org.locationtech.jts.io.ParseException;
 import org.locationtech.jts.io.WKBReader;
 import org.testng.Assert;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeSuite;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.DataProvider;
@@ -37,11 +36,6 @@ public class TestTypes {
     @Test(groups = {"IT"})
     public void testGetDecimalByQueryResultFormat()
             throws SQLException {
-        String queryResultFormat = currentQueryResultFormat();
-        if ("arrow".equals(queryResultFormat)) {
-            throw new SkipException("TODO: re-enable after Arrow Decimal64/Decimal128 compatibility is fixed");
-        }
-
         String sql = "select cast(123.456789012345 as decimal(15, 12)) as a";
         try (Connection connection = Utils.createConnection();
              Statement statement = connection.createStatement()) {
@@ -531,14 +525,6 @@ public class TestTypes {
 
             Assert.assertFalse(r.next());
         }
-    }
-
-    private static String currentQueryResultFormat() {
-        String queryResultFormat = System.getenv("DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT");
-        if (queryResultFormat == null || queryResultFormat.trim().isEmpty()) {
-            return "json";
-        }
-        return queryResultFormat.trim().toLowerCase();
     }
 
 }

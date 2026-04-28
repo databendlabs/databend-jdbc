@@ -2,10 +2,12 @@ package com.databend.jdbc.internal.query;
 
 import com.databend.jdbc.internal.session.SessionState;
 import com.databend.jdbc.internal.session.PaginationOptions;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+@JsonInclude(JsonInclude.Include.NON_NULL)
 public class QueryRequest {
     private final String sql;
     private final String sessionId;
@@ -13,6 +15,7 @@ public class QueryRequest {
     private final SessionState session;
     private final StageAttachment stageAttachment;
     private final Integer arrowResultVersionMax;
+    private final ArrowFeatures arrowFeatures;
 
     @JsonCreator
     public QueryRequest(
@@ -21,13 +24,15 @@ public class QueryRequest {
             @JsonProperty("pagination") PaginationOptions paginationOptions,
             @JsonProperty("session") SessionState session,
             @JsonProperty("stage_attachment") StageAttachment stageAttachment,
-            @JsonProperty("arrow_result_version_max") Integer arrowResultVersionMax) {
+            @JsonProperty("arrow_result_version_max") Integer arrowResultVersionMax,
+            @JsonProperty("arrow_features") ArrowFeatures arrowFeatures) {
         this.sql = sql;
         this.sessionId = sessionId;
         this.paginationOptions = paginationOptions;
         this.session = session;
         this.stageAttachment = stageAttachment;
         this.arrowResultVersionMax = arrowResultVersionMax;
+        this.arrowFeatures = arrowFeatures;
     }
 
     public static Builder builder() {
@@ -64,6 +69,11 @@ public class QueryRequest {
         return arrowResultVersionMax;
     }
 
+    @JsonProperty("arrow_features")
+    public ArrowFeatures getArrowFeatures() {
+        return arrowFeatures;
+    }
+
     @Override
     public String toString() {
         try {
@@ -80,6 +90,7 @@ public class QueryRequest {
         private SessionState session;
         private StageAttachment stageAttachment;
         private Integer arrowResultVersionMax;
+        private ArrowFeatures arrowFeatures;
 
         public Builder setSql(String sql) {
             this.sql = sql;
@@ -111,8 +122,27 @@ public class QueryRequest {
             return this;
         }
 
+        public Builder setArrowFeatures(ArrowFeatures arrowFeatures) {
+            this.arrowFeatures = arrowFeatures;
+            return this;
+        }
+
         public QueryRequest build() {
-            return new QueryRequest(sql, sessionId, paginationOptions, session, stageAttachment, arrowResultVersionMax);
+            return new QueryRequest(sql, sessionId, paginationOptions, session, stageAttachment, arrowResultVersionMax, arrowFeatures);
+        }
+    }
+
+    public static class ArrowFeatures {
+        private final Boolean decimal64;
+
+        @JsonCreator
+        public ArrowFeatures(@JsonProperty("decimal64") Boolean decimal64) {
+            this.decimal64 = decimal64;
+        }
+
+        @JsonProperty("decimal64")
+        public Boolean getDecimal64() {
+            return decimal64;
         }
     }
 }

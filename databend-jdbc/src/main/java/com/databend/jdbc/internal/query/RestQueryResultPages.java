@@ -40,6 +40,7 @@ import static java.util.Objects.requireNonNull;
 
 @ThreadSafe
 public class RestQueryResultPages implements QueryResultPages {
+    private static final int ARROW_FEATURE_NEGOTIATION_VERSION = 3;
     public static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     public static final MediaType MEDIA_TYPE_ARROW = MediaType.parse("application/vnd.apache.arrow.stream");
     public static final JsonCodec<QueryResults> QUERY_RESULTS_CODEC = jsonCodec(QueryResults.class);
@@ -104,7 +105,8 @@ public class RestQueryResultPages implements QueryResultPages {
                 .setStageAttachment(requestConfig.getStageAttachment())
                 .setPaginationOptions(requestConfig.getPaginationOptions())
                 .setSql(query)
-                .setArrowResultVersionMax(currentFormat == QueryResultFormat.ARROW ? 2 : null)
+                .setArrowResultVersionMax(currentFormat == QueryResultFormat.ARROW ? ARROW_FEATURE_NEGOTIATION_VERSION : null)
+                .setArrowFeatures(currentFormat == QueryResultFormat.ARROW ? new QueryRequest.ArrowFeatures(false) : null)
                 .build();
         String reqString = req.toString();
         if (reqString == null || reqString.isEmpty()) {

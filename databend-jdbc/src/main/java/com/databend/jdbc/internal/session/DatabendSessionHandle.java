@@ -70,6 +70,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private static final MediaType MEDIA_TYPE_JSON = MediaType.parse("application/json; charset=utf-8");
     private static final Semver STREAMING_LOAD_MIN_VERSION = new Semver("1.2.781");
     private static final Semver HEARTBEAT_MIN_VERSION = new Semver("1.2.709");
+    private static final int MIN_ARROW_RESULT_VERSION = 3;
     private static final int MAX_STAGE_UPLOAD_RETRY_ATTEMPTS = 20;
     private static final Duration STAGE_UPLOAD_RETRY_TIMEOUT = Duration.ofMinutes(5);
 
@@ -424,10 +425,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     }
 
     private boolean supportsArrowTransport() {
-        if (this.serverMaxArrowResultVersion != null) {
-            return this.serverMaxArrowResultVersion > 0;
-        }
-        return this.serverVersion != null && new Capability(this.serverVersion).arrowData();
+        return this.serverMaxArrowResultVersion != null && this.serverMaxArrowResultVersion >= MIN_ARROW_RESULT_VERSION;
     }
 
     private void logout() throws SQLException {
