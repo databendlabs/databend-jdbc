@@ -249,7 +249,6 @@ public class LoadStreamExample {
         }
     }
 }
-
 ```
 
 ### method `uploadStream` and `downloadStream`
@@ -267,3 +266,34 @@ Download a single file in the stage as `InputStream`
 ```
 InputStream downloadStream(String stageName, String filePathInStage) throws SQLException;
 ```
+
+### Use Arrow Result Format
+
+By default, the driver fetches query results in JSON format. To enable Arrow over HTTP, add
+`query_result_format=arrow` to the JDBC URL:
+
+```java
+String url = "jdbc:databend://localhost:8000/default?query_result_format=arrow";
+Connection conn = DriverManager.getConnection(url, "root", "");
+```
+
+Arrow mode is intended for query result fetching. Internal control queries still use JSON when needed.
+
+Requirements:
+
+1. Databend server must support Arrow result pages.
+2. The JVM must allow Arrow to access `java.nio` internals.
+
+Before starting your application, set:
+
+```shell
+export JAVA_TOOL_OPTIONS='--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true'
+```
+
+If you do not want to set `JAVA_TOOL_OPTIONS` globally, pass the same options directly to `java`:
+
+```shell
+java --add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true -jar your-app.jar
+```
+
+If `query_result_format` is not specified, the driver uses JSON.

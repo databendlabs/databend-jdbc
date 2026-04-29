@@ -2,7 +2,6 @@ package com.databend.jdbc;
 
 import com.vdurmont.semver4j.Semver;
 import org.testng.Assert;
-import org.testng.SkipException;
 import org.testng.annotations.BeforeTest;
 import org.testng.annotations.Test;
 
@@ -261,9 +260,6 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetObjectWithDecimal() throws Exception {
-        if ("arrow".equalsIgnoreCase(System.getenv("DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT"))) {
-            throw new SkipException("TODO: re-enable after Arrow Decimal64/Decimal128 compatibility is fixed");
-        }
         try (Connection connection = Utils.createConnection()) {
             connection.createStatement().execute("insert into decimal_test values(1.2)");
             ResultSet rs = connection.createStatement().executeQuery("select * from decimal_test");
@@ -275,9 +271,6 @@ public class TestDatabendDatabaseMetaData {
 
     @Test(groups = {"IT"})
     public void testGetBigDecimal() throws Exception {
-        if ("arrow".equalsIgnoreCase(System.getenv("DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT"))) {
-            throw new SkipException("TODO: re-enable after Arrow Decimal64/Decimal128 compatibility is fixed");
-        }
         String bigDecimalStr = "123.456789012345";
         String scaleBigDecimalStr = "123.46";
         String columnLabel = "a";

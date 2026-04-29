@@ -88,7 +88,7 @@ public class TestDatabendSessionHandle {
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/v1/session/login", exchange -> {
             try {
-                byte[] response = "{\"version\":\"1.2.100\",\"server_max_arrow_result_version\":2}".getBytes(StandardCharsets.UTF_8);
+                byte[] response = "{\"version\":\"1.2.100\",\"server_max_arrow_result_version\":3}".getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);
                 exchange.getResponseBody().write(response);
@@ -134,7 +134,70 @@ public class TestDatabendSessionHandle {
             pages.close();
 
             Assert.assertEquals(accept.get(), "application/vnd.apache.arrow.stream");
-            Assert.assertTrue(requestBody.get().contains("\"arrow_result_version_max\":2"));
+            Assert.assertTrue(requestBody.get().contains("\"arrow_result_version_max\":3"));
+            Assert.assertTrue(requestBody.get().contains("\"arrow_features\":{\"decimal64\":false}"));
+        }
+        finally {
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testLoginFallsBackToJsonWhenServerArrowResultVersionIsTooLow() throws Exception {
+        AtomicReference<String> accept = new AtomicReference<>();
+        AtomicReference<String> requestBody = new AtomicReference<>();
+
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/v1/session/login", exchange -> {
+            try {
+                byte[] response = "{\"version\":\"1.2.100\",\"server_max_arrow_result_version\":2}".getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length);
+                exchange.getResponseBody().write(response);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.createContext("/v1/query", exchange -> {
+            try {
+                accept.set(exchange.getRequestHeaders().getFirst("Accept"));
+                requestBody.set(new String(readAllBytes(exchange), StandardCharsets.UTF_8));
+                byte[] response = "{\"id\":\"qid\",\"node_id\":\"node\",\"session\":{\"database\":\"default\"},\"schema\":[],\"data\":[]}".getBytes(StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, response.length);
+                exchange.getResponseBody().write(response);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        try {
+            DatabendSessionHandle handle = new DatabendSessionHandle(
+                    new OkHttpClient.Builder()
+                            .addInterceptor(userAgentInterceptor(DriverInfo.USER_AGENT_VALUE))
+                            .build(),
+                    SessionHandleConfig.builder()
+                            .setBaseUri(URI.create("http://127.0.0.1:" + server.getAddress().getPort()))
+                            .setInitialSession(SessionState.createDefault())
+                            .setQueryResultFormat(QueryResultFormat.ARROW)
+                            .setQueryTimeoutSecs(30)
+                            .setConnectionTimeoutSecs(30)
+                            .setSocketTimeoutSecs(60)
+                            .setWaitTimeSecs(10)
+                            .setMaxRowsInBuffer(1000)
+                            .setMaxRowsPerPage(1000)
+                            .build(),
+                    null);
+            handle.login();
+            QueryResultPages pages = handle.startQuery("qid", "select 1", null, null);
+            pages.close();
+
+            Assert.assertEquals(accept.get(), "application/json");
+            Assert.assertFalse(requestBody.get().contains("\"arrow_result_version_max\""));
+            Assert.assertFalse(requestBody.get().contains("\"arrow_features\""));
         }
         finally {
             server.stop(0);
