@@ -27,15 +27,18 @@ import static java.lang.String.format;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
-public class DatabendPresignClientV1
-        implements DatabendPresignClient
-{
+public class PresignClient {
+    private static final class NonRetryablePresignFailure extends RuntimeException {
+        private NonRetryablePresignFailure(String message) {
+            super(message);
+        }
+    }
 
     private static final int MaxRetryAttempts = 20;
     private final OkHttpClient client;
-    private static final Logger logger = Logger.getLogger(DatabendPresignClientV1.class.getPackage().getName());
+    private static final Logger logger = Logger.getLogger(PresignClient.class.getPackage().getName());
 
-    public DatabendPresignClientV1(OkHttpClient client, String uri)
+    public PresignClient(OkHttpClient client)
     {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         OkHttpClient.Builder builder = client.newBuilder();
@@ -136,18 +139,23 @@ public class DatabendPresignClientV1
                     return response.body();
                 }
                 else if (response.code() == 401) {
-                    throw new RuntimeException("Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
+                    throw new NonRetryablePresignFailure(
+                            "Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 503) {
                     cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 400) {
-                    cause = new RuntimeException("Error execute presign, configuration error: " + response.code() + " " + response.message());
+                    throw new NonRetryablePresignFailure(
+                            "Error execute presign, configuration error: " + response.code() + " " + response.message());
                 }
             }
             catch (SocketTimeoutException e) {
                 logger.warning("Error execute presign, socket timeout: " + e.getMessage());
                 cause = new RuntimeException("Error execute presign, request is " + request.toString() + "socket timeout: " + e.getMessage());
+            }
+            catch (NonRetryablePresignFailure e) {
+                throw e;
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -167,7 +175,6 @@ public class DatabendPresignClientV1
         }
     }
 
-    @Override
     public void presignUpload(File srcFile, InputStream inputStream, Headers headers,
             String presignedUrl, long fileSize, boolean uploadFromStream)
             throws IOException
@@ -182,7 +189,6 @@ public class DatabendPresignClientV1
         }
     }
 
-    @Override
     public void presignDownload(String destFileName, Headers headers, String presignedUrl)
     {
         Request r = getRequest(headers, presignedUrl);
@@ -196,7 +202,6 @@ public class DatabendPresignClientV1
         }
     }
 
-    @Override
     public InputStream presignDownloadStream(Headers headers, String presignedUrl)
     {
         Request r = getRequest(headers, presignedUrl);

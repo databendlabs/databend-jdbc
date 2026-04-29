@@ -1,0 +1,60 @@
+<!DOCTYPE suite SYSTEM "https://testng.org/testng-1.0.dtd" >
+<suite name="DatabendProjectTests" verbose="1" parallel="none">
+  <groups>
+    <define name="UNIT">
+      <include name="UNIT"/>
+    </define>
+    <define name="IT">
+      <include name="IT"/>
+    </define>
+    <define name="UNIT_ARROW">
+      <include name="UNIT_ARROW"/>
+    </define>
+    <define name="FLAKY">
+      <include name="FLAKY"/>
+    </define>
+  </groups>
+  <test name="UnitTests">
+    <groups>
+      <run>
+        <include name="UNIT"/>
+        <exclude name="FLAKY"/>
+        <exclude name="UNIT_ARROW"/>
+      </run>
+    </groups>
+    <packages>
+      <package name="com.databend.client"/>
+      <package name="com.databend.client.data"/>
+      <package name="com.databend.jdbc"/>
+      <package name="com.databend.jdbc.cloud"/>
+      <package name="com.databend.jdbc.internal.http"/>
+      <package name="com.databend.jdbc.internal.query"/>
+      <package name="com.databend.jdbc.internal.session"/>
+    </packages>
+  </test>
+  <test name="IntegrationTests">
+    <groups>
+      <run>
+        <include name="IT"/>
+        <exclude name="FLAKY"/>
+      </run>
+    </groups>
+    <packages>
+      <package name="com.databend.client"/>
+      <package name="com.databend.jdbc"/>
+      <package name="com.databend.jdbc.cloud"/>
+    </packages>
+  </test>
+  <test name="UnitArrowTests">
+    <groups>
+      <run>
+        <include name="UNIT_ARROW"/>
+        <exclude name="FLAKY"/>
+      </run>
+    </groups>
+    <packages>
+      <package name="com.databend.jdbc"/>
+      <package name="com.databend.jdbc.internal.query"/>
+    </packages>
+  </test>
+</suite>

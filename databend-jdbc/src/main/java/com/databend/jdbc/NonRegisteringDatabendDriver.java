@@ -61,7 +61,7 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
         // ping the server host
         if (connection.useVerify()) {
             try {
-                connection.pingDatabendClientV1();
+                connection.pingDatabendServer();
             } catch (SQLException e) {
                 throw new RuntimeException(e);
             }

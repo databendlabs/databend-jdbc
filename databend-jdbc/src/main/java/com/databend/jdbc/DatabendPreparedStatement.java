@@ -186,20 +186,10 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         Map<String, String> copyOptions = new HashMap<>();
         copyOptions.put("PURGE", String.valueOf(connection.copyPurge()));
         copyOptions.put("NULL_DISPLAY", String.valueOf(connection.nullDisplay()));
-        StageAttachment attachment;
-        if (fileFormatOptions.size() != 0) {
-            attachment = new StageAttachment.Builder()
-                    .setLocation(stagePath)
-                    .setCopyOptions(copyOptions)
-                    .setFileFormatOptions(fileFormatOptions)
-                    .build();
-        } else {
-            attachment = new StageAttachment.Builder()
-                    .setLocation(stagePath)
-                    .setCopyOptions(copyOptions)
-                    .build();
-        }
-        return attachment;
+        return new StageAttachment(
+                stagePath,
+                fileFormatOptions.isEmpty() ? null : fileFormatOptions,
+                copyOptions);
     }
 
     /**

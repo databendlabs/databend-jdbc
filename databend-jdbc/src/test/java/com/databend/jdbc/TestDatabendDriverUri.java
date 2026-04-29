@@ -232,8 +232,34 @@ public class TestDatabendDriverUri {
     }
 
     @Test(groups = {"UNIT"})
+    public void testQueryResultFormatNormalizesCase() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://localhost:8000/default?query_result_format=ARROW", null);
+        Assert.assertEquals(uri.getQueryResultFormat(), "arrow");
+    }
+
+    @Test(groups = {"UNIT"})
     public void testInvalidQueryResultFormat() {
         assertInvalid("jdbc:databend://localhost:8000/default?query_result_format=csv", "Connection property 'query_result_format' value is invalid: csv");
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testSessionSettingsParsingIgnoresMalformedEntries() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create(
+                "jdbc:databend://localhost:8000/default?session_settings=max_threads=4,timezone=UTC,malformed,enable_planner_v2=1",
+                null);
+
+        Map<String, String> expected = new HashMap<>();
+        expected.put("max_threads", "4");
+        expected.put("timezone", "UTC");
+        expected.put("enable_planner_v2", "1");
+        Assert.assertEquals(uri.getSessionSettings(), expected);
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testUrlUserPasswordEncodesReservedCharacters() throws SQLException {
+        DatabendDriverUri uri = DatabendDriverUri.create("jdbc:databend://user:p@ss:wo@rd@localhost:8000/default", null);
+        Assert.assertEquals(uri.getProperties().getProperty("user"), "user");
+        Assert.assertEquals(uri.getProperties().getProperty("password"), "p%40ss%3Awo%40rd");
     }
 
     @Test(groups = "IT")

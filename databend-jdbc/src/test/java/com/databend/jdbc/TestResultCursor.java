@@ -5,17 +5,23 @@ import com.databend.jdbc.internal.query.QueryResultPages;
 import com.databend.jdbc.internal.query.QueryResults;
 import com.databend.jdbc.internal.query.QueryRowField;
 import com.databend.jdbc.internal.query.ResultPage;
+import com.databend.jdbc.internal.session.Capability;
 import com.databend.jdbc.internal.session.QueryLiveness;
 import com.databend.jdbc.internal.session.SessionState;
 import com.google.common.util.concurrent.MoreExecutors;
+import com.vdurmont.semver4j.Semver;
 import okhttp3.Request;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Method;
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.Arrays;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -136,6 +142,80 @@ public class TestResultCursor {
         Assert.assertEquals(exception.getMessage(), "boom");
     }
 
+    @Test(groups = {"UNIT"})
+    public void testEffectiveSettingsPrefersResultSettingsOverSessionSettings() throws Exception {
+        Map<String, String> sessionSettings = new HashMap<>();
+        sessionSettings.put("timezone", "UTC");
+        sessionSettings.put("shared", "session");
+
+        Map<String, String> resultSettings = new HashMap<>();
+        resultSettings.put("max_threads", "8");
+        resultSettings.put("shared", "result");
+
+        QueryResults results = new QueryResults(
+                "qid",
+                "node",
+                null,
+                new SessionState("default", sessionSettings, null, false, false),
+                Collections.<QueryRowField>emptyList(),
+                Collections.<List<String>>emptyList(),
+                resultSettings,
+                "Running",
+                null,
+                null,
+                null,
+                30,
+                null,
+                null,
+                URI.create("/v1/query/next"),
+                null);
+
+        Method method = DatabendResultSet.class.getDeclaredMethod("effectiveSettings", QueryResults.class);
+        method.setAccessible(true);
+
+        @SuppressWarnings("unchecked")
+        Map<String, String> merged = (Map<String, String>) method.invoke(null, results);
+
+        Assert.assertEquals(merged.get("timezone"), "UTC");
+        Assert.assertEquals(merged.get("max_threads"), "8");
+        Assert.assertEquals(merged.get("shared"), "result");
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testSetCloseStatementOnCloseClosesStatementWhenResultSetCloses() throws SQLException {
+        AtomicInteger statementClosed = new AtomicInteger();
+        Statement statement = newStatement(statementClosed);
+        ResultPage page = new FakePage(Collections.singletonList(Collections.singletonList(1)), new AtomicInteger());
+        DatabendResultSet resultSet = DatabendResultSet.create(
+                statement,
+                new FakeQueryResultPages(Collections.singletonList(page), successResults(), successResults()),
+                0,
+                new Capability(new Semver("1.3.0")));
+
+        resultSet.setCloseStatementOnClose();
+        Assert.assertEquals(statementClosed.get(), 0);
+
+        resultSet.close();
+        Assert.assertEquals(statementClosed.get(), 1);
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testSetCloseStatementOnCloseClosesImmediatelyWhenResultSetAlreadyClosed() throws SQLException {
+        AtomicInteger statementClosed = new AtomicInteger();
+        Statement statement = newStatement(statementClosed);
+        ResultPage page = new FakePage(Collections.singletonList(Collections.singletonList(1)), new AtomicInteger());
+        DatabendResultSet resultSet = DatabendResultSet.create(
+                statement,
+                new FakeQueryResultPages(Collections.singletonList(page), successResults(), successResults()),
+                0,
+                new Capability(new Semver("1.3.0")));
+
+        resultSet.close();
+        resultSet.setCloseStatementOnClose();
+
+        Assert.assertEquals(statementClosed.get(), 1);
+    }
+
     private static QueryLiveness newLiveness() {
         return new QueryLiveness("qid", "node", new AtomicLong(System.currentTimeMillis()), 30L, false);
     }
@@ -158,6 +238,38 @@ public class TestResultCursor {
                 null,
                 URI.create("/v1/query/next"),
                 null);
+    }
+
+    private static Statement newStatement(AtomicInteger closedCount) {
+        return (Statement) Proxy.newProxyInstance(
+                TestResultCursor.class.getClassLoader(),
+                new Class<?>[]{Statement.class},
+                (proxy, method, args) -> {
+                    if ("close".equals(method.getName())) {
+                        closedCount.incrementAndGet();
+                        return null;
+                    }
+                    if ("isClosed".equals(method.getName())) {
+                        return closedCount.get() > 0;
+                    }
+                    if ("unwrap".equals(method.getName())) {
+                        return null;
+                    }
+                    if ("isWrapperFor".equals(method.getName())) {
+                        return false;
+                    }
+                    Class<?> returnType = method.getReturnType();
+                    if (returnType == Boolean.TYPE) {
+                        return false;
+                    }
+                    if (returnType == Integer.TYPE) {
+                        return 0;
+                    }
+                    if (returnType == Long.TYPE) {
+                        return 0L;
+                    }
+                    return null;
+                });
     }
 
     private static final class FakePage implements ResultPage {

@@ -7,13 +7,13 @@ import org.testng.annotations.Test;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
-import java.net.URI;
 import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.assertNull;
 
@@ -182,6 +182,24 @@ public class TestDatabendDatabaseMetaData {
             try (ResultSet rs = connection.getMetaData().getColumns(null, null, null, null)) {
                 assertEquals(rs.getMetaData().getColumnCount(), 24);
             }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetTablesForMissingNameReturnsEmptyResult() throws Exception {
+        try (Connection connection = Utils.createConnection();
+             ResultSet rs = connection.getMetaData().getTables(null, null, "table_missing_for_metadata_test", null)) {
+            assertTableMetadata(rs);
+            assertFalse(rs.next());
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGetColumnsForMissingTableReturnsEmptyResult() throws Exception {
+        try (Connection connection = Utils.createConnection();
+             ResultSet rs = connection.getMetaData().getColumns(null, null, "table_missing_for_metadata_test", null)) {
+            assertEquals(rs.getMetaData().getColumnCount(), 24);
+            assertFalse(rs.next());
         }
     }
 

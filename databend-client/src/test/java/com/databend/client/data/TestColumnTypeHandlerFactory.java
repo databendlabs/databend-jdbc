@@ -19,7 +19,7 @@ import org.testng.annotations.Test;
 
 public class TestColumnTypeHandlerFactory
 {
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testGetTypeFunction() {
         assertTypeHandler("Boolean", BooleanHandler.class, false);
         assertTypeHandler("Nullable(Boolean)", BooleanHandler.class, true);

@@ -404,14 +404,65 @@ public class TestPrepareStatement {
 
     @Test(groups = "UNIT")
     public void shouldBuildStageAttachmentWithFileFormatOptions() throws SQLException {
-        Connection conn = Utils.createConnection();
-        StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
-                "stagePath");
+        try (Connection conn = Utils.createConnection()) {
+            StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
+                    "stagePath");
 
-        Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
-        Assert.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
-        Assert.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
-        Assert.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
+            Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
+            Assert.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
+            Assert.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
+            Assert.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
+        }
+    }
+
+    @Test(groups = "UNIT")
+    public void shouldBuildStageAttachmentWithBinaryFormatOption() throws SQLException {
+        Properties props = new Properties();
+        props.setProperty("user", Utils.getUsername());
+        props.setProperty("password", Utils.getPassword());
+        props.setProperty("binary_format", "base64");
+        props.setProperty("copy_purge", "false");
+        props.setProperty("null_display", "NULL");
+
+        try (Connection conn = Utils.createConnection("default", props)) {
+            StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment((DatabendConnection) conn,
+                    "stagePath");
+
+            Assert.assertEquals(stageAttachment.getFileFormatOptions().get("binary_format"), "base64");
+            Assert.assertEquals(stageAttachment.getFileFormatOptions().get("type"), "CSV");
+            Assert.assertEquals(stageAttachment.getCopyOptions().get("PURGE"), "false");
+            Assert.assertEquals(stageAttachment.getCopyOptions().get("NULL_DISPLAY"), "NULL");
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testDropStageAttachmentTreatsMissingFileAsSuccess() throws SQLException {
+        if (Compatibility.skipDriverBugLowerThen("0.4.6")) {
+            return;
+        }
+        try (Connection conn = getConn();
+             PreparedStatement ps = conn.prepareStatement("insert into t_missing values")) {
+            StageAttachment attachment = new StageAttachment(
+                    "@~/jdbc/non-existent-file-" + UUID.randomUUID(),
+                    null,
+                    null);
+
+            Assert.assertTrue(((DatabendPreparedStatement) ps).dropStageAttachment(attachment));
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testBinaryFormatOptionIsVisibleWhenBuildingAttachment() throws SQLException {
+        Properties props = new Properties();
+        props.setProperty("user", Utils.getUsername());
+        props.setProperty("password", Utils.getPassword());
+        props.setProperty("binary_format", "base64");
+
+        try (Connection conn = Utils.createConnection("default", props)) {
+            StageAttachment stageAttachment = DatabendPreparedStatement.buildStateAttachment(
+                    conn.unwrap(DatabendConnection.class), "stagePath");
+            Assert.assertEquals(stageAttachment.getFileFormatOptions().get("binary_format"), "base64");
+        }
     }
 
     @Test(groups = "IT")
@@ -658,6 +709,53 @@ public class TestPrepareStatement {
                 ResultSet rs = ps.executeQuery();
                 Assert.assertTrue(rs.next());
                 Assert.assertEquals(rs.getInt(1), 1);
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testClearParametersRemovesPreviousBindings() throws SQLException {
+        try (Connection conn = getConn();
+             Statement s = conn.createStatement()) {
+            s.execute("create or replace table t1(a int, b string)");
+
+            try (PreparedStatement ps = conn.prepareStatement("insert into t1 values (?, ?)")) {
+                ps.setInt(1, 1);
+                ps.setString(2, "stale");
+                ps.clearParameters();
+                ps.setInt(1, 2);
+                ps.setString(2, "fresh");
+                ps.execute();
+            }
+
+            try (ResultSet rs = s.executeQuery("select * from t1")) {
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 2);
+                Assert.assertEquals(rs.getString(2), "fresh");
+                Assert.assertFalse(rs.next());
+            }
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testClearBatchDropsPendingRows() throws SQLException {
+        try (Connection conn = getConn();
+             Statement s = conn.createStatement()) {
+            s.execute("create or replace table t1(a int, b string)");
+
+            try (PreparedStatement ps = conn.prepareStatement("insert into t1 values")) {
+                ps.setInt(1, 1);
+                ps.setString(2, "a");
+                ps.addBatch();
+                ps.clearBatch();
+
+                Assert.assertEquals(ps.executeBatch(), new int[0]);
+            }
+
+            try (ResultSet rs = s.executeQuery("select count(*) from t1")) {
+                Assert.assertTrue(rs.next());
+                Assert.assertEquals(rs.getInt(1), 0);
+                Assert.assertFalse(rs.next());
             }
         }
     }

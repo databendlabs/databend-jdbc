@@ -545,7 +545,7 @@ public class DatabendConnection implements Connection, DatabendConnectionExtensi
         return this.sessionHandle.getBaseUri();
     }
 
-    void pingDatabendClientV1() throws SQLException {
+    void pingDatabendServer() throws SQLException {
         try (Statement statement = this.createStatement()) {
             statement.execute("select 1");
             ResultSet r = statement.getResultSet();
