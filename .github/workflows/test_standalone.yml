@@ -50,13 +50,25 @@ jobs:
           docker logs ${cid}
           curl -u databend:databend  --request POST localhost:8000/v1/query --header 'Content-Type:application/json' --data-raw '{"sql":"select 1"}'
 
-      - name: Run Tests
+      - name: Run Non-IT Tests
         working-directory: tests
-        run: make test TEST_MVN_ARGS='-DexcludedGroups=FLAKY'
+        run: make test TEST_MVN_ARGS='-DexcludedGroups=FLAKY,IT,UNIT_ARROW'
         env:
           MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
 
-      - name: Run Arrow IT
+      - name: Run UNIT_ARROW Tests
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-Parrow-tests -DexcludedGroups=FLAKY'
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Run IT Tests
+        working-directory: tests
+        run: make test TEST_MVN_ARGS='-Dgroups=IT -DexcludedGroups=FLAKY'
+        env:
+          MAVEN_GPG_PASSPHRASE: ${{ secrets.GPG_PASSPHRASE }}
+
+      - name: Run Arrow IT Tests
         working-directory: tests
         run: make test TEST_MVN_ARGS='-Dgroups=IT -DexcludedGroups=FLAKY'
         env:

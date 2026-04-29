@@ -1,10 +1,12 @@
 package com.databend.jdbc.internal.session;
 
 import com.databend.jdbc.internal.QueryResultFormat;
+import com.databend.jdbc.internal.exception.DatabendPresignException;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.exception.DatabendSessionException;
-import com.databend.jdbc.internal.http.DatabendPresignClient;
-import com.databend.jdbc.internal.http.DatabendPresignClientV1;
+import com.databend.jdbc.internal.exception.DatabendStageUploadException;
+import com.databend.jdbc.internal.exception.DatabendStreamingLoadException;
+import com.databend.jdbc.internal.http.PresignClient;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
 import com.databend.jdbc.internal.query.QueryResultPages;
@@ -117,14 +119,18 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
 
             // old server does not support this API
             if (response.statusCode != 400) {
-                JsonNode json = objectMapper.readTree(response.body);
-                JsonNode versionNode = json.get("version");
-                if (versionNode != null && !versionNode.isNull()) {
-                    this.serverVersion = new Semver(versionNode.asText());
-                }
-                JsonNode serverMaxArrowResultVersionNode = json.get("server_max_arrow_result_version");
-                if (serverMaxArrowResultVersionNode != null && !serverMaxArrowResultVersionNode.isNull()) {
-                    this.serverMaxArrowResultVersion = serverMaxArrowResultVersionNode.asInt();
+                try {
+                    JsonNode json = objectMapper.readTree(response.body);
+                    JsonNode versionNode = json.get("version");
+                    if (versionNode != null && !versionNode.isNull()) {
+                        this.serverVersion = new Semver(versionNode.asText());
+                    }
+                    JsonNode serverMaxArrowResultVersionNode = json.get("server_max_arrow_result_version");
+                    if (serverMaxArrowResultVersionNode != null && !serverMaxArrowResultVersionNode.isNull()) {
+                        this.serverMaxArrowResultVersion = serverMaxArrowResultVersionNode.asInt();
+                    }
+                } catch (IOException | IllegalArgumentException e) {
+                    throw new DatabendSessionException("Failed to decode login response", e);
                 }
             }
         } catch (IOException e) {
@@ -229,34 +235,44 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             RequestBody requestBody = buildMultipartBody(inputStream, fileSize);
             HttpRetryPolicy.ResponseWithBody response =
                     requestHelper(STREAMING_LOAD_PATH, HttpMethod.PUT, requestBody, headers, retryPolicy);
-            JsonNode json = objectMapper.readTree(response.body);
-            JsonNode error = json.get("error");
-            if (error != null) {
-                throw new SQLException(
-                        "streaming load fail: code = " + error.get("code").asText()
-                                + ", message=" + error.get("message").asText());
-            }
-
-            String encodedSession = response.headers.get(QueryRequestConfig.DATABEND_QUERY_CONTEXT_HEADER);
-            if (encodedSession != null) {
-                byte[] bytes = Base64.getUrlDecoder().decode(encodedSession);
-                String sessionJson = new String(bytes);
-                SessionState updatedSession = SESSION_JSON_CODEC.fromJson(sessionJson);
-                if (updatedSession != null) {
-                    this.session.set(updatedSession);
+            try {
+                JsonNode json = objectMapper.readTree(response.body);
+                JsonNode error = json.get("error");
+                if (error != null) {
+                    throw new SQLException(
+                            "streaming load fail: code = " + error.get("code").asText()
+                                    + ", message=" + error.get("message").asText());
                 }
-            }
 
-            JsonNode stats = json.get("stats");
-            if (stats != null) {
-                int rows = stats.get("rows").asInt(-1);
-                if (rows != -1) {
-                    return rows;
+                String encodedSession = response.headers.get(QueryRequestConfig.DATABEND_QUERY_CONTEXT_HEADER);
+                if (encodedSession != null) {
+                    byte[] bytes = Base64.getUrlDecoder().decode(encodedSession);
+                    String sessionJson = new String(bytes);
+                    SessionState updatedSession = SESSION_JSON_CODEC.fromJson(sessionJson);
+                    if (updatedSession != null) {
+                        this.session.set(updatedSession);
+                    }
                 }
+
+                JsonNode stats = json.get("stats");
+                if (stats != null) {
+                    int rows = stats.get("rows").asInt(-1);
+                    if (rows != -1) {
+                        return rows;
+                    }
+                }
+                throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.bodyString());
+            } catch (IOException | IllegalArgumentException e) {
+                throw new DatabendStreamingLoadException("Failed to decode streaming load response", e);
             }
-            throw new SQLException("invalid response for " + STREAMING_LOAD_PATH + ": " + response.bodyString());
+        } catch (SQLException e) {
+            if (e.getCause() instanceof StreamingLoadRequestEncodingFailure) {
+                Throwable cause = e.getCause().getCause() != null ? e.getCause().getCause() : e.getCause();
+                throw new DatabendStreamingLoadException("Failed to encode streaming load request", cause);
+            }
+            throw e;
         } catch (IOException e) {
-            throw new DatabendSessionException("Failed to parse streaming load response", e);
+            throw new DatabendStreamingLoadException("Failed to encode streaming load request", e);
         }
     }
 
@@ -291,13 +307,29 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 return;
             }
 
-            PresignedRequestContext presigned = getPresignedRequest(PresignMethod.UPLOAD, normalizedStage, destination);
-            DatabendPresignClient client =
-                    new DatabendPresignClientV1(httpClient, this.config.getBaseUri().toString());
-            client.presignUpload(null, dataStream, presigned.headers, presigned.url, fileSize, true);
-        } catch (RuntimeException | IOException e) {
+            PresignedRequestContext presigned;
+            try {
+                presigned = getPresignedRequest(PresignMethod.UPLOAD, normalizedStage, destination);
+            } catch (RuntimeException e) {
+                throw new SQLException("Failed to prepare presigned upload request", e);
+            }
+            PresignClient client = new PresignClient(httpClient);
+            try {
+                client.presignUpload(null, dataStream, presigned.headers, presigned.url, fileSize, true);
+            } catch (RuntimeException | IOException e) {
+                throw new SQLException(
+                        "Failed to upload stream",
+                        new DatabendPresignException("Failed to upload via presigned request", e));
+            }
+        } catch (DatabendStageUploadException e) {
             logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
-            throw new SQLException(e);
+            throw new SQLException("Failed to upload stream", e);
+        } catch (DatabendPresignException e) {
+            logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
+            throw new SQLException("Failed to upload stream", e);
+        } catch (IOException e) {
+            logger.warning("failed to upload input stream, file size is:" + fileSize / 1024.0 + e.getMessage());
+            throw new SQLException("Failed to upload stream", e);
         }
     }
 
@@ -326,12 +358,19 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
 
     public InputStream downloadStream(String stageName, String path) throws SQLException {
         String normalizedStage = stageName.replaceAll("/$", "");
-        DatabendPresignClient client = new DatabendPresignClientV1(httpClient, this.config.getBaseUri().toString());
+        PresignClient client = new PresignClient(httpClient);
+        PresignedRequestContext presigned;
         try {
-            PresignedRequestContext presigned = getPresignedRequest(PresignMethod.DOWNLOAD, normalizedStage, path);
+            presigned = getPresignedRequest(PresignMethod.DOWNLOAD, normalizedStage, path);
+        } catch (RuntimeException e) {
+            throw new SQLException("Failed to prepare presigned download request", e);
+        }
+        try {
             return client.presignDownloadStream(presigned.headers, presigned.url);
         } catch (RuntimeException e) {
-            throw new SQLException(e);
+            throw new SQLException(
+                    "Failed to open presigned download stream",
+                    new DatabendPresignException("Failed to open presigned download stream", e));
         }
     }
 
@@ -534,10 +573,9 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
                     logger.warning("Upload to stage failed, error is: " + cause);
-                    throw new RuntimeException(String.format(
-                            "Error upload to stage (attempts: %s, duration: %s)",
-                            attempts,
-                            sinceStart), cause);
+                    throw new DatabendStageUploadException(
+                            String.format("Error upload to stage (attempts: %s, duration: %s)", attempts, sinceStart),
+                            cause);
                 }
 
                 try {
@@ -549,7 +587,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 }
             }
             if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                throw new IOException("Upload failed and request body is not replayable", cause);
+                throw new DatabendStageUploadException("Upload failed and request body is not replayable", cause);
             }
             attempts++;
 
@@ -560,7 +598,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     return;
                 }
                 if (response.code() == 401) {
-                    throw new RuntimeException("Error upload to stage, Unauthorized user: "
+                    throw new NonRetryableStageUploadFailure("Error upload to stage, Unauthorized user: "
                             + response.code() + " " + response.message());
                 }
                 if (response.code() >= 503) {
@@ -568,7 +606,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                             + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 400) {
-                    cause = new RuntimeException("Error upload to stage, configuration error: "
+                    throw new NonRetryableStageUploadFailure("Error upload to stage, configuration error: "
                             + response.code() + " " + response.message());
                 }
             }
@@ -576,6 +614,9 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 logger.warning("Error upload to stage, socket timeout: " + e.getMessage());
                 cause = new RuntimeException("Error upload to stage, request is "
                         + request + " socket timeout: " + e.getMessage());
+            }
+            catch (NonRetryableStageUploadFailure e) {
+                throw new DatabendStageUploadException(e.getMessage(), e);
             }
             catch (RuntimeException e) {
                 cause = e;
@@ -608,6 +649,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             public void writeTo(BufferedSink sink) throws IOException {
                 try (Source source = Okio.source(inputStream)) {
                     sink.writeAll(source);
+                } catch (IOException e) {
+                    throw new StreamingLoadRequestEncodingFailure("Failed to encode streaming load request body", e);
                 }
             }
         };
@@ -635,17 +678,34 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         Map<String, Object> requestBody = new HashMap<>();
         requestBody.put("node_to_queries", nodeToQueryID);
 
+        String json;
         try {
-            String json = objectMapper.writeValueAsString(requestBody);
+            json = objectMapper.writeValueAsString(requestBody);
+        } catch (JsonProcessingException e) {
+            logger.warning("fail to encode heartbeat body: " + e);
+            return;
+        }
+
+        HttpRetryPolicy.ResponseWithBody response;
+        try {
             HttpRetryPolicy retryPolicy = new HttpRetryPolicy(true, false);
-            HttpRetryPolicy.ResponseWithBody response = requestHelper(
+            response = requestHelper(
                     HEARTBEAT_PATH,
                     HttpMethod.POST,
                     RequestBody.create(MEDIA_TYPE_JSON, json),
                     null,
                     retryPolicy);
+        } catch (SQLException e) {
+            logger.warning("fail to send heartbeat: " + e);
+            return;
+        }
+
+        try {
             JsonNode toRemove = objectMapper.readTree(response.body).get("queries_to_remove");
-            if (toRemove != null && toRemove.isArray()) {
+            if (toRemove != null && !toRemove.isNull() && !toRemove.isArray()) {
+                throw new IllegalArgumentException("queries_to_remove is not an array");
+            }
+            if (toRemove != null) {
                 for (JsonNode element : toRemove) {
                     QueryLiveness query = queries.get(element.asText());
                     if (query != null) {
@@ -653,13 +713,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     }
                 }
             }
-        } catch (JsonProcessingException e) {
-            logger.warning("fail to encode heartbeat body: " + e);
-        } catch (SQLException e) {
-            logger.warning("fail to send heartbeat: " + e);
-        } catch (Exception e) {
-            logger.warning("fail to send heartbeat: " + e);
-            throw new DatabendSessionException("Unexpected heartbeat failure", e);
+        } catch (IOException | IllegalArgumentException e) {
+            logger.warning("fail to decode heartbeat response: " + e);
         }
     }
 
@@ -675,23 +730,25 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 }
                 List<List<Object>> rows = results.getData();
                 if (rows != null && !rows.isEmpty()) {
-                    int headersIndex = findFieldIndex(results, "headers");
-                    int urlIndex = findFieldIndex(results, "url");
-                    List<Object> row = rows.get(0);
-                    if (headersIndex >= row.size() || urlIndex >= row.size()) {
-                        throw new SQLException("Invalid presign response row for SQL: " + sql);
-                    }
-                    String headers = String.valueOf(row.get(headersIndex));
-                    String url = String.valueOf(row.get(urlIndex));
                     try {
+                        int headersIndex = findFieldIndex(results, "headers");
+                        int urlIndex = findFieldIndex(results, "url");
+                        List<Object> row = rows.get(0);
+                        if (headersIndex >= row.size() || urlIndex >= row.size()) {
+                            throw new DatabendPresignException("Invalid presign response row for SQL: " + sql);
+                        }
+                        String headers = String.valueOf(row.get(headersIndex));
+                        String url = String.valueOf(row.get(urlIndex));
                         return new PresignedRequestContext(parseHeaders(headers), url);
-                    } catch (JsonProcessingException e) {
-                        throw new SQLException("Failed to parse presign headers for SQL: " + sql, e);
+                    } catch (JsonProcessingException | IllegalArgumentException e) {
+                        throw new DatabendPresignException("Failed to decode presign response for SQL: " + sql, e);
+                    } catch (SQLException e) {
+                        throw new DatabendPresignException("Failed to decode presign response for SQL: " + sql, e);
                     }
                 }
                 pages.advance();
             }
-            throw new SQLException("Failed to get presign url. No result returned for SQL: " + sql);
+            throw new DatabendPresignException("Failed to decode presign response for SQL: " + sql + ": no result returned");
         } finally {
             pages.close();
         }
@@ -773,6 +830,18 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         private PresignedRequestContext(Headers headers, String url) {
             this.headers = headers;
             this.url = url;
+        }
+    }
+
+    private static final class NonRetryableStageUploadFailure extends RuntimeException {
+        private NonRetryableStageUploadFailure(String message) {
+            super(message);
+        }
+    }
+
+    private static final class StreamingLoadRequestEncodingFailure extends IOException {
+        private StreamingLoadRequestEncodingFailure(String message, Throwable cause) {
+            super(message, cause);
         }
     }
 

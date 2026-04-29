@@ -28,7 +28,7 @@ public class TestQueryErrors
 {
     private static final JsonCodec<QueryErrors> QUERY_ERROR_JSON_CODEC = jsonCodec(QueryErrors.class);
 
-    @Test( groups = {"unit"} )
+    @Test( groups = {"UNIT"} )
     public void testQueryError() throws JsonProcessingException {
         String json = "{\"code\": 1000, \"message\": \"test\"}";
         Assert.assertEquals(QUERY_ERROR_JSON_CODEC.fromJson(json).getCode(), 1000);

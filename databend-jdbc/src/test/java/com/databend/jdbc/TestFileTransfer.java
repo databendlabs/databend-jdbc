@@ -218,4 +218,25 @@ public class TestFileTransfer {
             Assert.assertEquals(10, n);
         }
     }
+
+    @Test(groups = {"IT"})
+    public void testLoadStreamToTableRejectsSqlWithoutSpecialStage() throws SQLException {
+        if (!Compatibility.driverCapability.streamingLoad) {
+            return;
+        }
+        if (!Compatibility.serverCapability.streamingLoad) {
+            return;
+        }
+
+        try (Connection connection = Utils.createConnectionWithPresignedUrlDisable()) {
+            DatabendConnection databendConnection = connection.unwrap(DatabendConnection.class);
+            SQLException exception = Assert.expectThrows(SQLException.class, () ->
+                    databendConnection.loadStreamToTable(
+                            "insert into test_load values (1)",
+                            new ByteArrayInputStream(new byte[0]),
+                            0,
+                            DatabendConnection.LoadMethod.STREAMING));
+            Assert.assertTrue(exception.getMessage().contains("@_databend_load"));
+        }
+    }
 }

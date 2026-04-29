@@ -114,7 +114,7 @@ public class HttpRetryPolicy {
                         return new ResponseWithBody(response, new byte[0]);
                     }
                     String body = response.body().string();
-                    if (!shouldRetry(code, body)) {
+                    if (!shouldRetry(code, body) || attempts == MAX_ATTEMPTS) {
                         failReason = String.format("status_code = %s, body = %s", code, body);
                         break;
                     }
@@ -124,7 +124,7 @@ public class HttpRetryPolicy {
                 }
             } catch (IOException e) {
                 failReason = e.getMessage();
-                cause = e.getCause();
+                cause = e;
                 if (!shouldRetry(e) || attempts == MAX_ATTEMPTS) {
                     break;
                 }

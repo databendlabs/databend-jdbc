@@ -5,7 +5,7 @@ DATABEND_QUERY_VERSION ?= nightly
 # If you run Maven directly, set JAVA_TOOL_OPTIONS yourself as well.
 DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT ?=
 DATABEND_JDBC_ARROW_JAVA_TOOL_OPTIONS ?= --add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true
-TEST_MVN_ARGS ?= -DexcludedGroups=FLAKY
+TEST_MVN_ARGS ?= -DexcludedGroups=FLAKY,UNIT_ARROW
 
 TEST_JAVA_TOOL_OPTIONS := $(strip $(JAVA_TOOL_OPTIONS))
 ifneq ($(filter arrow,$(DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT)),)

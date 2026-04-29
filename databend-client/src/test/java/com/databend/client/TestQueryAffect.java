@@ -25,7 +25,7 @@ import static com.databend.client.JsonCodec.jsonCodec;
 public class TestQueryAffect {
     private static final JsonCodec<QueryAffect> QUERY_AFFECT_JSON_CODEC = jsonCodec(QueryAffect.class);
 
-    @Test( groups = {"unit"} )
+    @Test( groups = {"UNIT"} )
     public void testQueryAffectUseDB() throws JsonProcessingException {
         String json = "{\"type\":\"UseDB\",\"name\":\"db1\"}";
         QueryAffect clause = QUERY_AFFECT_JSON_CODEC.fromJson(json);
@@ -36,7 +36,7 @@ public class TestQueryAffect {
         Assert.assertEquals(useDB.getName(), "db1");
     }
 
-    @Test( groups = {"unit"} )
+    @Test( groups = {"UNIT"} )
     public void testQueryAffectChangeSettings() throws JsonProcessingException {
         String json = "{\"type\":\"ChangeSettings\",\"keys\":[\"max_threads\"],\"values\":[\"1\"],\"is_globals\":[false]}";
         QueryAffect clause = QUERY_AFFECT_JSON_CODEC.fromJson(json);

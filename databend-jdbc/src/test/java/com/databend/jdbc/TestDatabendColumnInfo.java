@@ -20,7 +20,7 @@ public class TestDatabendColumnInfo {
     // End-to-end: new type name -> DatabendColumnInfo -> correct metadata
     // =========================================================================
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testBigintColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("bigint"));
         Assert.assertEquals(info.getColumnType(), Types.BIGINT);
@@ -30,7 +30,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getScale(), 0);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNullableBigintColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("Nullable(bigint)"));
         Assert.assertEquals(info.getColumnType(), Types.BIGINT);
@@ -39,7 +39,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getPrecision(), 19);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testBigintUnsignedColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("bigint unsigned"));
         Assert.assertEquals(info.getColumnType(), Types.BIGINT);
@@ -48,7 +48,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 20);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testTinyintColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("tinyint"));
         Assert.assertEquals(info.getColumnType(), Types.TINYINT);
@@ -58,7 +58,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getScale(), 0);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testTinyintUnsignedColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("tinyint unsigned"));
         Assert.assertEquals(info.getColumnType(), Types.TINYINT);
@@ -67,7 +67,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 4);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testSmallintColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("smallint"));
         Assert.assertEquals(info.getColumnType(), Types.SMALLINT);
@@ -76,7 +76,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 6);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testSmallintUnsignedColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("smallint unsigned"));
         Assert.assertEquals(info.getColumnType(), Types.SMALLINT);
@@ -85,7 +85,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 6);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testIntegerColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("integer"));
         Assert.assertEquals(info.getColumnType(), Types.INTEGER);
@@ -94,7 +94,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 11);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testIntegerUnsignedColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("integer unsigned"));
         Assert.assertEquals(info.getColumnType(), Types.INTEGER);
@@ -103,7 +103,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 11);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testFloatColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("float"));
         Assert.assertEquals(info.getColumnType(), Types.FLOAT);
@@ -112,7 +112,7 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 16);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testDoubleColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("double"));
         Assert.assertEquals(info.getColumnType(), Types.DOUBLE);
@@ -121,25 +121,39 @@ public class TestDatabendColumnInfo {
         Assert.assertEquals(info.getColumnDisplaySize(), 24);
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testVarcharColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("varchar"));
         Assert.assertEquals(info.getColumnType(), Types.VARCHAR);
         Assert.assertFalse(info.isSigned());
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testBoolColumnInfo() {
         DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("bool"));
         Assert.assertEquals(info.getColumnType(), Types.BOOLEAN);
         Assert.assertEquals(info.getColumnDisplaySize(), 5);
     }
 
+    @Test(groups = {"UNIT"})
+    public void testTupleColumnInfo() {
+        DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("Tuple(x Int64, y Int64 NULL)"));
+        Assert.assertEquals(info.getColumnType(), Types.STRUCT);
+        Assert.assertEquals(info.getColumnTypeName(), "tuple");
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testBitmapColumnInfo() {
+        DatabendColumnInfo info = DatabendColumnInfo.of("col", new DatabendRawType("Bitmap"));
+        Assert.assertEquals(info.getColumnType(), Types.OTHER);
+        Assert.assertEquals(info.getColumnTypeName(), "bitmap");
+    }
+
     // =========================================================================
     // Verify new type names produce identical metadata to old type names
     // =========================================================================
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNewTypeNamesMatchOldTypeNamesMetadata() {
         // bigint vs Int64
         assertSameMetadata("bigint", "Int64");
@@ -167,7 +181,7 @@ public class TestDatabendColumnInfo {
         assertSameMetadata("bool", "Boolean");
     }
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNullableNewTypeNamesMatchOldTypeNamesMetadata() {
         assertSameMetadata("Nullable(bigint)", "Nullable(Int64)");
         assertSameMetadata("Nullable(tinyint)", "Nullable(Int8)");
@@ -183,7 +197,7 @@ public class TestDatabendColumnInfo {
     // JdbcTypeMapping end-to-end with new type names
     // =========================================================================
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testJdbcTypeMappingWithNewTypeNames() {
         JdbcTypeMapping mapping = new JdbcTypeMapping();
 

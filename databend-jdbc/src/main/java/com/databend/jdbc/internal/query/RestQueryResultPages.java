@@ -146,6 +146,8 @@ public class RestQueryResultPages implements QueryResultPages {
                 throw new DatabendQueryException("Query Failed: " + error);
             }
             return false;
+        } catch (IllegalArgumentException e) {
+            throw new DatabendQueryException("Failed to decode query response", e);
         } catch (SQLException e) {
             throw new DatabendQueryException("Failed to execute query request", e);
         }

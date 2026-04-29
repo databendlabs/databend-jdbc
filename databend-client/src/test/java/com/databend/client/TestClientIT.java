@@ -35,7 +35,7 @@ public class TestClientIT {
     private static final String DATABEND_HOST = "http://databend:databend@127.0.0.1:" + port;
     private static final String DATABASE = "default";
 
-    @Test(groups = {"it"})
+    @Test(groups = {"IT"})
     public void testBasicQueryPagination() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
 
@@ -53,7 +53,7 @@ public class TestClientIT {
         cli.close();
     }
 
-    @Test(groups = {"it"})
+    @Test(groups = {"IT"})
     public void testConnectionRefused() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         ClientSettings settings = new ClientSettings("http://localhost:13191");
@@ -71,7 +71,7 @@ public class TestClientIT {
         }
     }
 
-    @Test(groups = {"it"})
+    @Test(groups = {"IT"})
     public void testBasicQueryIDHeader() {
         OkHttpClient client = new OkHttpClient.Builder().addInterceptor(OkHttpUtils.basicAuthInterceptor("databend", "databend")).build();
         String expectedUUID = UUID.randomUUID().toString().replace("-","");

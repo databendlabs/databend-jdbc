@@ -21,7 +21,7 @@ import java.sql.Types;
 
 public class TestDatabendTypes {
 
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testTypeNullable() {
         DatabendRawType nullUnit8 = new DatabendRawType("Nullable(Uint8)");
         Assert.assertEquals(nullUnit8.getType(), "Uint8");
@@ -54,7 +54,7 @@ public class TestDatabendTypes {
      * Verify that getByTypeName resolves both old (v1.2.723) and new (v1.2.889)
      * type names to the same DatabendDataType enum value.
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testOldAndNewTypeNamesResolveToSameType() {
         // Integer types
         Assert.assertEquals(DatabendDataType.getByTypeName("int8"), DatabendDataType.getByTypeName("tinyint"));
@@ -80,7 +80,7 @@ public class TestDatabendTypes {
      * This is the core regression: bigint was returning Types.NULL (0) instead
      * of Types.BIGINT (-5).
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testSqlTypeCodesForNewTypeNames() {
         // Signed integers
         Assert.assertEquals(DatabendDataType.getByTypeName("tinyint").getSqlType(), Types.TINYINT);
@@ -107,7 +107,7 @@ public class TestDatabendTypes {
      * Verify SQL type codes are still correct for old internal type names
      * (backward compatibility with v1.2.723).
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testSqlTypeCodesForOldTypeNames() {
         Assert.assertEquals(DatabendDataType.getByTypeName("int8").getSqlType(), Types.TINYINT);
         Assert.assertEquals(DatabendDataType.getByTypeName("int16").getSqlType(), Types.SMALLINT);
@@ -126,7 +126,7 @@ public class TestDatabendTypes {
     /**
      * Verify that new type names do NOT resolve to NULL (the original bug).
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNewTypeNamesDoNotResolveToNull() {
         String[] newTypeNames = {
                 "tinyint", "tinyint unsigned",
@@ -145,7 +145,7 @@ public class TestDatabendTypes {
     /**
      * Verify case-insensitive matching for new SQL-standard type names.
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testCaseInsensitiveNewTypeNames() {
         Assert.assertEquals(DatabendDataType.getByTypeName("BIGINT"), DatabendDataType.INT_64);
         Assert.assertEquals(DatabendDataType.getByTypeName("Bigint"), DatabendDataType.INT_64);
@@ -164,7 +164,7 @@ public class TestDatabendTypes {
      * Verify DatabendRawType correctly handles Nullable wrapper with new type names.
      * Simulates: Databend v1.2.889 returning "Nullable(bigint)" instead of "Nullable(Int64)".
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNullableWithNewTypeNames() {
         // Nullable signed integers
         DatabendRawType nullBigint = new DatabendRawType("Nullable(bigint)");
@@ -212,7 +212,7 @@ public class TestDatabendTypes {
      * Verify non-nullable new type names work correctly.
      * Simulates: Databend v1.2.889 returning "bigint" instead of "Int64".
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testNonNullableNewTypeNames() {
         DatabendRawType bigint = new DatabendRawType("bigint");
         Assert.assertFalse(bigint.isNullable());
@@ -231,7 +231,7 @@ public class TestDatabendTypes {
     /**
      * Verify signed/unsigned properties are correct for new type names.
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testSignedPropertyForNewTypeNames() {
         Assert.assertTrue(DatabendDataType.getByTypeName("bigint").isSigned());
         Assert.assertFalse(DatabendDataType.getByTypeName("bigint unsigned").isSigned());
@@ -248,7 +248,7 @@ public class TestDatabendTypes {
      * DatabaseMetaData.getColumns() returns TYPE_NAME=bigint, and we expect
      * DATA_TYPE=Types.BIGINT (-5), not 0.
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testBugScenario_BigintSqlTypeCode() {
         // Before fix: getByTypeName("bigint") returned NULL, getSqlType() = Types.NULL = 0
         // After fix: getByTypeName("bigint") returns INT_64, getSqlType() = Types.BIGINT = -5
@@ -261,7 +261,7 @@ public class TestDatabendTypes {
     /**
      * Verify that old-style Nullable type names still work (backward compat with v1.2.723).
      */
-    @Test(groups = {"Unit"})
+    @Test(groups = {"UNIT"})
     public void testOldNullableTypeNamesStillWork() {
         DatabendRawType nullInt64 = new DatabendRawType("Nullable(Int64)");
         Assert.assertTrue(nullInt64.isNullable());
