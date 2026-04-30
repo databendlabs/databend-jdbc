@@ -105,7 +105,9 @@ public class TestTypes {
                 assertColumnMeta(metaData, 1, "v", Types.VARCHAR, "variant");
                 assertColumnMeta(metaData, 2, "a", Types.ARRAY, "array");
                 assertColumnMeta(metaData, 3, "t", Types.STRUCT, "tuple");
-                assertColumnMeta(metaData, 4, "m", Types.OTHER, "map");
+                if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                    assertColumnMeta(metaData, 4, "m", Types.OTHER, "map");
+                }
             }
         }
     }
@@ -113,6 +115,9 @@ public class TestTypes {
     @Test(groups = {"IT"})
     public void testResultSetMetaDataForDatabendSpecialTypes()
             throws SQLException {
+        if (!Compatibility.driverIsGreaterThan("0.4.6")) {
+            return;
+        }
         try (Connection connection = Utils.createConnection();
              Statement statement = connection.createStatement()) {
             statement.execute("set enable_geo_create_table=1");
