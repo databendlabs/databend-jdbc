@@ -104,8 +104,8 @@ public class TestTypes {
                 Assert.assertEquals(metaData.getColumnCount(), 4);
                 assertColumnMeta(metaData, 1, "v", Types.VARCHAR, "variant");
                 assertColumnMeta(metaData, 2, "a", Types.ARRAY, "array");
-                assertColumnMeta(metaData, 3, "t", Types.STRUCT, "tuple");
                 if (Compatibility.driverIsGreaterThan("0.4.6")) {
+                    assertColumnMeta(metaData, 3, "t", Types.STRUCT, "tuple");
                     assertColumnMeta(metaData, 4, "m", Types.OTHER, "map");
                 }
             }
