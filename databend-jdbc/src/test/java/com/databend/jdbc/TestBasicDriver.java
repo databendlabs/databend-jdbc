@@ -287,9 +287,6 @@ public class TestBasicDriver {
     public void testUpdateSession()
             throws SQLException {
         try (Connection connection = Utils.createConnection("test_basic_driver")) {
-            if (Compatibility.driverIsGreaterThan("0.4.6")) {
-            }
-
             try (Statement statement = connection.createStatement()) {
                 statement.execute("set max_threads=1");
                 statement.execute("use test_basic_driver_2");
