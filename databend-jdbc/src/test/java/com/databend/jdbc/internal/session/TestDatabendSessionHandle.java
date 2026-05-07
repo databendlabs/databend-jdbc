@@ -926,8 +926,8 @@ public class TestDatabendSessionHandle {
                     exception.getCause().getMessage());
             Assert.assertTrue(exception.getCause().getCause().getMessage().contains("service unavailable"),
                     exception.getCause().getCause().getMessage());
-            Assert.assertTrue(exception.getCause().getCause().getCause().getMessage().contains("service unavailable"),
-                    exception.getCause().getCause().getCause().getMessage());
+            Assert.assertTrue(exception.getCause().getCause() instanceof com.databend.jdbc.internal.http.RetryableHttpStatusException,
+                    exception.getCause().getCause().getClass().getName());
             Assert.assertEquals(uploadAttempts.get().intValue(), 1);
         }
         finally {

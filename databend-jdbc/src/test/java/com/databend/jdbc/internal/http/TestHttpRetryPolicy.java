@@ -154,6 +154,12 @@ public class TestHttpRetryPolicy {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(new SocketTimeoutException("timed out")));
     }
 
+    @Test(groups = {"UNIT"})
+    public void testRetryableHttpStatusExceptionIsRetryable() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
+                new RetryableHttpStatusException("service unavailable: 503 Service Unavailable")));
+    }
+
     private static String serverUrl(HttpServer server, String path) {
         return "http://127.0.0.1:" + server.getAddress().getPort() + path;
     }

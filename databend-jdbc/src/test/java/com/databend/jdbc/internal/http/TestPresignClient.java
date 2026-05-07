@@ -193,9 +193,7 @@ public class TestPresignClient {
                     true));
 
             Assert.assertTrue(exception.getMessage().contains("service unavailable"), exception.getMessage());
-            Assert.assertNotNull(exception.getCause());
-            Assert.assertTrue(exception.getCause().getMessage().contains("service unavailable"),
-                    exception.getCause().getMessage());
+            Assert.assertTrue(exception instanceof RetryableHttpStatusException, exception.getClass().getName());
             Assert.assertEquals(attempts.get(), 1);
         }
         finally {

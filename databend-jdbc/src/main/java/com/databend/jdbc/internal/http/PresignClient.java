@@ -76,8 +76,12 @@ public class PresignClient {
         long attempts = 0;
         Exception cause = null;
         while (true) {
+            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
+                logger.warning(formatFailureMessage("retry aborted because request body is not replayable"));
+                throw retryAbortedIOException(cause);
+            }
             if (attempts > 0) {
-                logger.info(format("%s #%s due to: %s", "", attempts, cause));
+                logger.info(format("%s #%s due to: %s", "retry presign request", attempts, cause));
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.getSeconds() >= 900) {
                     logger.warning(formatFailureMessage("error is: " + cause));
@@ -93,12 +97,8 @@ public class PresignClient {
                 }
                 catch (InterruptedException e) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeException("StatementClient thread was interrupted");
+                    throw new RuntimeException("PresignClient thread was interrupted");
                 }
-            }
-            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                logger.warning(formatFailureMessage("retry aborted because request body is not replayable"));
-                throw replayAbortedException(cause);
             }
             attempts++;
             Response response = null;
@@ -114,7 +114,7 @@ public class PresignClient {
                                     + formatErrorBody(responseBody));
                 }
                 else if (response.code() >= 503) {
-                    throw new RetryableHttpFailure(formatFailureMessage(
+                    throw new RetryableHttpStatusException(formatFailureMessage(
                             "service unavailable: " + response.code() + " " + response.message()));
                 }
                 else if (response.code() >= 400) {
@@ -131,9 +131,6 @@ public class PresignClient {
             }
             catch (NonRetryablePresignFailure e) {
                 throw e;
-            }
-            catch (RetryableHttpFailure e) {
-                cause = e;
             }
             finally {
                 if (shouldClose) {
@@ -154,7 +151,7 @@ public class PresignClient {
         return PRESIGN_REQUEST_FAILED + ": " + detail;
     }
 
-    private static IOException replayAbortedException(Exception cause) {
+    private static IOException retryAbortedIOException(Exception cause) {
         if (cause instanceof IOException) {
             return (IOException) cause;
         }

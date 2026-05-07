@@ -9,7 +9,7 @@ import com.databend.jdbc.internal.exception.DatabendStreamingLoadException;
 import com.databend.jdbc.internal.http.PresignClient;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
-import com.databend.jdbc.internal.http.RetryableHttpFailure;
+import com.databend.jdbc.internal.http.RetryableHttpStatusException;
 import com.databend.jdbc.internal.query.QueryResultPages;
 import com.databend.jdbc.internal.query.QueryResults;
 import com.databend.jdbc.internal.query.RestQueryResultPages;
@@ -534,6 +534,10 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         long attempts = 0;
         Exception cause = null;
         while (true) {
+            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
+                logger.warning("Upload to stage retry aborted because request body is not replayable");
+                throw replayAbortedStageUploadException(cause);
+            }
             if (attempts > 0) {
                 logger.info("try to upload to stage again: " + attempts + ", cause: " + cause);
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
@@ -552,10 +556,6 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     throw new RuntimeException("StatementClient thread was interrupted");
                 }
             }
-            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                logger.warning("Upload to stage retry aborted because request body is not replayable");
-                throw replayAbortedStageUploadException(cause);
-            }
             attempts++;
 
             Response response = null;
@@ -569,7 +569,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                             + response.code() + " " + response.message());
                 }
                 if (response.code() >= 503) {
-                    throw new RetryableHttpFailure("Error upload to stage, service unavailable: "
+                    throw new RetryableHttpStatusException("Error upload to stage, service unavailable: "
                             + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 400) {
@@ -585,9 +585,6 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             }
             catch (NonRetryableStageUploadFailure e) {
                 throw new DatabendStageUploadException(e.getMessage(), e);
-            }
-            catch (RetryableHttpFailure e) {
-                cause = e;
             }
             finally {
                 if (response != null) {
