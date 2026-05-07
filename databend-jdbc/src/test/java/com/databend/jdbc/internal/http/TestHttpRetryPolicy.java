@@ -150,14 +150,69 @@ public class TestHttpRetryPolicy {
     }
 
     @Test(groups = {"UNIT"})
+    public void testRetryable504EventuallySucceeds() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/gateway-timeout", exchange -> {
+            try {
+                int attempt = attempts.incrementAndGet();
+                if (attempt < 3) {
+                    byte[] payload = "{\"error\":\"temporary\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                    exchange.getResponseHeaders().add("Content-Type", "application/json");
+                    exchange.sendResponseHeaders(504, payload.length);
+                    exchange.getResponseBody().write(payload);
+                    return;
+                }
+                byte[] payload = "{\"ok\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                exchange.getResponseHeaders().add("Content-Type", "application/json");
+                exchange.sendResponseHeaders(200, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        try {
+            HttpRetryPolicy retryPolicy = new HttpRetryPolicy(false, true);
+            HttpRetryPolicy.ResponseWithBody response = retryPolicy.sendRequestWithRetry(
+                    new OkHttpClient(),
+                    new Request.Builder().url(serverUrl(server, "/gateway-timeout")).get().build());
+
+            Assert.assertEquals(response.statusCode, 200);
+            Assert.assertEquals(response.bodyString(), "{\"ok\":true}");
+            Assert.assertEquals(attempts.get(), 3);
+        }
+        finally {
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
     public void testSocketTimeoutExceptionIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(new SocketTimeoutException("timed out")));
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testRetryableHttpStatusCodes() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(502));
+        Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(503));
+        Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(504));
+        Assert.assertFalse(HttpRetryPolicy.isRetryableHttpStatus(500));
+        Assert.assertFalse(HttpRetryPolicy.isRetryableHttpStatus(505));
     }
 
     @Test(groups = {"UNIT"})
     public void testRetryableHttpStatusExceptionIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
                 new RetryableHttpStatusException("service unavailable: 503 Service Unavailable")));
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testNonRetryableHttpStatusExceptionIsNotRetryable() {
+        Assert.assertFalse(HttpRetryPolicy.isRetryableIOException(
+                new NonRetryableHttpStatusException("configuration error: 400 Bad Request")));
     }
 
     private static String serverUrl(HttpServer server, String path) {

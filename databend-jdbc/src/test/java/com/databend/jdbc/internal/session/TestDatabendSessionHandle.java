@@ -7,6 +7,7 @@ import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.exception.DatabendSessionException;
 import com.databend.jdbc.internal.exception.DatabendStageUploadException;
 import com.databend.jdbc.internal.exception.DatabendStreamingLoadException;
+import com.databend.jdbc.internal.http.NonRetryableHttpStatusException;
 import com.databend.jdbc.internal.query.QueryResultPages;
 import okhttp3.Interceptor;
 import okhttp3.MediaType;
@@ -1068,6 +1069,8 @@ public class TestDatabendSessionHandle {
             Assert.assertTrue(exception.getCause() instanceof DatabendPresignException, String.valueOf(exception.getCause()));
             Assert.assertTrue(exception.getCause().getMessage().contains("Failed to open presigned download stream"),
                     exception.getCause().getMessage());
+            Assert.assertTrue(exception.getCause().getCause() instanceof NonRetryableHttpStatusException,
+                    String.valueOf(exception.getCause().getCause()));
             Assert.assertTrue(exception.getCause().getCause().getMessage().contains("Unauthorized user"),
                     exception.getCause().getCause().getMessage());
         }

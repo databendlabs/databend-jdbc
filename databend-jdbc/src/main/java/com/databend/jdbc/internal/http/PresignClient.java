@@ -29,12 +29,6 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class PresignClient {
     private static final String PRESIGN_REQUEST_FAILED = "Presign request failed";
 
-    private static final class NonRetryablePresignFailure extends RuntimeException {
-        private NonRetryablePresignFailure(String message) {
-            super(message);
-        }
-    }
-
     private static final int MaxRetryAttempts = 20;
     private static final int MAX_ERROR_BODY_LENGTH = 1024;
     private final OkHttpClient client;
@@ -74,32 +68,7 @@ public class PresignClient {
         requireNonNull(request, "request is null");
         long start = System.nanoTime();
         long attempts = 0;
-        Exception cause = null;
         while (true) {
-            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                logger.warning(formatFailureMessage("retry aborted because request body is not replayable"));
-                throw retryAbortedIOException(cause);
-            }
-            if (attempts > 0) {
-                logger.info(format("%s #%s due to: %s", "retry presign request", attempts, cause));
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.getSeconds() >= 900) {
-                    logger.warning(formatFailureMessage("error is: " + cause));
-                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), cause);
-                }
-                if (attempts >= MaxRetryAttempts) {
-                    logger.warning(formatFailureMessage("error is: " + cause));
-                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), cause);
-                }
-
-                try {
-                    MILLISECONDS.sleep(attempts * 100);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("PresignClient thread was interrupted");
-                }
-            }
             attempts++;
             Response response = null;
             try {
@@ -109,17 +78,22 @@ public class PresignClient {
                 }
                 String responseBody = readErrorBody(response);
                 if (response.code() == 401) {
-                    throw new NonRetryablePresignFailure(
+                    throw new NonRetryableHttpStatusException(
                             formatFailureMessage("Unauthorized user: " + response.code() + " " + response.message())
                                     + formatErrorBody(responseBody));
                 }
-                else if (response.code() >= 503) {
+                else if (HttpRetryPolicy.isRetryableHttpStatus(response.code())) {
                     throw new RetryableHttpStatusException(formatFailureMessage(
                             "service unavailable: " + response.code() + " " + response.message()));
                 }
                 else if (response.code() >= 400) {
-                    throw new NonRetryablePresignFailure(
+                    throw new NonRetryableHttpStatusException(
                             formatFailureMessage("configuration error: " + response.code() + " " + response.message())
+                                    + formatErrorBody(responseBody));
+                }
+                else {
+                    throw new NonRetryableHttpStatusException(
+                            formatFailureMessage("unexpected response: " + response.code() + " " + response.message())
                                     + formatErrorBody(responseBody));
                 }
             }
@@ -127,10 +101,23 @@ public class PresignClient {
                 if (!HttpRetryPolicy.isRetryableIOException(e)) {
                     throw e;
                 }
-                cause = e;
-            }
-            catch (NonRetryablePresignFailure e) {
-                throw e;
+                if (request.body() != null && request.body().isOneShot()) {
+                    logger.warning(formatFailureMessage("retry aborted because request body is not replayable"));
+                    throw retryAbortedIOException(e);
+                }
+                logger.info(format("%s #%s due to: %s", "retry presign request", attempts, e));
+                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.getSeconds() >= 900 || attempts >= MaxRetryAttempts) {
+                    logger.warning(formatFailureMessage("error is: " + e));
+                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), e);
+                }
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("PresignClient thread was interrupted");
+                }
             }
             finally {
                 if (shouldClose) {
@@ -193,28 +180,21 @@ public class PresignClient {
     }
 
     public void presignDownload(String destFileName, Headers headers, String presignedUrl)
+            throws IOException
     {
         Request r = getRequest(headers, presignedUrl);
-        try (ResponseBody body = executeInternal(r, false)) {
-            BufferedSink sink = Okio.buffer(Okio.sink(new File(destFileName)));
+        try (ResponseBody body = executeInternal(r, false);
+                BufferedSink sink = Okio.buffer(Okio.sink(new File(destFileName)))) {
             sink.writeAll(body.source());
-            sink.close();
-        }
-        catch (IOException e) {
-            throw new RuntimeException("presignDownload failed", e);
         }
     }
 
     public InputStream presignDownloadStream(Headers headers, String presignedUrl)
+            throws IOException
     {
         Request r = getRequest(headers, presignedUrl);
-        try {
-            ResponseBody responseBody = executeInternal(r, false);
-            return responseBody.byteStream();
-        }
-        catch (IOException e) {
-            throw new RuntimeException("presignDownloadStream failed", e);
-        }
+        ResponseBody responseBody = executeInternal(r, false);
+        return responseBody.byteStream();
     }
 
     private Request getRequest(Headers headers, String url)

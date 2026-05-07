@@ -6,6 +6,7 @@ import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.exception.DatabendSessionException;
 import com.databend.jdbc.internal.exception.DatabendStageUploadException;
 import com.databend.jdbc.internal.exception.DatabendStreamingLoadException;
+import com.databend.jdbc.internal.http.NonRetryableHttpStatusException;
 import com.databend.jdbc.internal.http.PresignClient;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
@@ -367,7 +368,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         }
         try {
             return client.presignDownloadStream(presigned.headers, presigned.url);
-        } catch (RuntimeException e) {
+        } catch (IOException e) {
             throw new SQLException(
                     "Failed to open presigned download stream",
                     new DatabendPresignException("Failed to open presigned download stream", e));
@@ -532,30 +533,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
 
         long start = System.nanoTime();
         long attempts = 0;
-        Exception cause = null;
         while (true) {
-            if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                logger.warning("Upload to stage retry aborted because request body is not replayable");
-                throw replayAbortedStageUploadException(cause);
-            }
-            if (attempts > 0) {
-                logger.info("try to upload to stage again: " + attempts + ", cause: " + cause);
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
-                    logger.warning("Upload to stage failed, error is: " + cause);
-                    throw new DatabendStageUploadException(
-                            String.format("Error upload to stage (attempts: %s, duration: %s)", attempts, sinceStart),
-                            cause);
-                }
-
-                try {
-                    MILLISECONDS.sleep(attempts * 100);
-                }
-                catch (InterruptedException e) {
-                    Thread.currentThread().interrupt();
-                    throw new RuntimeException("StatementClient thread was interrupted");
-                }
-            }
             attempts++;
 
             Response response = null;
@@ -565,26 +543,46 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     return;
                 }
                 if (response.code() == 401) {
-                    throw new NonRetryableStageUploadFailure("Error upload to stage, Unauthorized user: "
+                    throw new NonRetryableHttpStatusException("Error upload to stage, Unauthorized user: "
                             + response.code() + " " + response.message());
                 }
-                if (response.code() >= 503) {
+                if (HttpRetryPolicy.isRetryableHttpStatus(response.code())) {
                     throw new RetryableHttpStatusException("Error upload to stage, service unavailable: "
                             + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 400) {
-                    throw new NonRetryableStageUploadFailure("Error upload to stage, configuration error: "
+                    throw new NonRetryableHttpStatusException("Error upload to stage, configuration error: "
+                            + response.code() + " " + response.message());
+                }
+                else {
+                    throw new NonRetryableHttpStatusException("Error upload to stage, unexpected response: "
                             + response.code() + " " + response.message());
                 }
             }
             catch (IOException e) {
                 if (!HttpRetryPolicy.isRetryableIOException(e)) {
-                    throw e;
+                    throw new DatabendStageUploadException(e.getMessage(), e);
                 }
-                cause = e;
-            }
-            catch (NonRetryableStageUploadFailure e) {
-                throw new DatabendStageUploadException(e.getMessage(), e);
+                if (request.body() != null && request.body().isOneShot()) {
+                    logger.warning("Upload to stage retry aborted because request body is not replayable");
+                    throw retryAbortedStageUploadException(e);
+                }
+                logger.info("try to upload to stage again: " + attempts + ", cause: " + e);
+                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
+                if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
+                    logger.warning("Upload to stage failed, error is: " + e);
+                    throw new DatabendStageUploadException(
+                            String.format("Error upload to stage (attempts: %s, duration: %s)", attempts, sinceStart),
+                            e);
+                }
+
+                try {
+                    MILLISECONDS.sleep(attempts * 100);
+                }
+                catch (InterruptedException interruptedException) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("StatementClient thread was interrupted");
+                }
             }
             finally {
                 if (response != null) {
@@ -798,13 +796,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         }
     }
 
-    private static final class NonRetryableStageUploadFailure extends RuntimeException {
-        private NonRetryableStageUploadFailure(String message) {
-            super(message);
-        }
-    }
-
-    private static DatabendStageUploadException replayAbortedStageUploadException(Exception cause) {
+    private static DatabendStageUploadException retryAbortedStageUploadException(IOException cause) {
         String message = cause != null && cause.getMessage() != null
                 ? cause.getMessage()
                 : "Upload to stage retry aborted because request body is not replayable";

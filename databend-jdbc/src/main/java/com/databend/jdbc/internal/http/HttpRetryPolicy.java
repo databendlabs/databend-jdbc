@@ -66,8 +66,12 @@ public class HttpRetryPolicy {
         return ignore404 && code == 404;
     }
 
+    public static boolean isRetryableHttpStatus(int code) {
+        return code == 502 || code == 503 || code == 504;
+    }
+
     public boolean shouldRetry(int code, String body) {
-        if (retry503 && (code == 502 || code == 503)) {
+        if (retry503 && isRetryableHttpStatus(code)) {
             return true;
         }
         CloudErrors errors = CloudErrors.tryParse(body);
