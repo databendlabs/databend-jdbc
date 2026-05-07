@@ -9,6 +9,7 @@ import okhttp3.Response;
 
 import java.io.IOException;
 import java.net.ConnectException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
@@ -74,6 +75,9 @@ public class HttpRetryPolicy {
     }
 
     public static boolean isRetryableIOException(IOException e) {
+        if (e instanceof SocketTimeoutException) {
+            return true;
+        }
         if (e.getCause() instanceof ConnectException) {
             return true;
         }

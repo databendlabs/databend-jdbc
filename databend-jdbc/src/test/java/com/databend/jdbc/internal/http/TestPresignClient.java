@@ -88,6 +88,7 @@ public class TestPresignClient {
             RuntimeException exception = Assert.expectThrows(RuntimeException.class, () ->
                     client.presignDownloadStream(emptyHeaders(), serverUrl(server, "/download-stream")));
 
+            Assert.assertTrue(exception.getMessage().contains("Presign request failed"), exception.getMessage());
             Assert.assertTrue(exception.getMessage().contains("Unauthorized user"), exception.getMessage());
             Assert.assertEquals(attempts.get(), 1);
         }
@@ -122,6 +123,7 @@ public class TestPresignClient {
                     3,
                     true));
 
+            Assert.assertTrue(exception.getMessage().contains("Presign request failed"), exception.getMessage());
             Assert.assertTrue(exception.getMessage().contains("Unauthorized user"), exception.getMessage());
             Assert.assertEquals(attempts.get(), 1);
         }
@@ -190,7 +192,7 @@ public class TestPresignClient {
                     3,
                     true));
 
-            Assert.assertTrue(exception.getMessage().contains("not replayable"), exception.getMessage());
+            Assert.assertTrue(exception.getMessage().contains("service unavailable"), exception.getMessage());
             Assert.assertNotNull(exception.getCause());
             Assert.assertTrue(exception.getCause().getMessage().contains("service unavailable"),
                     exception.getCause().getMessage());

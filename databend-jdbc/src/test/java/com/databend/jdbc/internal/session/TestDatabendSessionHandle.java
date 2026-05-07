@@ -251,7 +251,7 @@ public class TestDatabendSessionHandle {
                         })
                         .build()));
 
-        Assert.assertTrue(exception.getMessage().contains("not replayable"), exception.getMessage());
+        Assert.assertTrue(exception.getMessage().contains("service unavailable"), exception.getMessage());
         Assert.assertTrue(exception.getCause().getMessage().contains("service unavailable"),
                 exception.getCause().getMessage());
         Assert.assertEquals(attempts.get().intValue(), 1);
@@ -924,7 +924,7 @@ public class TestDatabendSessionHandle {
             Assert.assertTrue(exception.getCause() instanceof DatabendPresignException, String.valueOf(exception.getCause()));
             Assert.assertTrue(exception.getCause().getMessage().contains("Failed to upload via presigned request"),
                     exception.getCause().getMessage());
-            Assert.assertTrue(exception.getCause().getCause().getMessage().contains("not replayable"),
+            Assert.assertTrue(exception.getCause().getCause().getMessage().contains("service unavailable"),
                     exception.getCause().getCause().getMessage());
             Assert.assertTrue(exception.getCause().getCause().getCause().getMessage().contains("service unavailable"),
                     exception.getCause().getCause().getCause().getMessage());

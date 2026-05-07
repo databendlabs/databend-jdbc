@@ -9,6 +9,7 @@ import com.databend.jdbc.internal.exception.DatabendStreamingLoadException;
 import com.databend.jdbc.internal.http.PresignClient;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
+import com.databend.jdbc.internal.http.RetryableHttpFailure;
 import com.databend.jdbc.internal.query.QueryResultPages;
 import com.databend.jdbc.internal.query.QueryResults;
 import com.databend.jdbc.internal.query.RestQueryResultPages;
@@ -34,7 +35,6 @@ import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketTimeoutException;
 import java.net.URI;
 import java.sql.SQLException;
 import java.time.Duration;
@@ -535,7 +535,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         Exception cause = null;
         while (true) {
             if (attempts > 0) {
-                logger.info("try to upload to stage again: " + attempts);
+                logger.info("try to upload to stage again: " + attempts + ", cause: " + cause);
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
                     logger.warning("Upload to stage failed, error is: " + cause);
@@ -553,7 +553,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 }
             }
             if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                throw new DatabendStageUploadException("Upload failed and request body is not replayable", cause);
+                logger.warning("Upload to stage retry aborted because request body is not replayable");
+                throw replayAbortedStageUploadException(cause);
             }
             attempts++;
 
@@ -568,17 +569,13 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                             + response.code() + " " + response.message());
                 }
                 if (response.code() >= 503) {
-                    cause = new RuntimeException("Error upload to stage, service unavailable: "
+                    throw new RetryableHttpFailure("Error upload to stage, service unavailable: "
                             + response.code() + " " + response.message());
                 }
                 else if (response.code() >= 400) {
                     throw new NonRetryableStageUploadFailure("Error upload to stage, configuration error: "
                             + response.code() + " " + response.message());
                 }
-            }
-            catch (SocketTimeoutException e) {
-                logger.warning("Error upload to stage, socket timeout: " + e.getMessage());
-                cause = e;
             }
             catch (IOException e) {
                 if (!HttpRetryPolicy.isRetryableIOException(e)) {
@@ -589,7 +586,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
             catch (NonRetryableStageUploadFailure e) {
                 throw new DatabendStageUploadException(e.getMessage(), e);
             }
-            catch (RuntimeException e) {
+            catch (RetryableHttpFailure e) {
                 cause = e;
             }
             finally {
@@ -808,6 +805,13 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         private NonRetryableStageUploadFailure(String message) {
             super(message);
         }
+    }
+
+    private static DatabendStageUploadException replayAbortedStageUploadException(Exception cause) {
+        String message = cause != null && cause.getMessage() != null
+                ? cause.getMessage()
+                : "Upload to stage retry aborted because request body is not replayable";
+        return new DatabendStageUploadException(message, cause);
     }
 
     private static final class StreamingLoadRequestEncodingFailure extends IOException {

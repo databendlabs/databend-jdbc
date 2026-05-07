@@ -15,7 +15,6 @@ import okio.Source;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.net.SocketTimeoutException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Arrays;
@@ -28,6 +27,8 @@ import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 public class PresignClient {
+    private static final String PRESIGN_REQUEST_FAILED = "Presign request failed";
+
     private static final class NonRetryablePresignFailure extends RuntimeException {
         private NonRetryablePresignFailure(String message) {
             super(message);
@@ -76,15 +77,15 @@ public class PresignClient {
         Exception cause = null;
         while (true) {
             if (attempts > 0) {
-                logger.info("try to presign upload again: " + attempts);
+                logger.info(format("%s #%s due to: %s", "", attempts, cause));
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.getSeconds() >= 900) {
-                    logger.warning("Presign upload failed, error is:" + cause.toString());
-                    throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                    logger.warning(formatFailureMessage("error is: " + cause));
+                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), cause);
                 }
                 if (attempts >= MaxRetryAttempts) {
-                    logger.warning("Presign upload failed, error is: " + cause.toString());
-                    throw new RuntimeException(format("Error execute presign (attempts: %s, duration: %s)", attempts, sinceStart), cause);
+                    logger.warning(formatFailureMessage("error is: " + cause));
+                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), cause);
                 }
 
                 try {
@@ -96,7 +97,8 @@ public class PresignClient {
                 }
             }
             if (attempts > 0 && request.body() != null && request.body().isOneShot()) {
-                throw new IOException("Upload failed and request body is not replayable", cause);
+                logger.warning(formatFailureMessage("retry aborted because request body is not replayable"));
+                throw replayAbortedException(cause);
             }
             attempts++;
             Response response = null;
@@ -108,21 +110,18 @@ public class PresignClient {
                 String responseBody = readErrorBody(response);
                 if (response.code() == 401) {
                     throw new NonRetryablePresignFailure(
-                            "Error exeucte presign, Unauthorized user: " + response.code() + " " + response.message()
+                            formatFailureMessage("Unauthorized user: " + response.code() + " " + response.message())
                                     + formatErrorBody(responseBody));
                 }
                 else if (response.code() >= 503) {
-                    cause = new RuntimeException("Error execute presign, service unavailable: " + response.code() + " " + response.message());
+                    throw new RetryableHttpFailure(formatFailureMessage(
+                            "service unavailable: " + response.code() + " " + response.message()));
                 }
                 else if (response.code() >= 400) {
                     throw new NonRetryablePresignFailure(
-                            "Error execute presign, configuration error: " + response.code() + " " + response.message()
+                            formatFailureMessage("configuration error: " + response.code() + " " + response.message())
                                     + formatErrorBody(responseBody));
                 }
-            }
-            catch (SocketTimeoutException e) {
-                logger.warning("Error execute presign, socket timeout: " + e.getMessage());
-                cause = e;
             }
             catch (IOException e) {
                 if (!HttpRetryPolicy.isRetryableIOException(e)) {
@@ -133,7 +132,7 @@ public class PresignClient {
             catch (NonRetryablePresignFailure e) {
                 throw e;
             }
-            catch (RuntimeException e) {
+            catch (RetryableHttpFailure e) {
                 cause = e;
             }
             finally {
@@ -149,6 +148,20 @@ public class PresignClient {
                 }
             }
         }
+    }
+
+    private static String formatFailureMessage(String detail) {
+        return PRESIGN_REQUEST_FAILED + ": " + detail;
+    }
+
+    private static IOException replayAbortedException(Exception cause) {
+        if (cause instanceof IOException) {
+            return (IOException) cause;
+        }
+        String message = cause != null && cause.getMessage() != null
+                ? cause.getMessage()
+                : formatFailureMessage("retry aborted because request body is not replayable");
+        return new IOException(message, cause);
     }
 
     private static String readErrorBody(Response response) throws IOException {
