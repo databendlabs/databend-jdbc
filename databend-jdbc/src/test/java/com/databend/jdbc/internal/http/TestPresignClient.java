@@ -103,6 +103,41 @@ public class TestPresignClient {
     }
 
     @Test(groups = {"UNIT"})
+    public void testPresignDownloadRetriesGatewayTimeout() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/download-504", exchange -> {
+            try {
+                int attempt = attempts.incrementAndGet();
+                if (attempt < 3) {
+                    exchange.sendResponseHeaders(504, -1);
+                    return;
+                }
+                byte[] payload = "hello".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        Path file = Files.createTempFile("databend-presign-504-", ".txt");
+        try {
+            PresignClient client = new PresignClient();
+            client.presignDownload(file.toString(), emptyHeaders(), serverUrl(server, "/download-504"));
+
+            Assert.assertEquals(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), "hello");
+            Assert.assertEquals(attempts.get(), 3);
+        }
+        finally {
+            Files.deleteIfExists(file);
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
     public void testPresignDownloadStreamPropagatesUnauthorizedFailure() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
@@ -270,6 +305,14 @@ public class TestPresignClient {
         finally {
             server.stop(0);
         }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testRetryablePresignStatusCodes() {
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(502));
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(503));
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(504));
+        Assert.assertFalse(PresignClient.isRetryablePresignStatus(500));
     }
 
     private static Headers emptyHeaders() {

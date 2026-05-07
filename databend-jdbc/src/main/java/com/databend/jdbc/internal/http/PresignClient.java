@@ -15,6 +15,7 @@ import okio.Source;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InterruptedIOException;
 import java.nio.file.Files;
 import java.time.Duration;
 import java.util.Arrays;
@@ -82,7 +83,7 @@ public class PresignClient {
                             formatFailureMessage("Unauthorized user: " + response.code() + " " + response.message())
                                     + formatErrorBody(responseBody));
                 }
-                else if (HttpRetryPolicy.isRetryableHttpStatus(response.code())) {
+                else if (isRetryablePresignStatus(response.code())) {
                     throw new RetryableHttpStatusException(formatFailureMessage(
                             "service unavailable: " + response.code() + " " + response.message()));
                 }
@@ -109,14 +110,18 @@ public class PresignClient {
                 Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                 if (sinceStart.getSeconds() >= 900 || attempts >= MaxRetryAttempts) {
                     logger.warning(formatFailureMessage("error is: " + e));
-                    throw new RuntimeException(format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart), e);
+                    throw new PresignRequestFailedException(
+                            format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart),
+                            e);
                 }
                 try {
                     MILLISECONDS.sleep(attempts * 100);
                 }
                 catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();
-                    throw new RuntimeException("PresignClient thread was interrupted");
+                    InterruptedIOException exception = new InterruptedIOException("PresignClient thread was interrupted");
+                    exception.initCause(interruptedException);
+                    throw exception;
                 }
             }
             finally {
@@ -146,6 +151,10 @@ public class PresignClient {
                 ? cause.getMessage()
                 : formatFailureMessage("retry aborted because request body is not replayable");
         return new IOException(message, cause);
+    }
+
+    static boolean isRetryablePresignStatus(int code) {
+        return HttpRetryPolicy.isRetryableHttpStatus(code) || code == 504;
     }
 
     private static String readErrorBody(Response response) throws IOException {

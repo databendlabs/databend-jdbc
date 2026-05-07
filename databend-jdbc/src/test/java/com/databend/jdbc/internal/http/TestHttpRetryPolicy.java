@@ -150,22 +150,15 @@ public class TestHttpRetryPolicy {
     }
 
     @Test(groups = {"UNIT"})
-    public void testRetryable504EventuallySucceeds() throws Exception {
+    public void testGatewayTimeoutIsNotRetriedByGenericPolicy() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/gateway-timeout", exchange -> {
             try {
-                int attempt = attempts.incrementAndGet();
-                if (attempt < 3) {
-                    byte[] payload = "{\"error\":\"temporary\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
-                    exchange.getResponseHeaders().add("Content-Type", "application/json");
-                    exchange.sendResponseHeaders(504, payload.length);
-                    exchange.getResponseBody().write(payload);
-                    return;
-                }
-                byte[] payload = "{\"ok\":true}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
+                attempts.incrementAndGet();
+                byte[] payload = "{\"error\":\"temporary\"}".getBytes(java.nio.charset.StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
-                exchange.sendResponseHeaders(200, payload.length);
+                exchange.sendResponseHeaders(504, payload.length);
                 exchange.getResponseBody().write(payload);
             }
             finally {
@@ -176,13 +169,12 @@ public class TestHttpRetryPolicy {
 
         try {
             HttpRetryPolicy retryPolicy = new HttpRetryPolicy(false, true);
-            HttpRetryPolicy.ResponseWithBody response = retryPolicy.sendRequestWithRetry(
+            SQLException exception = Assert.expectThrows(SQLException.class, () -> retryPolicy.sendRequestWithRetry(
                     new OkHttpClient(),
-                    new Request.Builder().url(serverUrl(server, "/gateway-timeout")).get().build());
+                    new Request.Builder().url(serverUrl(server, "/gateway-timeout")).get().build()));
 
-            Assert.assertEquals(response.statusCode, 200);
-            Assert.assertEquals(response.bodyString(), "{\"ok\":true}");
-            Assert.assertEquals(attempts.get(), 3);
+            Assert.assertTrue(exception.getMessage().contains("status_code = 504"), exception.getMessage());
+            Assert.assertEquals(attempts.get(), 1);
         }
         finally {
             server.stop(0);
@@ -198,7 +190,7 @@ public class TestHttpRetryPolicy {
     public void testRetryableHttpStatusCodes() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(502));
         Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(503));
-        Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(504));
+        Assert.assertFalse(HttpRetryPolicy.isRetryableHttpStatus(504));
         Assert.assertFalse(HttpRetryPolicy.isRetryableHttpStatus(500));
         Assert.assertFalse(HttpRetryPolicy.isRetryableHttpStatus(505));
     }

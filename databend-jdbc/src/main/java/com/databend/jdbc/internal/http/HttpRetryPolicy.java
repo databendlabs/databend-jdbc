@@ -67,7 +67,7 @@ public class HttpRetryPolicy {
     }
 
     public static boolean isRetryableHttpStatus(int code) {
-        return code == 502 || code == 503 || code == 504;
+        return code == 502 || code == 503;
     }
 
     public boolean shouldRetry(int code, String body) {
