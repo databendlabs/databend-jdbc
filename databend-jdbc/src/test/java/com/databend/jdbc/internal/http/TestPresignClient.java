@@ -55,7 +55,7 @@ public class TestPresignClient {
 
         Path file = Files.createTempFile("databend-presign-", ".txt");
         try {
-            PresignClient client = new PresignClient(new OkHttpClient());
+            PresignClient client = new PresignClient();
             client.presignDownload(file.toString(), emptyHeaders(), serverUrl(server, "/download"));
 
             Assert.assertEquals(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), "hello");
@@ -83,13 +83,13 @@ public class TestPresignClient {
         server.start();
 
         try {
-            PresignClient client = new PresignClient(new OkHttpClient());
+            PresignClient client = new PresignClient();
 
             RuntimeException exception = Assert.expectThrows(RuntimeException.class, () ->
                     client.presignDownloadStream(emptyHeaders(), serverUrl(server, "/download-stream")));
 
             Assert.assertTrue(exception.getMessage().contains("Unauthorized user"), exception.getMessage());
-            Assert.assertEquals(attempts.get(), 3);
+            Assert.assertEquals(attempts.get(), 1);
         }
         finally {
             server.stop(0);
@@ -112,7 +112,7 @@ public class TestPresignClient {
         server.start();
 
         try {
-            PresignClient client = new PresignClient(new OkHttpClient());
+            PresignClient client = new PresignClient();
 
             RuntimeException exception = Assert.expectThrows(RuntimeException.class, () -> client.presignUpload(
                     null,
@@ -146,7 +146,7 @@ public class TestPresignClient {
         server.start();
 
         try {
-            PresignClient client = new PresignClient(new OkHttpClient());
+            PresignClient client = new PresignClient();
 
             RuntimeException exception = Assert.expectThrows(RuntimeException.class, () -> client.presignUpload(
                     null,
@@ -180,7 +180,7 @@ public class TestPresignClient {
         server.start();
 
         try {
-            PresignClient client = new PresignClient(new OkHttpClient());
+            PresignClient client = new PresignClient();
 
             IOException exception = Assert.expectThrows(IOException.class, () -> client.presignUpload(
                     null,

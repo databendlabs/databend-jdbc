@@ -73,7 +73,7 @@ public class HttpRetryPolicy {
         return errors != null && errors.tryGetErrorKind().canRetry();
     }
 
-    public boolean shouldRetry(IOException e) {
+    public static boolean isRetryableIOException(IOException e) {
         if (e.getCause() instanceof ConnectException) {
             return true;
         }
@@ -82,6 +82,10 @@ public class HttpRetryPolicy {
             return false;
         }
         return ERROR_KEYWORDS.stream().anyMatch(msg::contains);
+    }
+
+    public boolean shouldRetry(IOException e) {
+        return isRetryableIOException(e);
     }
 
     private static long calculateBackoffInterval(int attempts) {

@@ -48,40 +48,7 @@ public class PresignClient {
                 .readTimeout(600, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(Arrays.asList(Protocol.HTTP_1_1))
-                .addInterceptor(chain -> {
-                    Request request = chain.request();
-                    boolean oneShot = request.body() != null && request.body().isOneShot();
-                    int retryCount = 0;
-                    Response response = null;
-                    while (retryCount < 3) {
-                        try {
-                            response = chain.proceed(request);
-                            if (response.isSuccessful()) {
-                                return response;
-                            }
-                            if (oneShot) {
-                                return response;
-                            }
-                            response.close();
-                        }
-                        catch (IOException e) {
-                            if (retryCount == 2 || oneShot) {
-                                throw e;
-                            }
-                        }
-                        retryCount++;
-
-                        long waitTimeMs = (long) (Math.pow(2, retryCount) * 1000);
-                        try {
-                            TimeUnit.MILLISECONDS.sleep(waitTimeMs);
-                        }
-                        catch (InterruptedException e) {
-                            Thread.currentThread().interrupt();
-                            throw new IOException("Upload interrupted", e);
-                        }
-                    }
-                    return response;
-                }).build();
+                .build();
     }
 
     private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl, long fileSize)
@@ -155,7 +122,13 @@ public class PresignClient {
             }
             catch (SocketTimeoutException e) {
                 logger.warning("Error execute presign, socket timeout: " + e.getMessage());
-                cause = new RuntimeException("Error execute presign, request is " + request.toString() + "socket timeout: " + e.getMessage());
+                cause = e;
+            }
+            catch (IOException e) {
+                if (!HttpRetryPolicy.isRetryableIOException(e)) {
+                    throw e;
+                }
+                cause = e;
             }
             catch (NonRetryablePresignFailure e) {
                 throw e;
