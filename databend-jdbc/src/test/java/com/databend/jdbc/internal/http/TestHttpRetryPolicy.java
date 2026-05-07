@@ -6,6 +6,7 @@ import okhttp3.Request;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.net.SocketTimeoutException;
 import java.net.InetSocketAddress;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -146,6 +147,17 @@ public class TestHttpRetryPolicy {
         finally {
             server.stop(0);
         }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testSocketTimeoutExceptionIsRetryable() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(new SocketTimeoutException("timed out")));
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testRetryableHttpStatusExceptionIsRetryable() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
+                new RetryableHttpStatusException("service unavailable: 503 Service Unavailable")));
     }
 
     private static String serverUrl(HttpServer server, String path) {
