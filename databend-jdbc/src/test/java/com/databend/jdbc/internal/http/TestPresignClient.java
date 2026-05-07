@@ -68,7 +68,77 @@ public class TestPresignClient {
     }
 
     @Test(groups = {"UNIT"})
-    public void testPresignDownloadStreamWrapsUnauthorizedFailure() throws Exception {
+    public void testPresignDownloadRetriesBadGateway() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/download-502", exchange -> {
+            try {
+                int attempt = attempts.incrementAndGet();
+                if (attempt < 3) {
+                    exchange.sendResponseHeaders(502, -1);
+                    return;
+                }
+                byte[] payload = "hello".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        Path file = Files.createTempFile("databend-presign-502-", ".txt");
+        try {
+            PresignClient client = new PresignClient();
+            client.presignDownload(file.toString(), emptyHeaders(), serverUrl(server, "/download-502"));
+
+            Assert.assertEquals(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), "hello");
+            Assert.assertEquals(attempts.get(), 3);
+        }
+        finally {
+            Files.deleteIfExists(file);
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testPresignDownloadRetriesGatewayTimeout() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/download-504", exchange -> {
+            try {
+                int attempt = attempts.incrementAndGet();
+                if (attempt < 3) {
+                    exchange.sendResponseHeaders(504, -1);
+                    return;
+                }
+                byte[] payload = "hello".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(200, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        Path file = Files.createTempFile("databend-presign-504-", ".txt");
+        try {
+            PresignClient client = new PresignClient();
+            client.presignDownload(file.toString(), emptyHeaders(), serverUrl(server, "/download-504"));
+
+            Assert.assertEquals(new String(Files.readAllBytes(file), StandardCharsets.UTF_8), "hello");
+            Assert.assertEquals(attempts.get(), 3);
+        }
+        finally {
+            Files.deleteIfExists(file);
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testPresignDownloadStreamPropagatesUnauthorizedFailure() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/download-stream", exchange -> {
@@ -85,11 +155,45 @@ public class TestPresignClient {
         try {
             PresignClient client = new PresignClient();
 
-            RuntimeException exception = Assert.expectThrows(RuntimeException.class, () ->
+            IOException exception = Assert.expectThrows(IOException.class, () ->
                     client.presignDownloadStream(emptyHeaders(), serverUrl(server, "/download-stream")));
 
+            Assert.assertTrue(exception instanceof NonRetryableHttpStatusException, exception.getClass().getName());
             Assert.assertTrue(exception.getMessage().contains("Presign request failed"), exception.getMessage());
             Assert.assertTrue(exception.getMessage().contains("Unauthorized user"), exception.getMessage());
+            Assert.assertEquals(attempts.get(), 1);
+        }
+        finally {
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testPresignDownloadFailsFastOnUnexpectedRedirectStatus() throws Exception {
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/download-300", exchange -> {
+            try {
+                attempts.incrementAndGet();
+                byte[] payload = "multiple choices".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(300, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        try {
+            PresignClient client = new PresignClient();
+
+            IOException exception = Assert.expectThrows(IOException.class, () ->
+                    client.presignDownloadStream(emptyHeaders(), serverUrl(server, "/download-300")));
+
+            Assert.assertTrue(exception instanceof NonRetryableHttpStatusException, exception.getClass().getName());
+            Assert.assertTrue(exception.getMessage().contains("unexpected response"), exception.getMessage());
+            Assert.assertTrue(exception.getMessage().contains("300"), exception.getMessage());
             Assert.assertEquals(attempts.get(), 1);
         }
         finally {
@@ -115,7 +219,7 @@ public class TestPresignClient {
         try {
             PresignClient client = new PresignClient();
 
-            RuntimeException exception = Assert.expectThrows(RuntimeException.class, () -> client.presignUpload(
+            IOException exception = Assert.expectThrows(IOException.class, () -> client.presignUpload(
                     null,
                     new java.io.ByteArrayInputStream("abc".getBytes(StandardCharsets.UTF_8)),
                     emptyHeaders(),
@@ -123,6 +227,7 @@ public class TestPresignClient {
                     3,
                     true));
 
+            Assert.assertTrue(exception instanceof NonRetryableHttpStatusException, exception.getClass().getName());
             Assert.assertTrue(exception.getMessage().contains("Presign request failed"), exception.getMessage());
             Assert.assertTrue(exception.getMessage().contains("Unauthorized user"), exception.getMessage());
             Assert.assertEquals(attempts.get(), 1);
@@ -150,7 +255,7 @@ public class TestPresignClient {
         try {
             PresignClient client = new PresignClient();
 
-            RuntimeException exception = Assert.expectThrows(RuntimeException.class, () -> client.presignUpload(
+            IOException exception = Assert.expectThrows(IOException.class, () -> client.presignUpload(
                     null,
                     new java.io.ByteArrayInputStream("abc".getBytes(StandardCharsets.UTF_8)),
                     emptyHeaders(),
@@ -158,6 +263,7 @@ public class TestPresignClient {
                     3,
                     true));
 
+            Assert.assertTrue(exception instanceof NonRetryableHttpStatusException, exception.getClass().getName());
             Assert.assertTrue(exception.getMessage().contains("configuration error"), exception.getMessage());
             Assert.assertEquals(attempts.get(), 1);
         }
@@ -199,6 +305,14 @@ public class TestPresignClient {
         finally {
             server.stop(0);
         }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testRetryablePresignStatusCodes() {
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(502));
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(503));
+        Assert.assertTrue(PresignClient.isRetryablePresignStatus(504));
+        Assert.assertFalse(PresignClient.isRetryablePresignStatus(500));
     }
 
     private static Headers emptyHeaders() {
