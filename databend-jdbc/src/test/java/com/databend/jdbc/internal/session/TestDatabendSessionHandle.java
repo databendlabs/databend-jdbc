@@ -883,28 +883,23 @@ public class TestDatabendSessionHandle {
     @Test(groups = {"UNIT"})
     public void testUploadStreamPresignedServiceUnavailableRaisesSQLExceptionWithPresignCause() throws Exception {
         HttpServer queryServer = HttpServer.create(new InetSocketAddress(0), 0);
+        HttpServer uploadServer = HttpServer.create(new InetSocketAddress(0), 0);
         AtomicReference<Integer> uploadAttempts = new AtomicReference<>(0);
-        OkHttpClient client = new OkHttpClient.Builder()
-                .addInterceptor(userAgentInterceptor(DriverInfo.USER_AGENT_VALUE))
-                .addInterceptor((Interceptor) chain -> {
-                    Request request = chain.request();
-                    if ("/upload".equals(request.url().encodedPath())) {
-                        uploadAttempts.set(uploadAttempts.get() + 1);
-                        return new Response.Builder()
-                                .request(request)
-                                .protocol(Protocol.HTTP_1_1)
-                                .code(503)
-                                .message("Service Unavailable")
-                                .body(ResponseBody.create(MediaType.parse("text/plain"), "temporary"))
-                                .build();
-                    }
-                    return chain.proceed(request);
-                })
-                .build();
+        uploadServer.createContext("/upload", exchange -> {
+            try {
+                uploadAttempts.set(uploadAttempts.get() + 1);
+                byte[] payload = "temporary".getBytes(StandardCharsets.UTF_8);
+                exchange.sendResponseHeaders(503, payload.length);
+                exchange.getResponseBody().write(payload);
+            }
+            finally {
+                exchange.close();
+            }
+        });
         queryServer.createContext("/v1/query", exchange -> {
             try {
                 byte[] response = presignQueryResponse("{}",
-                        "http://127.0.0.1/upload")
+                        "http://127.0.0.1:" + uploadServer.getAddress().getPort() + "/upload")
                         .getBytes(StandardCharsets.UTF_8);
                 exchange.getResponseHeaders().add("Content-Type", "application/json");
                 exchange.sendResponseHeaders(200, response.length);
@@ -914,22 +909,12 @@ public class TestDatabendSessionHandle {
                 exchange.close();
             }
         });
+        uploadServer.start();
         queryServer.start();
 
         try {
-            DatabendSessionHandle handle = new DatabendSessionHandle(
-                    client,
-                    SessionHandleConfig.builder()
-                            .setBaseUri(URI.create("http://127.0.0.1:" + queryServer.getAddress().getPort()))
-                            .setInitialSession(SessionState.createDefault())
-                            .setQueryTimeoutSecs(30)
-                            .setConnectionTimeoutSecs(30)
-                            .setSocketTimeoutSecs(60)
-                            .setWaitTimeSecs(10)
-                            .setMaxRowsInBuffer(1000)
-                            .setMaxRowsPerPage(1000)
-                            .build(),
-                    null);
+            DatabendSessionHandle handle = createSessionHandle(
+                    URI.create("http://127.0.0.1:" + queryServer.getAddress().getPort()));
             handle.initializePresign("on", false);
 
             SQLException exception = Assert.expectThrows(SQLException.class, () ->
@@ -947,6 +932,7 @@ public class TestDatabendSessionHandle {
         }
         finally {
             queryServer.stop(0);
+            uploadServer.stop(0);
         }
     }
 
