@@ -30,7 +30,7 @@ import static java.util.concurrent.TimeUnit.MILLISECONDS;
 public class PresignClient {
     private static final String PRESIGN_REQUEST_FAILED = "Presign request failed";
 
-    private static final int MaxRetryAttempts = 20;
+    private static final int MaxRetryAttempts = 5;
     private static final int MAX_ERROR_BODY_LENGTH = 1024;
     private final OkHttpClient client;
     private static final Logger logger = Logger.getLogger(PresignClient.class.getPackage().getName());
@@ -39,9 +39,9 @@ public class PresignClient {
     {
         Logger.getLogger(OkHttpClient.class.getName()).setLevel(Level.FINEST);
         this.client = new OkHttpClient.Builder()
-                .connectTimeout(600, TimeUnit.SECONDS)
-                .writeTimeout(900, TimeUnit.SECONDS)
-                .readTimeout(600, TimeUnit.SECONDS)
+                .connectTimeout(30, TimeUnit.SECONDS)
+                .writeTimeout(300, TimeUnit.SECONDS)
+                .readTimeout(300, TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(Arrays.asList(Protocol.HTTP_1_1))
                 .build();
@@ -107,15 +107,16 @@ public class PresignClient {
                     throw retryAbortedIOException(e);
                 }
                 logger.info(format("%s #%s due to: %s", "retry presign request", attempts, e));
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.getSeconds() >= 900 || attempts >= MaxRetryAttempts) {
+                if (attempts > MaxRetryAttempts) {
+                    Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                     logger.warning(formatFailureMessage("error is: " + e));
                     throw new PresignRequestFailedException(
                             format("%s (attempts: %s, duration: %s)", PRESIGN_REQUEST_FAILED, attempts, sinceStart),
                             e);
                 }
                 try {
-                    MILLISECONDS.sleep(attempts * 100);
+                    long sleepMs = Math.min(1000L * (1L << (attempts - 1)), 30_000L);
+                    MILLISECONDS.sleep(sleepMs);
                 }
                 catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();

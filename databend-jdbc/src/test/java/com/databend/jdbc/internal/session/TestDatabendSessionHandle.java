@@ -1082,7 +1082,7 @@ public class TestDatabendSessionHandle {
         }
     }
 
-    @Test(groups = {"UNIT"}, timeOut = 30000)
+    @Test(groups = {"UNIT"}, timeOut = 60000)
     public void testDownloadStreamPresignedRetryExhaustionRaisesSQLException() throws Exception {
         HttpServer queryServer = HttpServer.create(new InetSocketAddress(0), 0);
         HttpServer downloadServer = HttpServer.create(new InetSocketAddress(0), 0);
@@ -1126,7 +1126,7 @@ public class TestDatabendSessionHandle {
                     String.valueOf(exception.getCause().getCause()));
             Assert.assertTrue(exception.getCause().getCause().getMessage().contains("Presign request failed"),
                     exception.getCause().getCause().getMessage());
-            Assert.assertEquals(attempts.get(), 20);
+            Assert.assertEquals(attempts.get(), 6);
         }
         finally {
             queryServer.stop(0);
