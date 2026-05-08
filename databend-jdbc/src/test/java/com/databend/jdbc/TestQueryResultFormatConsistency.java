@@ -10,12 +10,17 @@ import java.sql.ResultSet;
 import java.sql.ResultSetMetaData;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.sql.Timestamp;
+import java.time.Instant;
+import java.time.OffsetDateTime;
+import java.time.ZonedDateTime;
 import java.util.Properties;
 import java.util.UUID;
 
 @Test(timeOut = 10000)
 public class TestQueryResultFormatConsistency {
     private static final String TEST_QUERY_RESULT_FORMAT = "DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT";
+    private static final String SESSION_TIMEZONE = "Asia/Shanghai";
 
     @Test(groups = {"IT"})
     public void testJsonAndArrowReturnConsistentValues() throws Exception {
@@ -27,6 +32,7 @@ public class TestQueryResultFormatConsistency {
         String dbName = ("format_consistency_" + UUID.randomUUID()).replace("-", "").toLowerCase();
         try (Connection admin = Utils.createConnection();
              Statement statement = admin.createStatement()) {
+            statement.execute("set timezone='" + SESSION_TIMEZONE + "'");
             statement.execute("create or replace database " + dbName);
             statement.execute("create or replace table " + dbName + ".t_consistency (id int, amount decimal(10,2), created_at timestamp, note string null)");
             statement.execute("insert into " + dbName + ".t_consistency values (1, 123.45, '2024-04-16 12:34:56.123456', null)");
@@ -43,6 +49,10 @@ public class TestQueryResultFormatConsistency {
             Assert.assertEquals(arrowRow.note, jsonRow.note);
             Assert.assertEquals(arrowRow.amountType, jsonRow.amountType);
             Assert.assertEquals(arrowRow.timestampType, jsonRow.timestampType);
+            Assert.assertEquals(arrowRow.createdAtTimestamp.toInstant(), jsonRow.createdAtTimestamp.toInstant());
+            Assert.assertEquals(arrowRow.createdAtInstant, jsonRow.createdAtInstant);
+            Assert.assertEquals(arrowRow.createdAtOffsetDateTime, jsonRow.createdAtOffsetDateTime);
+            Assert.assertEquals(arrowRow.createdAtZonedDateTime, jsonRow.createdAtZonedDateTime);
         }
     }
 
@@ -51,6 +61,7 @@ public class TestQueryResultFormatConsistency {
         props.setProperty("user", Utils.getUsername());
         props.setProperty("password", Utils.getPassword());
         props.setProperty("query_result_format", format);
+        props.setProperty("session_settings", "timezone=" + SESSION_TIMEZONE);
         return Utils.createConnection(database, props);
     }
 
@@ -67,6 +78,10 @@ public class TestQueryResultFormatConsistency {
             snapshot.note = rs.getString(4);
             snapshot.amountType = metaData.getColumnType(2);
             snapshot.timestampType = metaData.getColumnType(3);
+            snapshot.createdAtTimestamp = rs.getTimestamp(3);
+            snapshot.createdAtInstant = rs.getObject(3, Instant.class);
+            snapshot.createdAtOffsetDateTime = rs.getObject(3, OffsetDateTime.class);
+            snapshot.createdAtZonedDateTime = rs.getObject(3, ZonedDateTime.class);
             Assert.assertFalse(rs.next());
             return snapshot;
         }
@@ -79,5 +94,9 @@ public class TestQueryResultFormatConsistency {
         private String note;
         private int amountType;
         private int timestampType;
+        private Timestamp createdAtTimestamp;
+        private Instant createdAtInstant;
+        private OffsetDateTime createdAtOffsetDateTime;
+        private ZonedDateTime createdAtZonedDateTime;
     }
 }
