@@ -207,6 +207,12 @@ public class TestHttpRetryPolicy {
                 new NonRetryableHttpStatusException("configuration error: 400 Bad Request")));
     }
 
+    @Test(groups = {"UNIT"})
+    public void testNonRetryableHttpStatusExceptionWithRetryKeywordIsNotRetryable() {
+        Assert.assertFalse(HttpRetryPolicy.isRetryableIOException(
+                new NonRetryableHttpStatusException("configuration error: 400 Bad Request, body=timeout")));
+    }
+
     private static String serverUrl(HttpServer server, String path) {
         return "http://127.0.0.1:" + server.getAddress().getPort() + path;
     }

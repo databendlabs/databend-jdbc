@@ -74,8 +74,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private static final Semver STREAMING_LOAD_MIN_VERSION = new Semver("1.2.781");
     private static final Semver HEARTBEAT_MIN_VERSION = new Semver("1.2.709");
     private static final int MIN_ARROW_RESULT_VERSION = 3;
-    private static final int MAX_STAGE_UPLOAD_RETRY_ATTEMPTS = 20;
-    private static final Duration STAGE_UPLOAD_RETRY_TIMEOUT = Duration.ofMinutes(5);
+    private static final int MAX_STAGE_UPLOAD_RETRY_ATTEMPTS = 5;
 
     private static volatile ExecutorService heartbeatScheduler = null;
 
@@ -524,9 +523,9 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
         requireNonNull(request, "request is null");
 
         OkHttpClient uploadClient = httpClient.newBuilder()
-                .connectTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
-                .writeTimeout(900, java.util.concurrent.TimeUnit.SECONDS)
-                .readTimeout(600, java.util.concurrent.TimeUnit.SECONDS)
+                .connectTimeout(30, java.util.concurrent.TimeUnit.SECONDS)
+                .writeTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
+                .readTimeout(300, java.util.concurrent.TimeUnit.SECONDS)
                 .retryOnConnectionFailure(true)
                 .protocols(Arrays.asList(Protocol.HTTP_1_1))
                 .build();
@@ -568,8 +567,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                     throw retryAbortedStageUploadException(e);
                 }
                 logger.info("try to upload to stage again: " + attempts + ", cause: " + e);
-                Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
-                if (sinceStart.compareTo(STAGE_UPLOAD_RETRY_TIMEOUT) >= 0 || attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
+                if (attempts >= MAX_STAGE_UPLOAD_RETRY_ATTEMPTS) {
+                    Duration sinceStart = Duration.ofNanos(System.nanoTime() - start);
                     logger.warning("Upload to stage failed, error is: " + e);
                     throw new DatabendStageUploadException(
                             String.format("Error upload to stage (attempts: %s, duration: %s)", attempts, sinceStart),
@@ -577,7 +576,8 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 }
 
                 try {
-                    MILLISECONDS.sleep(attempts * 100);
+                    long sleepMs = Math.min(1000L * (1L << (attempts - 1)), 30_000L);
+                    MILLISECONDS.sleep(sleepMs);
                 }
                 catch (InterruptedException interruptedException) {
                     Thread.currentThread().interrupt();

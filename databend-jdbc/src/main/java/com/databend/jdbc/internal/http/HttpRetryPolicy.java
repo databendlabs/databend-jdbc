@@ -79,6 +79,9 @@ public class HttpRetryPolicy {
     }
 
     public static boolean isRetryableIOException(IOException e) {
+        if (e instanceof NonRetryableHttpStatusException) {
+            return false;
+        }
         if (e instanceof RetryableHttpStatusException) {
             return true;
         }
