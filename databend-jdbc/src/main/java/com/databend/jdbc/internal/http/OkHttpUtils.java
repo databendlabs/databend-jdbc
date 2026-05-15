@@ -61,7 +61,7 @@ public final class OkHttpUtils {
                     return new X509Certificate[0];
                 }
             };
-            SSLContext sslContext = SSLContext.getInstance("SSL");
+            SSLContext sslContext = SSLContext.getInstance("TLS");
             sslContext.init(null, new TrustManager[] {trustAllCerts}, new SecureRandom());
             clientBuilder.sslSocketFactory(sslContext.getSocketFactory(), trustAllCerts);
             clientBuilder.hostnameVerifier((hostname, session) -> true);
