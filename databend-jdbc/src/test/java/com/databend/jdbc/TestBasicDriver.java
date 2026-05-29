@@ -9,10 +9,12 @@ import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.sql.SQLFeatureNotSupportedException;
 import java.sql.Statement;
 import java.util.Properties;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.assertThrows;
 
 
@@ -81,6 +83,40 @@ public class TestBasicDriver {
                 statement.execute("create tabl xxx (a int, b varchar)");
             }
         });
+    }
+
+    @Test(groups = {"IT"})
+    public void testExecuteUpdateWithNoGeneratedKeys() throws SQLException {
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute("CREATE OR REPLACE TABLE test_basic_driver.execute_update_no_keys (i int)");
+
+            int updatedRows = statement.executeUpdate(
+                    "INSERT INTO test_basic_driver.execute_update_no_keys VALUES (1)",
+                    Statement.NO_GENERATED_KEYS);
+
+            assertEquals(updatedRows, 1);
+        }
+    }
+
+    @Test(groups = {"IT"})
+    public void testGeneratedKeysAreNotSupported() throws SQLException {
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
+            SQLFeatureNotSupportedException executeUpdateException = expectThrows(
+                    SQLFeatureNotSupportedException.class,
+                    () -> statement.executeUpdate(
+                            "INSERT INTO test_basic_driver.table1 VALUES (2)",
+                            Statement.RETURN_GENERATED_KEYS));
+            assertEquals(executeUpdateException.getMessage(), "Generated keys are not supported");
+
+            SQLFeatureNotSupportedException prepareStatementException = expectThrows(
+                    SQLFeatureNotSupportedException.class,
+                    () -> connection.prepareStatement(
+                            "INSERT INTO test_basic_driver.table1 VALUES (?)",
+                            Statement.RETURN_GENERATED_KEYS));
+            assertEquals(prepareStatementException.getMessage(), "Generated keys are not supported");
+        }
     }
 
     @Test(groups = {"IT"})
