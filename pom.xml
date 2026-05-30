@@ -188,6 +188,14 @@
                             <dependencyReducedPomLocation>
                                 ${java.io.tmpdir}/dependency-reduced-pom.xml
                             </dependencyReducedPomLocation>
+                            <filters>
+                                <filter>
+                                    <artifact>org.apache.arrow:arrow-memory-unsafe</artifact>
+                                    <includes>
+                                        <include>org/apache/arrow/memory/unsafe/**</include>
+                                    </includes>
+                                </filter>
+                            </filters>
                             <relocations>
                                 <relocation>
                                     <pattern>com.google.common</pattern>
