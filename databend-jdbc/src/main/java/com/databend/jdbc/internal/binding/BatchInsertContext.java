@@ -10,24 +10,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.TreeMap;
 import java.util.UUID;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 
-public class BatchInsertUtils {
+public class BatchInsertContext {
     private final String sql;
-
-    private String databaseTableName;
+    private final DatabendSqlClassifier.Classification sqlClassification;
     // prepareValues[i] is null if the i-th value is a placeholder
 
     private final TreeMap<Integer, String> placeHolderEntries;
     private final TreeMap<Integer, String> placeHolderEntriesCSV;
 
-    public BatchInsertUtils(String sql) {
+    public BatchInsertContext(String sql) {
         this.sql = sql;
+        this.sqlClassification = DatabendSqlClassifier.classify(sql);
         // sort key in ascending order
         this.placeHolderEntries = new TreeMap<>();
         this.placeHolderEntriesCSV = new TreeMap<>();
-//        this.databaseTableName = getDatabaseTableName();
     }
 
 
@@ -43,15 +40,12 @@ public class BatchInsertUtils {
         return m;
     }
 
+    public boolean isBatchInsert() {
+        return sqlClassification.isBatchInsert();
+    }
+
     public String getDatabaseTableName() {
-        Pattern pattern = Pattern.compile("^INSERT INTO\\s+((?:[\\w-]+\\.)?([\\w-]+))(?:\\s*\\((?:[^()]|\\([^()]*\\))*\\))?", Pattern.CASE_INSENSITIVE);
-        Matcher matcher = pattern.matcher(sql.replace("`", ""));
-
-        if (matcher.find()) {
-            databaseTableName = matcher.group(1);
-        }
-
-        return databaseTableName;
+        return sqlClassification.getTableName().orElse(null);
     }
 
     public void setPlaceHolderValue(int index, String value, String valueCSV) throws IllegalArgumentException {
