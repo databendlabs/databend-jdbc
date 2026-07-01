@@ -122,7 +122,9 @@ public final class DatabendSqlClassifier {
             }
         }
 
-        return classifyInsertSource(tokens, index, end, table.name, StatementKind.INSERT_VALUES);
+        // Batched INSERT OVERWRITE is not equivalent to one staged execution:
+        // JDBC batch semantics overwrite once per parameter set.
+        return classifyInsertSource(tokens, index, end, table.name, StatementKind.INSERT_VALUES, !overwrite);
     }
 
     private static Classification classifyReplace(List<Token> tokens, int replaceIndex, int end) {
@@ -162,7 +164,7 @@ public final class DatabendSqlClassifier {
             return new Classification(StatementKind.INSERT_SELECT_OR_LOAD, table.name);
         }
 
-        return classifyInsertSource(tokens, index, end, table.name, StatementKind.REPLACE_VALUES);
+        return classifyInsertSource(tokens, index, end, table.name, StatementKind.REPLACE_VALUES, true);
     }
 
     private static Classification classifyInsertSource(
@@ -170,12 +172,13 @@ public final class DatabendSqlClassifier {
             int sourceIndex,
             int end,
             String tableName,
-            StatementKind valuesKind) {
+            StatementKind valuesKind,
+            boolean valuesSourceCanBatch) {
         if (sourceIndex >= end) {
             return OTHER;
         }
         if (matches(tokens, sourceIndex, "VALUES")) {
-            if (hasTopLevelFromAfter(tokens, sourceIndex + 1, end)) {
+            if (!valuesSourceCanBatch || hasTopLevelFromAfter(tokens, sourceIndex + 1, end)) {
                 return new Classification(StatementKind.INSERT_SELECT_OR_LOAD, tableName);
             }
             return new Classification(valuesKind, tableName);

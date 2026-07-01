@@ -16,7 +16,6 @@ public class TestDatabendSqlClassifier {
         assertKind(INSERT_VALUES, "  /* leading */ INSERT INTO `t` (`a`) VALUES (?) ;");
         assertKind(INSERT_VALUES, "-- comment\ninsert into t values (?)");
         assertKind(INSERT_VALUES, "settings (timezone='Asia/Shanghai') insert into t values (?)");
-        assertKind(INSERT_VALUES, "insert overwrite table db.t values (?)");
         assertKind(INSERT_VALUES, "with src as (select 1) insert into t values (?)");
         assertKind(INSERT_VALUES, "insert into t values ('select')");
         assertKind(INSERT_VALUES, "insert into `db`.`tb-test` values (?)");
@@ -32,6 +31,7 @@ public class TestDatabendSqlClassifier {
     @Test(groups = "UNIT")
     public void testNonBatchInsertClassification() {
         assertKind(INSERT_SELECT_OR_LOAD, "insert into t select * from s");
+        assertKind(INSERT_SELECT_OR_LOAD, "insert overwrite table db.t values (?)");
         assertKind(INSERT_SELECT_OR_LOAD, "insert into t from @_databend_load file_format=(type=csv)");
         assertKind(INSERT_SELECT_OR_LOAD,
                 "insert into t values ('a', ?, ?) from @_databend_load file_format=(type=csv)");

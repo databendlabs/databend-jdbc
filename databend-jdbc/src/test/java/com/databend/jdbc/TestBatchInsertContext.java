@@ -56,5 +56,7 @@ public class TestBatchInsertContext {
         Assert.assertTrue(insertValues.isBatchInsert());
         BatchInsertContext insertSelect = new BatchInsertContext("insert into t select * from s");
         Assert.assertFalse(insertSelect.isBatchInsert());
+        BatchInsertContext insertOverwrite = new BatchInsertContext("insert overwrite table t values (?)");
+        Assert.assertFalse(insertOverwrite.isBatchInsert());
     }
 }
