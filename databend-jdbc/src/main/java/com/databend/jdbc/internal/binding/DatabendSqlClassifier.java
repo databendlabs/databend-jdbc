@@ -8,7 +8,6 @@ public final class DatabendSqlClassifier {
     public enum StatementKind {
         INSERT_VALUES,
         REPLACE_VALUES,
-        INSERT_SELECT_OR_LOAD,
         OTHER
     }
 
@@ -161,7 +160,7 @@ public final class DatabendSqlClassifier {
             return OTHER;
         }
         if (matches(tokens, index, "DELETE")) {
-            return new Classification(StatementKind.INSERT_SELECT_OR_LOAD, table.name);
+            return other(table.name);
         }
 
         return classifyInsertSource(tokens, index, end, table.name, StatementKind.REPLACE_VALUES, true);
@@ -179,11 +178,15 @@ public final class DatabendSqlClassifier {
         }
         if (matches(tokens, sourceIndex, "VALUES")) {
             if (!valuesSourceCanBatch || hasTopLevelFromAfter(tokens, sourceIndex + 1, end)) {
-                return new Classification(StatementKind.INSERT_SELECT_OR_LOAD, tableName);
+                return other(tableName);
             }
             return new Classification(valuesKind, tableName);
         }
-        return new Classification(StatementKind.INSERT_SELECT_OR_LOAD, tableName);
+        return other(tableName);
+    }
+
+    private static Classification other(String tableName) {
+        return new Classification(StatementKind.OTHER, tableName);
     }
 
     private static boolean hasTopLevelFromAfter(List<Token> tokens, int start, int end) {
