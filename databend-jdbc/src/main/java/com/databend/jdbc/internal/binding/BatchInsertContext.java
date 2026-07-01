@@ -44,10 +44,6 @@ public class BatchInsertContext {
         return sqlClassification.isBatchInsert();
     }
 
-    public String getDatabaseTableName() {
-        return sqlClassification.getTableName().orElse(null);
-    }
-
     public void setPlaceHolderValue(int index, String value, String valueCSV) throws IllegalArgumentException {
         int i = index - 1;
 

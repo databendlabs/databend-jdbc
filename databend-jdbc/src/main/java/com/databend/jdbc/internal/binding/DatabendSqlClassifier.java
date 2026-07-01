@@ -1,7 +1,5 @@
 package com.databend.jdbc.internal.binding;
 
-import java.util.ArrayList;
-import java.util.List;
 import java.util.Optional;
 
 public final class DatabendSqlClassifier {
@@ -13,19 +11,13 @@ public final class DatabendSqlClassifier {
 
     public static final class Classification {
         private final StatementKind kind;
-        private final String tableName;
 
-        private Classification(StatementKind kind, String tableName) {
+        private Classification(StatementKind kind) {
             this.kind = kind;
-            this.tableName = tableName;
         }
 
         public StatementKind getKind() {
             return kind;
-        }
-
-        public Optional<String> getTableName() {
-            return Optional.ofNullable(tableName);
         }
 
         public boolean isBatchInsert() {
@@ -40,7 +32,9 @@ public final class DatabendSqlClassifier {
         SYMBOL
     }
 
-    private static final Classification OTHER = new Classification(StatementKind.OTHER, null);
+    private static final Classification INSERT_VALUES = new Classification(StatementKind.INSERT_VALUES);
+    private static final Classification REPLACE_VALUES = new Classification(StatementKind.REPLACE_VALUES);
+    private static final Classification OTHER = new Classification(StatementKind.OTHER);
 
     private DatabendSqlClassifier() {
     }
@@ -50,354 +44,232 @@ public final class DatabendSqlClassifier {
             return OTHER;
         }
 
-        List<Token> tokens = tokenize(sql);
-        int end = trimTrailingSemicolon(tokens);
-        if (end <= 0 || hasNonTrailingSemicolon(tokens, end)) {
+        TokenCursor cursor = new TokenCursor(sql);
+        Token first = cursor.next();
+        if (first == null) {
             return OTHER;
         }
-
-        return classifyStatement(tokens, 0, end);
+        return classifyStatement(first, cursor);
     }
 
-    private static Classification classifyStatement(List<Token> tokens, int start, int end) {
-        int index = start;
-        if (matches(tokens, index, "SETTINGS")) {
-            index++;
-            if (index < end && isSymbol(tokens.get(index), "(")) {
-                index = skipBalanced(tokens, index, end);
-                if (index < 0) {
+    public static boolean isQuery(String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            return false;
+        }
+
+        TokenCursor cursor = new TokenCursor(sql);
+        Token first = cursor.nextStatementToken();
+        return first != null && isQueryStatement(first, cursor);
+    }
+
+    public static Optional<Integer> countInsertTargetColumns(String sql) {
+        if (sql == null || sql.trim().isEmpty()) {
+            return Optional.empty();
+        }
+
+        TokenCursor cursor = new TokenCursor(sql);
+        Token first = cursor.next();
+        if (first == null) {
+            return Optional.empty();
+        }
+        return countInsertTargetColumns(first, cursor);
+    }
+
+    private static Classification classifyStatement(Token first, TokenCursor cursor) {
+        if (first.matches("SETTINGS")) {
+            Token next = cursor.next();
+            if (next != null && next.isSymbol("(")) {
+                if (!cursor.skipBalancedAfterOpen()) {
                     return OTHER;
                 }
+                next = cursor.next();
             }
-            return classifyStatement(tokens, index, end);
+            return next == null ? OTHER : classifyStatement(next, cursor);
         }
 
-        if (matches(tokens, index, "WITH")) {
-            int statementIndex = findTopLevelStatementAfterWith(tokens, index + 1, end);
-            if (statementIndex < 0) {
-                return OTHER;
-            }
-            return classifyStatement(tokens, statementIndex, end);
+        if (first.matches("WITH")) {
+            Token statementToken = cursor.findTopLevelStatementAfterWith();
+            return statementToken == null ? OTHER : classifyStatement(statementToken, cursor);
         }
 
-        if (matches(tokens, index, "INSERT")) {
-            return classifyInsert(tokens, index, end);
+        if (first.matches("INSERT")) {
+            return classifyInsert(cursor);
         }
-        if (matches(tokens, index, "REPLACE")) {
-            return classifyReplace(tokens, index, end);
+        if (first.matches("REPLACE")) {
+            return classifyReplace(cursor);
         }
         return OTHER;
     }
 
-    private static Classification classifyInsert(List<Token> tokens, int insertIndex, int end) {
-        int index = insertIndex + 1;
-        boolean overwrite = false;
-        if (matches(tokens, index, "OVERWRITE")) {
-            overwrite = true;
-            index++;
-        }
-        if (matches(tokens, index, "FIRST") || matches(tokens, index, "ALL")) {
-            return OTHER;
-        }
-        if (matches(tokens, index, "INTO")) {
-            index++;
-        } else if (!overwrite) {
-            return OTHER;
-        }
-        if (matches(tokens, index, "TABLE")) {
-            index++;
-        }
-
-        ParsedName table = parseQualifiedName(tokens, index, end);
-        if (table == null) {
-            return OTHER;
-        }
-        index = table.nextIndex;
-
-        if (index < end && isSymbol(tokens.get(index), "(")) {
-            index = skipBalanced(tokens, index, end);
-            if (index < 0) {
-                return OTHER;
+    private static Optional<Integer> countInsertTargetColumns(Token first, TokenCursor cursor) {
+        if (first.matches("SETTINGS")) {
+            Token next = cursor.next();
+            if (next != null && next.isSymbol("(")) {
+                if (!cursor.skipBalancedAfterOpen()) {
+                    return Optional.empty();
+                }
+                next = cursor.next();
             }
+            return next == null ? Optional.<Integer>empty() : countInsertTargetColumns(next, cursor);
         }
 
-        // Batched INSERT OVERWRITE is not equivalent to one staged execution:
-        // JDBC batch semantics overwrite once per parameter set.
-        return classifyInsertSource(tokens, index, end, table.name, StatementKind.INSERT_VALUES, !overwrite);
+        if (first.matches("WITH")) {
+            Token statementToken = cursor.findTopLevelStatementAfterWith();
+            return statementToken == null ? Optional.<Integer>empty() : countInsertTargetColumns(statementToken, cursor);
+        }
+
+        if (first.matches("INSERT")) {
+            return countInsertColumns(cursor);
+        }
+        if (first.matches("REPLACE")) {
+            return countReplaceColumns(cursor);
+        }
+        return Optional.empty();
     }
 
-    private static Classification classifyReplace(List<Token> tokens, int replaceIndex, int end) {
-        int index = replaceIndex + 1;
-        if (matches(tokens, index, "INTO")) {
-            index++;
-        }
-
-        ParsedName table = parseQualifiedName(tokens, index, end);
-        if (table == null) {
-            return OTHER;
-        }
-        index = table.nextIndex;
-
-        if (index < end && isSymbol(tokens.get(index), "(")) {
-            index = skipBalanced(tokens, index, end);
-            if (index < 0) {
-                return OTHER;
-            }
-        }
-
-        if (!matches(tokens, index, "ON")) {
-            return OTHER;
-        }
-        index++;
-        if (matches(tokens, index, "CONFLICT")) {
-            index++;
-        }
-        if (index >= end || !isSymbol(tokens.get(index), "(")) {
-            return OTHER;
-        }
-        index = skipBalanced(tokens, index, end);
-        if (index < 0) {
-            return OTHER;
-        }
-        if (matches(tokens, index, "DELETE")) {
-            return other(table.name);
-        }
-
-        return classifyInsertSource(tokens, index, end, table.name, StatementKind.REPLACE_VALUES, true);
-    }
-
-    private static Classification classifyInsertSource(
-            List<Token> tokens,
-            int sourceIndex,
-            int end,
-            String tableName,
-            StatementKind valuesKind,
-            boolean valuesSourceCanBatch) {
-        if (sourceIndex >= end) {
-            return OTHER;
-        }
-        if (matches(tokens, sourceIndex, "VALUES")) {
-            if (!valuesSourceCanBatch || hasTopLevelFromAfter(tokens, sourceIndex + 1, end)) {
-                return other(tableName);
-            }
-            return new Classification(valuesKind, tableName);
-        }
-        return other(tableName);
-    }
-
-    private static Classification other(String tableName) {
-        return new Classification(StatementKind.OTHER, tableName);
-    }
-
-    private static boolean hasTopLevelFromAfter(List<Token> tokens, int start, int end) {
-        int depth = 0;
-        for (int i = start; i < end; i++) {
-            Token token = tokens.get(i);
-            if (isSymbol(token, "(")) {
-                depth++;
-            } else if (isSymbol(token, ")")) {
-                depth--;
-                if (depth < 0) {
+    private static boolean isQueryStatement(Token first, TokenCursor cursor) {
+        if (first.matches("SETTINGS")) {
+            Token next = cursor.next();
+            if (next != null && next.isSymbol("(")) {
+                if (!cursor.skipBalancedAfterOpen()) {
                     return false;
                 }
-            } else if (depth == 0 && matches(tokens, i, "FROM")) {
-                return true;
+                next = cursor.nextStatementToken();
             }
+            return next != null && isQueryStatement(next, cursor);
         }
-        return false;
+
+        if (first.matches("WITH")) {
+            Token statementToken = cursor.findTopLevelStatementAfterWith();
+            return statementToken != null && isQueryStatement(statementToken, cursor);
+        }
+
+        return first.matches("SHOW")
+                || first.matches("SELECT")
+                || first.matches("DESCRIBE")
+                || first.matches("EXISTS")
+                || first.matches("EXPLAIN")
+                || first.matches("CALL");
     }
 
-    private static int findTopLevelStatementAfterWith(List<Token> tokens, int start, int end) {
-        int depth = 0;
-        for (int i = start; i < end; i++) {
-            Token token = tokens.get(i);
-            if (isSymbol(token, "(")) {
-                depth++;
-            } else if (isSymbol(token, ")")) {
-                depth--;
-                if (depth < 0) {
-                    return -1;
-                }
-            } else if (depth == 0 && token.kind == TokenKind.WORD) {
-                if (token.matches("INSERT") || token.matches("REPLACE")) {
-                    return i;
-                }
-                if (token.matches("SELECT")) {
-                    return -1;
-                }
-            }
+    private static Optional<Integer> countInsertColumns(TokenCursor cursor) {
+        Token token = cursor.next();
+        if (token != null && token.matches("OVERWRITE")) {
+            token = cursor.next();
         }
-        return -1;
+        if (token == null || !token.matches("INTO")) {
+            return Optional.empty();
+        }
+
+        token = cursor.next();
+        if (token != null && token.matches("TABLE")) {
+            token = cursor.next();
+        }
+        if (!cursor.skipQualifiedName(token)) {
+            return Optional.empty();
+        }
+
+        token = cursor.next();
+        if (token == null || !token.isSymbol("(")) {
+            return Optional.empty();
+        }
+        return cursor.countCommaSeparatedItemsAfterOpen();
     }
 
-    private static ParsedName parseQualifiedName(List<Token> tokens, int start, int end) {
-        StringBuilder name = new StringBuilder();
-        int index = start;
-        boolean expectIdentifier = true;
-        boolean foundIdentifier = false;
+    private static Optional<Integer> countReplaceColumns(TokenCursor cursor) {
+        Token token = cursor.next();
+        if (token != null && token.matches("INTO")) {
+            token = cursor.next();
+        }
+        if (!cursor.skipQualifiedName(token)) {
+            return Optional.empty();
+        }
 
-        while (index < end) {
-            Token token = tokens.get(index);
-            if (expectIdentifier) {
-                if (!isIdentifierToken(token)) {
-                    break;
-                }
-                if (foundIdentifier) {
-                    name.append('.');
-                }
-                name.append(token.normalizedIdentifier());
-                foundIdentifier = true;
-                expectIdentifier = false;
-                index++;
-            } else if (isSymbol(token, ".")) {
-                expectIdentifier = true;
-                index++;
-            } else {
-                break;
+        token = cursor.next();
+        if (token == null || !token.isSymbol("(")) {
+            return Optional.empty();
+        }
+        return cursor.countCommaSeparatedItemsAfterOpen();
+    }
+
+    private static Classification classifyInsert(TokenCursor cursor) {
+        Token token = cursor.next();
+        if (token == null) {
+            return OTHER;
+        }
+        if (token.matches("OVERWRITE")) {
+            // Batched INSERT OVERWRITE is not equivalent to one staged execution:
+            // JDBC batch semantics overwrite once per parameter set.
+            return OTHER;
+        }
+        if (!token.matches("INTO")) {
+            return OTHER;
+        }
+
+        token = cursor.next();
+        if (token != null && token.matches("TABLE")) {
+            token = cursor.next();
+        }
+
+        if (!cursor.skipQualifiedName(token)) {
+            return OTHER;
+        }
+
+        token = cursor.next();
+        if (token != null && token.isSymbol("(")) {
+            if (!cursor.skipBalancedAfterOpen()) {
+                return OTHER;
             }
+            token = cursor.next();
         }
 
-        if (!foundIdentifier || expectIdentifier) {
-            return null;
+        if (token == null || !token.matches("VALUES")) {
+            return OTHER;
         }
-        return new ParsedName(name.toString(), index);
+        return cursor.valuesRemainderIsBatchSafe() ? INSERT_VALUES : OTHER;
+    }
+
+    private static Classification classifyReplace(TokenCursor cursor) {
+        Token token = cursor.next();
+        if (token != null && token.matches("INTO")) {
+            token = cursor.next();
+        }
+
+        if (!cursor.skipQualifiedName(token)) {
+            return OTHER;
+        }
+
+        token = cursor.next();
+        if (token != null && token.isSymbol("(")) {
+            if (!cursor.skipBalancedAfterOpen()) {
+                return OTHER;
+            }
+            token = cursor.next();
+        }
+
+        if (token == null || !token.matches("ON")) {
+            return OTHER;
+        }
+        token = cursor.next();
+        if (token != null && token.matches("CONFLICT")) {
+            token = cursor.next();
+        }
+        if (token == null || !token.isSymbol("(")) {
+            return OTHER;
+        }
+        if (!cursor.skipBalancedAfterOpen()) {
+            return OTHER;
+        }
+
+        token = cursor.next();
+        if (token == null || token.matches("DELETE") || !token.matches("VALUES")) {
+            return OTHER;
+        }
+        return cursor.valuesRemainderIsBatchSafe() ? REPLACE_VALUES : OTHER;
     }
 
     private static boolean isIdentifierToken(Token token) {
-        return token.kind == TokenKind.WORD || token.kind == TokenKind.QUOTED_IDENTIFIER;
-    }
-
-    private static int skipBalanced(List<Token> tokens, int openIndex, int end) {
-        int depth = 0;
-        for (int i = openIndex; i < end; i++) {
-            Token token = tokens.get(i);
-            if (isSymbol(token, "(")) {
-                depth++;
-            } else if (isSymbol(token, ")")) {
-                depth--;
-                if (depth == 0) {
-                    return i + 1;
-                }
-                if (depth < 0) {
-                    return -1;
-                }
-            }
-        }
-        return -1;
-    }
-
-    private static int trimTrailingSemicolon(List<Token> tokens) {
-        int end = tokens.size();
-        if (end > 0 && isSymbol(tokens.get(end - 1), ";")) {
-            end--;
-        }
-        return end;
-    }
-
-    private static boolean hasNonTrailingSemicolon(List<Token> tokens, int end) {
-        for (int i = 0; i < end; i++) {
-            if (isSymbol(tokens.get(i), ";")) {
-                return true;
-            }
-        }
-        return false;
-    }
-
-    private static boolean matches(List<Token> tokens, int index, String keyword) {
-        return index >= 0 && index < tokens.size() && tokens.get(index).matches(keyword);
-    }
-
-    private static boolean isSymbol(Token token, String symbol) {
-        return token.kind == TokenKind.SYMBOL && token.text.equals(symbol);
-    }
-
-    private static List<Token> tokenize(String sql) {
-        List<Token> tokens = new ArrayList<>();
-        int index = 0;
-        while (index < sql.length()) {
-            char ch = sql.charAt(index);
-            if (Character.isWhitespace(ch)) {
-                index++;
-            } else if (ch == '-' && hasNext(sql, index, '-')) {
-                index = skipLineComment(sql, index + 2);
-            } else if (ch == '/' && hasNext(sql, index, '*')) {
-                index = skipBlockComment(sql, index + 2);
-            } else if (ch == '\'') {
-                index = readQuoted(sql, index, '\'', TokenKind.STRING, tokens);
-            } else if (isIdentifierQuote(ch)) {
-                index = readQuoted(sql, index, ch, TokenKind.QUOTED_IDENTIFIER, tokens);
-            } else if (isWordStart(ch)) {
-                int start = index;
-                index++;
-                while (index < sql.length() && isWordPart(sql.charAt(index))) {
-                    index++;
-                }
-                tokens.add(new Token(sql.substring(start, index), TokenKind.WORD));
-            } else {
-                tokens.add(new Token(String.valueOf(ch), TokenKind.SYMBOL));
-                index++;
-            }
-        }
-        return tokens;
-    }
-
-    private static int readQuoted(
-            String sql,
-            int start,
-            char quote,
-            TokenKind kind,
-            List<Token> tokens) {
-        StringBuilder text = new StringBuilder();
-        int index = start + 1;
-        while (index < sql.length()) {
-            char ch = sql.charAt(index);
-            if (ch == quote) {
-                if (index + 1 < sql.length() && sql.charAt(index + 1) == quote) {
-                    text.append(quote);
-                    index += 2;
-                } else {
-                    index++;
-                    break;
-                }
-            } else if (ch == '\\' && quote == '\'' && index + 1 < sql.length()) {
-                text.append(sql.charAt(index + 1));
-                index += 2;
-            } else {
-                text.append(ch);
-                index++;
-            }
-        }
-        tokens.add(new Token(text.toString(), kind));
-        return index;
-    }
-
-    private static int skipLineComment(String sql, int index) {
-        while (index < sql.length() && sql.charAt(index) != '\n' && sql.charAt(index) != '\r') {
-            index++;
-        }
-        return index;
-    }
-
-    private static int skipBlockComment(String sql, int index) {
-        while (index + 1 < sql.length()) {
-            if (sql.charAt(index) == '*' && sql.charAt(index + 1) == '/') {
-                return index + 2;
-            }
-            index++;
-        }
-        return sql.length();
-    }
-
-    private static boolean hasNext(String sql, int index, char expected) {
-        return index + 1 < sql.length() && sql.charAt(index + 1) == expected;
-    }
-
-    private static boolean isWordStart(char ch) {
-        return Character.isLetter(ch) || ch == '_' || ch == '$';
-    }
-
-    private static boolean isWordPart(char ch) {
-        return Character.isLetterOrDigit(ch) || ch == '_' || ch == '$' || ch == '-';
+        return token != null && (token.kind == TokenKind.WORD || token.kind == TokenKind.QUOTED_IDENTIFIER);
     }
 
     private static boolean isIdentifierQuote(char ch) {
@@ -406,14 +278,242 @@ public final class DatabendSqlClassifier {
         return ch == '`' || ch == '"';
     }
 
-    private static final class ParsedName {
-        private final String name;
-        private final int nextIndex;
+    private static boolean isWordStart(char ch) {
+        return Character.isLetter(ch) || ch == '_' || ch == '$';
+    }
 
-        private ParsedName(String name, int nextIndex) {
-            this.name = name;
-            this.nextIndex = nextIndex;
+    private static boolean isWordPart(char ch) {
+        return Character.isLetterOrDigit(ch) || ch == '_' || ch == '$';
+    }
+
+    private static final class TokenCursor {
+        private final String sql;
+        private int index;
+        private Token peeked;
+
+        private TokenCursor(String sql) {
+            this.sql = sql;
         }
+
+        private Token peek() {
+            if (peeked == null) {
+                peeked = readNext();
+            }
+            return peeked;
+        }
+
+        private Token next() {
+            Token token = peek();
+            peeked = null;
+            return token;
+        }
+
+        private Token nextStatementToken() {
+            Token token;
+            do {
+                token = next();
+            } while (token != null && token.isSymbol("("));
+            return token;
+        }
+
+        private boolean skipBalancedAfterOpen() {
+            int depth = 1;
+            Token token;
+            while ((token = next()) != null) {
+                if (token.isSymbol("(")) {
+                    depth++;
+                } else if (token.isSymbol(")")) {
+                    depth--;
+                    if (depth == 0) {
+                        return true;
+                    }
+                }
+            }
+            return false;
+        }
+
+        private Optional<Integer> countCommaSeparatedItemsAfterOpen() {
+            int depth = 1;
+            int count = 0;
+            boolean hasItem = false;
+            Token token;
+            while ((token = next()) != null) {
+                if (token.isSymbol("(")) {
+                    depth++;
+                    hasItem = true;
+                } else if (token.isSymbol(")")) {
+                    depth--;
+                    if (depth < 0) {
+                        return Optional.empty();
+                    }
+                    if (depth == 0) {
+                        return Optional.of(hasItem ? count + 1 : 0);
+                    }
+                    hasItem = true;
+                } else if (depth == 1 && token.isSymbol(",")) {
+                    if (!hasItem) {
+                        return Optional.empty();
+                    }
+                    count++;
+                    hasItem = false;
+                } else {
+                    hasItem = true;
+                }
+            }
+            return Optional.empty();
+        }
+
+        private Token findTopLevelStatementAfterWith() {
+            int depth = 0;
+            Token token;
+            while ((token = next()) != null) {
+                if (token.isSymbol("(")) {
+                    depth++;
+                } else if (token.isSymbol(")")) {
+                    depth--;
+                    if (depth < 0) {
+                        return null;
+                    }
+                } else if (depth == 0 && token.kind == TokenKind.WORD) {
+                    if (isStatementStartAfterWith(token)) {
+                        return token;
+                    }
+                }
+            }
+            return null;
+        }
+
+        private boolean skipQualifiedName(Token first) {
+            if (!isIdentifierToken(first)) {
+                return false;
+            }
+
+            while (true) {
+                Token dot = peek();
+                if (dot == null || !dot.isSymbol(".")) {
+                    return true;
+                }
+                next();
+                Token part = next();
+                if (!isIdentifierToken(part)) {
+                    return false;
+                }
+            }
+        }
+
+        private boolean valuesRemainderIsBatchSafe() {
+            int depth = 0;
+            Token token;
+            while ((token = next()) != null) {
+                if (token.isSymbol("(")) {
+                    depth++;
+                } else if (token.isSymbol(")")) {
+                    depth--;
+                    if (depth < 0) {
+                        return false;
+                    }
+                } else if (depth == 0 && token.matches("FROM")) {
+                    return false;
+                } else if (token.isSymbol(";")) {
+                    return depth == 0 && onlyEndRemains();
+                }
+            }
+            return true;
+        }
+
+        private boolean onlyEndRemains() {
+            return next() == null;
+        }
+
+        private Token readNext() {
+            while (index < sql.length()) {
+                char ch = sql.charAt(index);
+                if (Character.isWhitespace(ch)) {
+                    index++;
+                } else if (ch == '-' && hasNext('-')) {
+                    skipLineComment();
+                } else if (ch == '/' && hasNext('*')) {
+                    skipBlockComment();
+                } else if (ch == '\'') {
+                    return readQuoted('\'', TokenKind.STRING);
+                } else if (isIdentifierQuote(ch)) {
+                    return readQuoted(ch, TokenKind.QUOTED_IDENTIFIER);
+                } else if (isWordStart(ch)) {
+                    return readWord();
+                } else {
+                    index++;
+                    return new Token(String.valueOf(ch), TokenKind.SYMBOL);
+                }
+            }
+            return null;
+        }
+
+        private Token readWord() {
+            int start = index;
+            index++;
+            while (index < sql.length() && isWordPart(sql.charAt(index))) {
+                index++;
+            }
+            return new Token(sql.substring(start, index), TokenKind.WORD);
+        }
+
+        private Token readQuoted(char quote, TokenKind kind) {
+            StringBuilder text = new StringBuilder();
+            index++;
+            while (index < sql.length()) {
+                char ch = sql.charAt(index);
+                if (ch == quote) {
+                    if (index + 1 < sql.length() && sql.charAt(index + 1) == quote) {
+                        text.append(quote);
+                        index += 2;
+                    } else {
+                        index++;
+                        break;
+                    }
+                } else if (ch == '\\' && quote == '\'' && index + 1 < sql.length()) {
+                    text.append(sql.charAt(index + 1));
+                    index += 2;
+                } else {
+                    text.append(ch);
+                    index++;
+                }
+            }
+            return new Token(text.toString(), kind);
+        }
+
+        private void skipLineComment() {
+            index += 2;
+            while (index < sql.length() && sql.charAt(index) != '\n' && sql.charAt(index) != '\r') {
+                index++;
+            }
+        }
+
+        private void skipBlockComment() {
+            index += 2;
+            while (index + 1 < sql.length()) {
+                if (sql.charAt(index) == '*' && sql.charAt(index + 1) == '/') {
+                    index += 2;
+                    return;
+                }
+                index++;
+            }
+            index = sql.length();
+        }
+
+        private boolean hasNext(char expected) {
+            return index + 1 < sql.length() && sql.charAt(index + 1) == expected;
+        }
+    }
+
+    private static boolean isStatementStartAfterWith(Token token) {
+        return token.matches("INSERT")
+                || token.matches("REPLACE")
+                || token.matches("SHOW")
+                || token.matches("SELECT")
+                || token.matches("DESCRIBE")
+                || token.matches("EXISTS")
+                || token.matches("EXPLAIN")
+                || token.matches("CALL");
     }
 
     private static final class Token {
@@ -429,8 +529,9 @@ public final class DatabendSqlClassifier {
             return kind == TokenKind.WORD && text.equalsIgnoreCase(keyword);
         }
 
-        private String normalizedIdentifier() {
-            return text;
+        private boolean isSymbol(String symbol) {
+            return kind == TokenKind.SYMBOL && text.equals(symbol);
         }
+
     }
 }

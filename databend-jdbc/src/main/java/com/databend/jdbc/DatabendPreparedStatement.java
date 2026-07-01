@@ -19,7 +19,6 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.stream.Collectors;
 
 import static com.databend.jdbc.DatabendConstant.BASE64_STR;
 import static com.databend.jdbc.internal.binding.ObjectCasts.*;
@@ -68,13 +67,18 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if(this.rawStatement.getSubStatements().size() > 1) {
             throw new SQLException("Databend do not support multi statement for now");
         }
-        Map<Integer, String> params = StatementUtil.extractColumnTypes(sql);
-        List<DatabendColumnInfo> list = params.entrySet().stream().map(entry -> {
-            String type = entry.getValue();
-            DatabendRawType databendRawType = new DatabendRawType(type);
-            return DatabendColumnInfo.of(entry.getKey().toString(), databendRawType);
-        }).collect(Collectors.toList());
-        this.paramMetaData = new DatabendParameterMetaData(Collections.unmodifiableList(list), new JdbcTypeMapping());
+        this.paramMetaData = new DatabendParameterMetaData(
+                Collections.unmodifiableList(createUnknownParameterInfo(
+                        StatementUtil.getParameterCount(sql, this.rawStatement))),
+                new JdbcTypeMapping());
+    }
+
+    private static List<DatabendColumnInfo> createUnknownParameterInfo(int parameterCount) {
+        List<DatabendColumnInfo> params = new ArrayList<>();
+        for (int i = 0; i < parameterCount; i++) {
+            params.add(DatabendColumnInfo.of(String.valueOf(i + 1), new DatabendRawType("NULL")));
+        }
+        return params;
     }
 
     private static String formatBooleanLiteral(boolean x) {
@@ -695,9 +699,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
-    // If you want to use ps.getParameterMetaData().* methods, you need to use a
-    // valid sql such as
-    // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
         return paramMetaData;
