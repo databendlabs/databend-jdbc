@@ -1,8 +1,6 @@
 package com.databend.jdbc.internal.binding;
 
 public enum StatementType {
-    // SET
-    PARAM_SETTING,
     // eg: SELECT, SHOW
     QUERY,
     // eg: INSERT

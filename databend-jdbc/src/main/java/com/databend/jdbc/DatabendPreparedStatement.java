@@ -2,7 +2,7 @@ package com.databend.jdbc;
 
 import com.databend.jdbc.internal.data.DatabendRawType;
 import com.databend.jdbc.internal.data.IntervalCodec;
-import com.databend.jdbc.internal.binding.BatchInsertUtils;
+import com.databend.jdbc.internal.binding.BatchInsertContext;
 import com.databend.jdbc.internal.binding.RawStatementWrapper;
 import com.databend.jdbc.internal.binding.StatementUtil;
 import com.databend.jdbc.internal.query.StageAttachment;
@@ -19,10 +19,8 @@ import java.time.format.DateTimeFormatterBuilder;
 import java.util.*;
 import java.util.function.Consumer;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.stream.Collectors;
 
-import static com.databend.jdbc.DatabendConstant.*;
+import static com.databend.jdbc.DatabendConstant.BASE64_STR;
 import static com.databend.jdbc.internal.binding.ObjectCasts.*;
 import static com.databend.jdbc.internal.binding.StatementUtil.replaceParameterMarksWithValues;
 import static java.lang.String.format;
@@ -56,7 +54,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             .toFormatter();
     private final List<String[]> batchValues;
     private final List<String[]> batchValuesCSV;
-    private final BatchInsertUtils batchInsertUtils;
+    private final BatchInsertContext batchInsertContext;
 
     private static final ObjectMapper objectMapper = new ObjectMapper();
 
@@ -64,18 +62,23 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         super(connection, onClose);
         this.batchValues = new ArrayList<>();
         this.batchValuesCSV = new ArrayList<>();
-        this.batchInsertUtils = new BatchInsertUtils(sql);
+        this.batchInsertContext = new BatchInsertContext(sql);
         this.rawStatement = StatementUtil.parseToRawStatementWrapper(sql);
         if(this.rawStatement.getSubStatements().size() > 1) {
             throw new SQLException("Databend do not support multi statement for now");
         }
-        Map<Integer, String> params = StatementUtil.extractColumnTypes(sql);
-        List<DatabendColumnInfo> list = params.entrySet().stream().map(entry -> {
-            String type = entry.getValue();
-            DatabendRawType databendRawType = new DatabendRawType(type);
-            return DatabendColumnInfo.of(entry.getKey().toString(), databendRawType);
-        }).collect(Collectors.toList());
-        this.paramMetaData = new DatabendParameterMetaData(Collections.unmodifiableList(list), new JdbcTypeMapping());
+        this.paramMetaData = new DatabendParameterMetaData(
+                Collections.unmodifiableList(createUnknownParameterInfo(
+                        StatementUtil.getParameterCount(sql, this.rawStatement))),
+                new JdbcTypeMapping());
+    }
+
+    private static List<DatabendColumnInfo> createUnknownParameterInfo(int parameterCount) {
+        List<DatabendColumnInfo> params = new ArrayList<>();
+        for (int i = 0; i < parameterCount; i++) {
+            params.add(DatabendColumnInfo.of(String.valueOf(i + 1), new DatabendRawType("NULL")));
+        }
+        return params;
     }
 
     private static String formatBooleanLiteral(boolean x) {
@@ -129,7 +132,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         if (this.batchValuesCSV == null || this.batchValuesCSV.size() == 0) {
             return null;
         }
-        File saved = batchInsertUtils.saveBatchToCSV(batchValuesCSV);
+        File saved = batchInsertContext.saveBatchToCSV(batchValuesCSV);
         try (FileInputStream fis = new FileInputStream(saved)) {
             Connection c = getConnection();
             String uuid = UUID.randomUUID().toString().replace("-", "");
@@ -221,8 +224,8 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
         try {
             logger.fine(String.format("use batch insert instead of normal insert, attachment: %s, sql: %s", attachment,
-                    batchInsertUtils.getSql()));
-            super.internalExecute(batchInsertUtils.getSql(), attachment);
+                    batchInsertContext.getSql()));
+            super.internalExecute(batchInsertContext.getSql(), attachment);
             try (ResultSet r = getResultSet()) {
                 while (r.next()) {
                 }
@@ -252,13 +255,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     @Override
     public boolean execute()
             throws SQLException {
-        String sql = replaceParameterMarksWithValues(batchInsertUtils.getProvideParams(), this.rawStatement).get(0).getSql();
+        String sql = replaceParameterMarksWithValues(batchInsertContext.getProvideParams(), this.rawStatement).get(0).getSql();
         return execute(sql);
     }
 
     @Override
     public int[] executeBatch() throws SQLException {
-        if (isBatchInsert(batchInsertUtils.getSql())) {
+        if (batchInsertContext.isBatchInsert()) {
             return executeBatchByAttachment();
         } else {
             int[] batchUpdateCounts = new int[batchValues.size()];
@@ -276,18 +279,12 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
     }
 
-    private static boolean isBatchInsert(String sql) {
-        sql = sql.toLowerCase();
-        Matcher matcher = INSERT_INTO_PATTERN.matcher(sql);
-        return matcher.find() && !sql.contains(DATABEND_KEYWORDS_SELECT);
-    }
-
     private void setValueStringNoQuote(int index, String value) {
-        batchInsertUtils.setPlaceHolderValue(index, value, value);
+        batchInsertContext.setPlaceHolderValue(index, value, value);
     }
 
     private void setValueString(int index, String value) {
-        batchInsertUtils.setPlaceHolderValue(index, String.format("'%s'", value), value);
+        batchInsertContext.setPlaceHolderValue(index, String.format("'%s'", value), value);
     }
 
     private void setValueNull(int index) {
@@ -295,7 +292,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     }
 
     private void setValue(int index, String value, String csvValue) {
-        batchInsertUtils.setPlaceHolderValue(index, value, csvValue);
+        batchInsertContext.setPlaceHolderValue(index, value, csvValue);
     }
 
     @Override
@@ -444,7 +441,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void clearParameters()
             throws SQLException {
         checkOpen();
-        batchInsertUtils.clean();
+        batchInsertContext.clean();
     }
 
     @Override
@@ -623,13 +620,13 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
             throws SQLException {
         checkOpen();
 
-        String[] val = batchInsertUtils.getValues();
+        String[] val = batchInsertContext.getValues();
         batchValues.add(val);
 
-        val = batchInsertUtils.getValuesCSV();
+        val = batchInsertContext.getValuesCSV();
         batchValuesCSV.add(val);
 
-        batchInsertUtils.clean();
+        batchInsertContext.clean();
     }
 
     @Override
@@ -637,7 +634,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         checkOpen();
         batchValues.clear();
         batchValuesCSV.clear();
-        batchInsertUtils.clean();
+        batchInsertContext.clean();
     }
 
     @Override
@@ -702,9 +699,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         throw new SQLFeatureNotSupportedException("PreparedStatement", "setURL");
     }
 
-    // If you want to use ps.getParameterMetaData().* methods, you need to use a
-    // valid sql such as
-    // insert into table_name (col1 type1, col2 typ2, col3 type3) values (?, ?, ?)
     @Override
     public ParameterMetaData getParameterMetaData() throws SQLException {
         return paramMetaData;

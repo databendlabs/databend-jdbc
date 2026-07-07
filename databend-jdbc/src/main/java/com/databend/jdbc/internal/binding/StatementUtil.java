@@ -1,30 +1,23 @@
 package com.databend.jdbc.internal.binding;
 
 import lombok.NonNull;
-import org.apache.commons.lang3.RegExUtils;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.commons.lang3.tuple.ImmutablePair;
 import org.apache.commons.lang3.tuple.Pair;
 
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.logging.Logger;
-import java.util.regex.Matcher;
-import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+
+import static java.lang.Math.toIntExact;
 
 public final class StatementUtil {
     private static final Logger LOG = Logger.getLogger(StatementUtil.class.getName());
-
-    private static final String SET_PREFIX = "set";
-    private static final Pattern SET_WITH_SPACE_REGEX = Pattern.compile(SET_PREFIX + " ", Pattern.CASE_INSENSITIVE);
-    private static final String[] SELECT_KEYWORDS = new String[]{"show", "select", "describe", "exists", "explain",
-            "with", "call"};
 
     private StatementUtil() {
     }
@@ -36,53 +29,19 @@ public final class StatementUtil {
      * @return true if the statement is a query (eg: SELECT, SHOW).
      */
     public static boolean isQuery(String cleanSql) {
-        if (StringUtils.isNotEmpty(cleanSql)) {
-            cleanSql = cleanSql.replace("(", "");
-            return StringUtils.startsWithAny(cleanSql.toLowerCase(), SELECT_KEYWORDS);
-        } else {
-            return false;
-        }
+        return DatabendSqlClassifier.isQuery(cleanSql);
     }
 
-    /**
-     * Extracts parameter from statement (eg: SET x=y)
-     *
-     * @param cleanSql the clean version of the sql (sql statement without comments)
-     * @param sql the sql statement
-     * @return an optional parameter represented with a pair of key/value
-     */
-    public static Optional<Pair<String, String>> extractParamFromSetStatement(@NonNull String cleanSql, String sql) {
-        if (StringUtils.startsWithIgnoreCase(cleanSql, SET_PREFIX)) {
-            return extractPropertyPair(cleanSql, sql);
-        }
-        return Optional.empty();
+    public static int getParameterCount(String sql) {
+        return getParameterCount(sql, parseToRawStatementWrapper(sql));
     }
 
-    /**
-     * This method is used to extract column types from a SQL statement.
-     * It parses the SQL statement and finds the column types defined in the first pair of parentheses.
-     * The column types are then stored in a Map where the key is the index of the column in the SQL statement
-     * and the value is the type of the column.
-     *
-     * @param sql The SQL statement from which to extract column types.
-     * @return A Map where the key is the index of the column and the value is the type of the column.
-     */
-    public static Map<Integer, String> extractColumnTypes(String sql) {
-        Map<Integer, String> columnTypes = new LinkedHashMap<>();
-        if (isQuery(sql)) {
-            return columnTypes;
+    public static int getParameterCount(String sql, RawStatementWrapper rawStatementWrapper) {
+        long markerCount = rawStatementWrapper.getTotalParams();
+        if (markerCount > 0) {
+            return toIntExact(markerCount);
         }
-        Pattern pattern = Pattern.compile("\\((.*?)\\)");
-        Matcher matcher = pattern.matcher(sql);
-        if (matcher.find()) {
-            String[] columns = matcher.group(1).split(",");
-            for (int i = 0; i < columns.length; i++) {
-                String column = columns[i].trim();
-                String type = column.substring(column.lastIndexOf(' ') + 1).replace("'", "");
-                columnTypes.put(i, type);
-            }
-        }
-        return columnTypes;
+        return DatabendSqlClassifier.countInsertTargetColumns(sql).orElse(0);
     }
 
 
@@ -273,11 +232,8 @@ public final class StatementUtil {
                         + subQueryWithParams.substring(currentPos + 1);
                 offset += value.length() - 1;
             }
-            Pair<String, String> additionalParams = subQuery.getStatementType() == StatementType.PARAM_SETTING
-                    ? ((SetParamRawStatement) subQuery).getAdditionalProperty()
-                    : null;
             subQueries.add(new StatementInfoWrapper(subQueryWithParams, UUID.randomUUID().toString().replace("-", ""),
-                    subQuery.getStatementType(), additionalParams, subQuery));
+                    subQuery.getStatementType(), subQuery));
 
         }
         return subQueries;
@@ -311,22 +267,5 @@ public final class StatementUtil {
         }
         return isInSingleLineComment;
     }
-
-    private static Optional<Pair<String, String>> extractPropertyPair(String cleanStatement, String sql) {
-        String setQuery = RegExUtils.removeFirst(cleanStatement, SET_WITH_SPACE_REGEX);
-        String[] values = StringUtils.split(setQuery, "=");
-        if (values.length == 2) {
-            String value = StringUtils.removeEnd(values[1], ";").trim();
-            if (StringUtils.isNumeric(value)) {
-                return Optional.of(Pair.of(values[0].trim(), value.trim()));
-            } else {
-                return Optional.of(Pair.of(values[0].trim(), StringUtils.removeEnd(StringUtils.removeStart(value, "'"), "'")));
-            }
-        } else {
-            throw new IllegalArgumentException(
-                    "Cannot parse the additional properties provided in the statement: " + sql);
-        }
-    }
-
 
 }

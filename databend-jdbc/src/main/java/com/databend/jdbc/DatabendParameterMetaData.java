@@ -1,5 +1,7 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.internal.data.DatabendDataType;
+
 import java.sql.ParameterMetaData;
 import java.sql.SQLException;
 import java.sql.Types;
@@ -41,6 +43,9 @@ class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData
         if (p == null) {
             return ParameterMetaData.parameterNullableUnknown;
         }
+        if (isUnknown(p)) {
+            return ParameterMetaData.parameterNullableUnknown;
+        }
 
         return p.getType().isNullable() ? ParameterMetaData.parameterNullable : ParameterMetaData.parameterNoNulls;
     }
@@ -66,23 +71,30 @@ class DatabendParameterMetaData extends JdbcWrapper implements ParameterMetaData
     @Override
     public int getParameterType(int param) throws SQLException {
         DatabendColumnInfo p = getParameter(param);
-        return p != null ? mapper.toSqlType(p) : Types.OTHER;
+        return p != null && !isUnknown(p) ? mapper.toSqlType(p) : Types.OTHER;
     }
 
     @Override
     public String getParameterTypeName(int param) throws SQLException {
         DatabendColumnInfo p = getParameter(param);
-        return p != null ? p.getColumnTypeName() : "<unknown>";
+        return p != null && !isUnknown(p) ? p.getColumnTypeName() : "<unknown>";
     }
 
     @Override
     public String getParameterClassName(int param) throws SQLException {
         DatabendColumnInfo p = getParameter(param);
+        if (isUnknown(p)) {
+            return Object.class.getName();
+        }
         return getTypeClassName(p.getColumnType());
     }
 
     @Override
     public int getParameterMode(int param) throws SQLException {
         return ParameterMetaData.parameterModeIn;
+    }
+
+    private static boolean isUnknown(DatabendColumnInfo parameter) {
+        return parameter == null || parameter.getType().getDataType() == DatabendDataType.NULL;
     }
 }
