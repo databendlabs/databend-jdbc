@@ -51,8 +51,8 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <dep.arrow.version>19.0.0</dep.arrow.version>
         <dep.commons-lang3.version>3.18.0</dep.commons-lang3.version>
-        <dep.jackson.annotations.version>2.21</dep.jackson.annotations.version>
-        <dep.jackson.version>2.21.2</dep.jackson.version>
+        <dep.jackson.annotations.version>2.22</dep.jackson.annotations.version>
+        <dep.jackson.version>2.22.1</dep.jackson.version>
         <dep.jsr305.version>3.0.2</dep.jsr305.version>
         <dep.guava.version>32.0.1-jre</dep.guava.version>
         <dep.slf4j.version>1.7.6</dep.slf4j.version>
