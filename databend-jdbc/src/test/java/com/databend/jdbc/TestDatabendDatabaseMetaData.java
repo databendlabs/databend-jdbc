@@ -120,7 +120,7 @@ public class TestDatabendDatabaseMetaData {
             DatabaseMetaData metaData = connection.getMetaData();
             float majorVersion = (float) metaData.getDatabaseMajorVersion() / 10;
             int minorVersion = metaData.getDatabaseMinorVersion();
-            String checkVersion = String.format("v%.1f.%d", majorVersion, minorVersion);
+            String checkVersion = String.format(Locale.ROOT, "v%.1f.%d", majorVersion, minorVersion);
             Assert.assertTrue(metaData.getDatabaseProductVersion().contains(checkVersion));
 
             if (Compatibility.serverCapability.streamingLoad && Compatibility.driverCapability.streamingLoad) {
