@@ -14,7 +14,7 @@ public class TestBatchInsertContext {
     @Test(groups = "UNIT")
     public void testFiles() throws IOException {
         List<String[]> data = new ArrayList<>();
-        data.add(new String[]{"1", "2", "{\"a\": 1, \"b\": \"2\"}", "hello, world 321"});
+        data.add(new String[]{"1", "2", "{\"a\": 1, \"b\": \"2\"}", "hello, world 321", ""});
         BatchInsertContext context = new BatchInsertContext("sq");
         File f = context.saveBatchToCSV(data);
         System.out.println(f.getAbsolutePath());
@@ -22,7 +22,7 @@ public class TestBatchInsertContext {
             char[] buf = new char[1024];
             int len = fr.read(buf);
             String actual = new String(buf, 0, len);
-            String exp = "1,2,\"{\"\"a\"\": 1, \"\"b\"\": \"\"2\"\"}\",\"hello, world 321\"\n";
+            String exp = "1,2,\"{\"\"a\"\": 1, \"\"b\"\": \"\"2\"\"}\",\"hello, world 321\",\"\"\n";
             Assert.assertEquals(exp, actual);
         }
     }

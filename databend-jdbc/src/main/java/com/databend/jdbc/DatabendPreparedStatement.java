@@ -11,7 +11,6 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import java.io.*;
 import java.math.BigDecimal;
 import java.net.URL;
-import java.nio.charset.StandardCharsets;
 import java.sql.Date;
 import java.sql.*;
 import java.time.*;
@@ -113,10 +112,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         return x.toString();
     }
 
-    private static String formatBytesLiteral(byte[] x) {
-        return new String(x, StandardCharsets.UTF_8);
-    }
-
     static IllegalArgumentException invalidConversion(Object x, String toType) {
         return new IllegalArgumentException(
                 format("Cannot convert instance of %s to %s", x.getClass().getName(), toType));
@@ -188,7 +183,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
         }
         Map<String, String> copyOptions = new HashMap<>();
         copyOptions.put("PURGE", String.valueOf(connection.copyPurge()));
-        copyOptions.put("NULL_DISPLAY", String.valueOf(connection.nullDisplay()));
         return new StageAttachment(
                 stagePath,
                 fileFormatOptions.isEmpty() ? null : fileFormatOptions,
@@ -383,7 +377,25 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
     public void setBytes(int i, byte[] v)
             throws SQLException {
         checkOpen();
-        setValueStringNoQuote(i, formatBytesLiteral(v));
+        setBinaryValue(i, v);
+    }
+
+    private void setBinaryValue(int index, byte[] value) throws SQLException {
+        if (value == null) {
+            setValueNull(index);
+            return;
+        }
+
+        String encoded;
+        String sqlValue;
+        if (BASE64_STR.equalsIgnoreCase(connection().binaryFormat())) {
+            encoded = bytesToBase64(value);
+            sqlValue = String.format("from_base64('%s')", encoded);
+        } else {
+            encoded = bytesToHex(value);
+            sqlValue = String.format("from_hex('%s')", encoded);
+        }
+        setValue(index, sqlValue, encoded);
     }
 
     @Override
@@ -493,9 +505,6 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 }
                 return;
             case Types.BINARY:
-                InputStream blobInputStream = new ByteArrayInputStream(x.toString().getBytes());
-                setBinaryStream(parameterIndex, blobInputStream);
-                return;
             case Types.VARBINARY:
             case Types.LONGVARBINARY:
                 setBytes(parameterIndex, castToBinary(x, targetSqlType));
@@ -794,14 +803,7 @@ public class DatabendPreparedStatement extends DatabendStatement implements Prep
                 buffer.write(data, 0, nRead);
             }
             buffer.flush();
-            byte[] bytes = buffer.toByteArray();
-            if (BASE64_STR.equalsIgnoreCase(connection().binaryFormat())) {
-                String base64String = bytesToBase64(bytes);
-                setValueStringNoQuote(i, base64String);
-            } else {
-                String hexString = bytesToHex(bytes);
-                setValueStringNoQuote(i, hexString);
-            }
+            setBinaryValue(i, buffer.toByteArray());
         } catch (IOException e) {
             throw new SQLException("Error reading InputStream", e);
         }
