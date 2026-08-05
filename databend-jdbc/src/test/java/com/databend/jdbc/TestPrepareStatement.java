@@ -48,6 +48,108 @@ public class TestPrepareStatement {
         return c;
     }
 
+    Connection getConn(String binaryFormat) throws SQLException {
+        String dbName = DB_NAME.get();
+        try (Connection connection = Utils.createConnection();
+             Statement statement = connection.createStatement()) {
+            statement.execute(String.format("create or replace database %s", dbName));
+        }
+
+        Properties properties = new Properties();
+        properties.setProperty("user", Utils.getUsername());
+        properties.setProperty("password", Utils.getPassword());
+        properties.setProperty("binary_format", binaryFormat);
+        return Utils.createConnection(dbName, properties);
+    }
+
+    @DataProvider(name = "binaryBindingModes")
+    public Object[][] binaryBindingModes() {
+        return new Object[][]{
+                {false, "hex"},
+                {true, "hex"},
+                {false, "base64"},
+                {true, "base64"},
+        };
+    }
+
+    @DataProvider(name = "preparedStatementModes")
+    public Object[][] preparedStatementModes() {
+        return new Object[][]{
+                {false},
+                {true},
+        };
+    }
+
+    @Test(groups = "IT", dataProvider = "preparedStatementModes")
+    public void testEmptyStringRoundTrip(boolean batch) throws SQLException {
+        try (Connection connection = getConn();
+             Statement statement = connection.createStatement()) {
+            statement.execute("create table t_empty_string(id int, v string)");
+
+            try (PreparedStatement preparedStatement = connection.prepareStatement(
+                    "insert into t_empty_string values (?, ?)")) {
+                preparedStatement.setInt(1, 1);
+                preparedStatement.setString(2, "");
+                if (batch) {
+                    preparedStatement.addBatch();
+                    Assert.assertEquals(preparedStatement.executeBatch(), new int[]{1});
+                } else {
+                    Assert.assertEquals(preparedStatement.executeUpdate(), 1);
+                }
+            }
+
+            try (ResultSet resultSet = statement.executeQuery("select v from t_empty_string")) {
+                Assert.assertTrue(resultSet.next());
+                Assert.assertEquals(resultSet.getString(1), "");
+                Assert.assertFalse(resultSet.next());
+            }
+        }
+    }
+
+    @Test(groups = "IT", dataProvider = "binaryBindingModes")
+    public void testSetBytesRoundTrip(boolean batch, String binaryFormat) throws SQLException {
+        byte[][] values = new byte[][]{
+                {0x00, (byte) 0xff, 0x27, 0x61, 0x5c},
+                null,
+        };
+
+        try (Connection connection = getConn(binaryFormat);
+             Statement statement = connection.createStatement()) {
+            statement.execute("create table t1(id int, v binary)");
+
+            if (batch) {
+                try (PreparedStatement preparedStatement = connection.prepareStatement("insert into t1 values (?, ?)")) {
+                    for (int i = 0; i < values.length; i++) {
+                        preparedStatement.setInt(1, i + 1);
+                        preparedStatement.setBytes(2, values[i]);
+                        preparedStatement.addBatch();
+                    }
+                    Assert.assertEquals(preparedStatement.executeBatch(), new int[]{1, 1});
+                }
+            } else {
+                try (PreparedStatement preparedStatement = connection.prepareStatement("insert into t1 values (?, ?)")) {
+                    for (int i = 0; i < values.length; i++) {
+                        preparedStatement.setInt(1, i + 1);
+                        preparedStatement.setBytes(2, values[i]);
+                        Assert.assertEquals(preparedStatement.executeUpdate(), 1);
+                    }
+                }
+            }
+
+            try (ResultSet resultSet = statement.executeQuery(
+                    "select id, lower(to_hex(v)) from t1 order by id")) {
+                Assert.assertTrue(resultSet.next());
+                Assert.assertEquals(resultSet.getInt(1), 1);
+                Assert.assertEquals(resultSet.getString(2), "00ff27615c");
+
+                Assert.assertTrue(resultSet.next());
+                Assert.assertEquals(resultSet.getInt(1), 2);
+                Assert.assertNull(resultSet.getString(2));
+                Assert.assertFalse(resultSet.next());
+            }
+        }
+    }
+
     @Test(groups = "IT")
     public void TestBatchInsert() throws SQLException {
         Statement s;
@@ -411,7 +513,7 @@ public class TestPrepareStatement {
             Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("binary_format"));
             Assert.assertTrue(stageAttachment.getFileFormatOptions().containsKey("type"));
             Assert.assertEquals("true", stageAttachment.getCopyOptions().get("PURGE"));
-            Assert.assertEquals("\\N", stageAttachment.getCopyOptions().get("NULL_DISPLAY"));
+            Assert.assertFalse(stageAttachment.getCopyOptions().containsKey("NULL_DISPLAY"));
         }
     }
 
@@ -431,7 +533,8 @@ public class TestPrepareStatement {
             Assert.assertEquals(stageAttachment.getFileFormatOptions().get("binary_format"), "base64");
             Assert.assertEquals(stageAttachment.getFileFormatOptions().get("type"), "CSV");
             Assert.assertEquals(stageAttachment.getCopyOptions().get("PURGE"), "false");
-            Assert.assertEquals(stageAttachment.getCopyOptions().get("NULL_DISPLAY"), "NULL");
+            Assert.assertFalse(stageAttachment.getCopyOptions().containsKey("NULL_DISPLAY"));
+            Assert.assertFalse(stageAttachment.getFileFormatOptions().containsKey("null_display"));
         }
     }
 
