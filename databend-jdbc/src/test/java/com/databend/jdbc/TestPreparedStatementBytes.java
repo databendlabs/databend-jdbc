@@ -1,6 +1,5 @@
 package com.databend.jdbc;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.OkHttpClient;
@@ -19,7 +18,6 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestPreparedStatementBytes {
-    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final byte[] BINARY_VALUE = new byte[]{0x00, (byte) 0xff, 0x27, 0x61, 0x5c};
 
     @Test(groups = {"UNIT"})
@@ -79,10 +77,59 @@ public class TestPreparedStatementBytes {
                 binder.bind(statement);
                 statement.execute();
             }
-            return OBJECT_MAPPER.readTree(requestBody.get()).get("sql").asText();
+            return extractJsonStringField(requestBody.get(), "sql");
         } finally {
             server.stop(0);
         }
+    }
+
+    /**
+     * Minimal JSON string-field reader. The test jar is executed against the shaded driver jar,
+     * where Jackson is relocated, so tests must not depend on {@code com.fasterxml.jackson}.
+     */
+    private static String extractJsonStringField(String json, String field) {
+        String marker = "\"" + field + "\":\"";
+        int start = json.indexOf(marker);
+        Assert.assertTrue(start >= 0, "field " + field + " not found in " + json);
+        start += marker.length();
+
+        StringBuilder value = new StringBuilder();
+        for (int i = start; i < json.length(); i++) {
+            char c = json.charAt(i);
+            if (c == '"') {
+                return value.toString();
+            }
+            if (c != '\\') {
+                value.append(c);
+                continue;
+            }
+            char escaped = json.charAt(++i);
+            switch (escaped) {
+                case 'n':
+                    value.append('\n');
+                    break;
+                case 'r':
+                    value.append('\r');
+                    break;
+                case 't':
+                    value.append('\t');
+                    break;
+                case 'b':
+                    value.append('\b');
+                    break;
+                case 'f':
+                    value.append('\f');
+                    break;
+                case 'u':
+                    value.append((char) Integer.parseInt(json.substring(i + 1, i + 5), 16));
+                    i += 4;
+                    break;
+                default:
+                    value.append(escaped);
+                    break;
+            }
+        }
+        throw new IllegalArgumentException("unterminated string for field " + field + " in " + json);
     }
 
     private static byte[] readAllBytes(InputStream inputStream) throws IOException {

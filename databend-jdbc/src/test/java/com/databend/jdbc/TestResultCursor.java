@@ -8,7 +8,6 @@ import com.databend.jdbc.internal.query.ResultPage;
 import com.databend.jdbc.internal.session.Capability;
 import com.databend.jdbc.internal.session.QueryLiveness;
 import com.databend.jdbc.internal.session.SessionState;
-import com.google.common.util.concurrent.MoreExecutors;
 import com.vdurmont.semver4j.Semver;
 import okhttp3.Request;
 import org.testng.Assert;
@@ -19,12 +18,15 @@ import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.sql.SQLException;
 import java.sql.Statement;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 
@@ -58,7 +60,7 @@ public class TestResultCursor {
         FakePage empty2 = new FakePage(Collections.emptyList(), closedPages);
         FakePage page2 = new FakePage(Collections.singletonList(Collections.singletonList(3)), closedPages);
 
-        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+        ExecutorService executor = new DirectExecutorService();
         try {
             DatabendResultSet.PrefetchingPageSource pageSource = new DatabendResultSet.PrefetchingPageSource(
                     new FakeQueryResultPages(Arrays.asList(empty1, page1, empty2, page2), successResults(), successResults()),
@@ -81,7 +83,7 @@ public class TestResultCursor {
         FakePage page1 = new FakePage(Collections.singletonList(Collections.singletonList(1)), closedPages);
         FakePage page2 = new FakePage(Collections.singletonList(Collections.singletonList(2)), closedPages);
 
-        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+        ExecutorService executor = new DirectExecutorService();
         try {
             DatabendResultSet.PrefetchingPageSource pageSource = new DatabendResultSet.PrefetchingPageSource(
                     new FakeQueryResultPages(Arrays.asList(page1, page2), successResults(), successResults()),
@@ -119,7 +121,7 @@ public class TestResultCursor {
                 URI.create("/v1/query/final"),
                 null);
 
-        ExecutorService executor = MoreExecutors.newDirectExecutorService();
+        ExecutorService executor = new DirectExecutorService();
         try {
             DatabendResultSet.PrefetchingPageSource pageSource = new DatabendResultSet.PrefetchingPageSource(
                     new FakeQueryResultPages(Collections.singletonList(page1), successResults(), errorResults),
@@ -270,6 +272,45 @@ public class TestResultCursor {
                     }
                     return null;
                 });
+    }
+
+    /**
+     * Runs submitted tasks on the calling thread. The published test jar is executed against the
+     * shaded driver jar, where Guava is relocated, so tests must not depend on {@code com.google.common}.
+     */
+    private static final class DirectExecutorService extends AbstractExecutorService {
+        private volatile boolean shutdown;
+
+        @Override
+        public void execute(Runnable command) {
+            command.run();
+        }
+
+        @Override
+        public void shutdown() {
+            shutdown = true;
+        }
+
+        @Override
+        public List<Runnable> shutdownNow() {
+            shutdown = true;
+            return new ArrayList<>();
+        }
+
+        @Override
+        public boolean isShutdown() {
+            return shutdown;
+        }
+
+        @Override
+        public boolean isTerminated() {
+            return shutdown;
+        }
+
+        @Override
+        public boolean awaitTermination(long timeout, TimeUnit unit) {
+            return shutdown;
+        }
     }
 
     private static final class FakePage implements ResultPage {
