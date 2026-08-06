@@ -3,9 +3,9 @@ package com.databend.jdbc;
 import com.databend.jdbc.internal.binding.RawStatementWrapper;
 import com.databend.jdbc.internal.binding.StatementUtil;
 import com.databend.jdbc.internal.binding.StatementType;
-import com.google.common.collect.ImmutableMap;
 import org.testng.annotations.Test;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 
 import static com.databend.jdbc.internal.binding.StatementUtil.replaceParameterMarksWithValues;
@@ -15,7 +15,7 @@ public class StatementUtilTest {
     @Test
     void shouldGetAllQueryParamsFromIn() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id IN (?,?)";
-        assertEquals(ImmutableMap.of(1, 37, 2, 39), StatementUtil.getParamMarketsPositions(sql));
+        assertEquals(mapOf(1, 37, 2, 39), StatementUtil.getParamMarketsPositions(sql));
         System.out.println(StatementUtil.parseToRawStatementWrapper(sql).getSubStatements());
         assertEquals(1, StatementUtil.parseToRawStatementWrapper(sql).getSubStatements().size());
     }
@@ -23,7 +23,7 @@ public class StatementUtilTest {
     @Test
     void shouldGetAllQueryParams() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id = ?";
-        assertEquals(ImmutableMap.of(1, 35), StatementUtil.getParamMarketsPositions(sql));
+        assertEquals(mapOf(1, 35), StatementUtil.getParamMarketsPositions(sql));
         assertEquals(1, StatementUtil.parseToRawStatementWrapper(sql).getSubStatements().size());
     }
 
@@ -31,7 +31,7 @@ public class StatementUtilTest {
     void shouldReplaceAQueryParam() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id is ?";
         String expectedSql = "SElECT * FROM EMPLOYEES WHERE id is 5";
-        Map<Integer, String> params = ImmutableMap.of(1, "5");
+        Map<Integer, String> params = mapOf(1, "5");
         System.out.println(replaceParameterMarksWithValues(params, sql));
         assertEquals(expectedSql, replaceParameterMarksWithValues(params, sql).get(0).getSql());
     }
@@ -40,7 +40,7 @@ public class StatementUtilTest {
     void shouldReplaceMultipleQueryParams() {
         String sql = "SElECT * FROM EMPLOYEES WHERE id = ? AND name LIKE ? AND dob = ? ";
         String expectedSql = "SElECT * FROM EMPLOYEES WHERE id = 5 AND name LIKE 'George' AND dob = '1980-05-22' ";
-        Map<Integer, String> params = ImmutableMap.of(1, "5", 2, "'George'", 3, "'1980-05-22'");
+        Map<Integer, String> params = mapOf(1, "5", 2, "'George'", 3, "'1980-05-22'");
         assertEquals(expectedSql, replaceParameterMarksWithValues(params, sql).get(0).getSql());
     }
 
@@ -76,5 +76,14 @@ public class StatementUtilTest {
         assertEquals(false, StatementUtil.isQuery("settings (timezone='UTC') insert into t values (?)"));
         assertEquals(false, StatementUtil.isQuery("WITH src AS (SELECT 1) INSERT INTO t VALUES (?)"));
         assertEquals(false, StatementUtil.isQuery("insert into t values (?)"));
+    }
+
+    @SuppressWarnings("unchecked")
+    private static <K, V> Map<K, V> mapOf(Object... keyValues) {
+        Map<K, V> map = new LinkedHashMap<>();
+        for (int i = 0; i < keyValues.length; i += 2) {
+            map.put((K) keyValues[i], (V) keyValues[i + 1]);
+        }
+        return map;
     }
 }
