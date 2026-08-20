@@ -28,3 +28,14 @@ test:
 	JAVA_TOOL_OPTIONS='$(TEST_JAVA_TOOL_OPTIONS)' \
 	DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT='$(DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT)' \
 	mvn -pl databend-jdbc test $(TEST_MVN_ARGS)
+
+# Static gate: the -tests jar must resolve against the shaded driver jar plus the
+# third-party jars downstream compat suites provide. Needs no server.
+compat-check:
+	./compatibility/check_test_jar_deps.sh
+
+# Runtime gate: run the suite off the release-style classpath instead of Maven.
+# Requires a reachable Databend server (make up).
+compat-test:
+	DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT='$(DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT)' \
+	./compatibility/run_release_jar_tests.sh

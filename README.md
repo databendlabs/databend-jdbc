@@ -78,6 +78,50 @@ CI note:
 - `Standalone Test` runs the regular suite and an extra Arrow IT pass.
 - `Cluster Tests` runs the regular suite and an extra Arrow IT pass for each cluster matrix entry.
 
+### Compatibility tests against release-style jars
+
+Downstream projects (databend's compat CI in particular) do not use Maven to run our
+tests. They put the shaded driver jar and the `-tests` jar on a bare classpath and
+invoke TestNG directly. `mvn test` cannot catch problems in that setup, because
+Maven's test classpath exposes dependencies that the shaded jar relocates or drops.
+That gap is how a broken `-tests` jar reached a release and blocked databend CI until
+a hotfix release was published.
+
+Two targets simulate the release-jar layout against your working tree:
+
+```shell
+cd tests
+
+# Static check, no server needed: every class the -tests jar references must
+# resolve against the shaded driver jar plus the third-party jars downstream
+# compat suites provide.
+make compat-check
+
+# Runtime check: run the IT suite off the release-style classpath instead of Maven.
+make up
+make compat-test
+```
+
+Both build the jars first. Set `COMPAT_SKIP_BUILD=1` to reuse whatever is already in
+`databend-jdbc/target`. `compat-test` accepts `COMPAT_GROUPS` and
+`COMPAT_EXCLUDED_GROUPS` (defaults `IT` and `FLAKY,cluster,MULTI_HOST`) and honours
+`DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow`. Reports land in
+`tests/compatibility/test-output/<groups>/`, one directory per group selection, so an
+IT pass and a UNIT pass do not overwrite each other:
+
+```shell
+make compat-test COMPAT_GROUPS=UNIT COMPAT_EXCLUDED_GROUPS=FLAKY,UNIT_ARROW
+```
+
+Practical rule for test code: never import anything the shade plugin relocates
+(Jackson, Guava, SLF4J, commons-lang3). Use JDK APIs, TestNG, or the small set of
+jars listed in `tests/compatibility/common.sh`. `make compat-check` enforces this.
+
+CI runs both as the `Compatibility Test` workflow on every PR: the static check on its
+own runner, then IT and UNIT passes off the release-style classpath. databend's compat
+CI only selects `groups=IT`, so the extra UNIT pass exists to load the classes it never
+touches. The regular `mvn test` workflows are unchanged.
+
 ### Download jar from maven central
 
 ```shell

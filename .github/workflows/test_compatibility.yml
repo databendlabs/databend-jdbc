@@ -1,0 +1,95 @@
+name: Compatibility Test
+
+# databend's compat CI consumes our published jars directly: the shaded driver jar
+# plus the -tests jar on a bare classpath, driven by TestNG. 'mvn test' does not
+# reproduce that classpath, so breakage used to surface only after a release and
+# blocked databend CI until a hotfix release went out (#414).
+#
+# These jobs simulate the release-jar layout against main on every PR.
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-jar-deps:
+    name: Test jar resolves on release classpath
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Check test jar dependencies
+        working-directory: tests
+        run: make compat-check
+
+  release-jar-tests:
+    name: Run IT suite from release jars
+    runs-on: ubuntu-latest
+    services:
+      databend:
+        image: datafuselabs/databend:nightly
+        env:
+          QUERY_DEFAULT_USER: databend
+          QUERY_DEFAULT_PASSWORD: databend
+          MINIO_ENABLED: true
+        ports:
+          - 8000:8000
+          - 9000:9000
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Verify Service Running
+        run: |
+          sleep 30
+          cid=$(docker ps -a | grep databend | cut -d' ' -f1)
+          docker logs ${cid}
+          curl -u databend:databend --request POST localhost:8000/v1/query --header 'Content-Type:application/json' --data-raw '{"sql":"select 1"}'
+
+      - name: Run IT Tests from release jars
+        working-directory: tests
+        run: make compat-test
+
+      # databend's compat CI only selects groups=IT, so UNIT classes never get
+      # loaded there. #414 broke exactly those classes, so load them here too.
+      # Runs even when the IT pass failed, to report both in one go.
+      - name: Run UNIT Tests from release jars
+        if: ${{ !cancelled() }}
+        working-directory: tests
+        env:
+          COMPAT_SKIP_BUILD: "1"
+          COMPAT_GROUPS: UNIT
+          COMPAT_EXCLUDED_GROUPS: FLAKY,UNIT_ARROW,cluster,MULTI_HOST
+        run: make compat-test
+
+      - name: Upload test output
+        uses: actions/upload-artifact@v4
+        if: failure()
+        with:
+          name: compat-test-output
+          path: tests/compatibility/test-output
+          retention-days: 7
+          if-no-files-found: warn
