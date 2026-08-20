@@ -79,10 +79,23 @@ java "${JAVA_ARGS[@]}" \
 EXIT_CODE=$?
 set -e
 
-# TestNG exits 2 when every selected test was skipped; failures stay non-zero.
-if [ "${EXIT_CODE}" -eq 2 ]; then
-    compat_log "TestNG reported only skipped tests"
-    EXIT_CODE=0
+# TestNG's exit code is a bitmask (org.testng.internal.ExitCode):
+#   1 FAILED, 2 SKIPPED, 4 FAILED_WITHIN_SUCCESS, 8 HAS_NO_TEST.
+# Skips are expected (version-gated and Arrow-gated tests call SkipException), so
+# a skip-only run passes. Everything else must stay non-zero. HAS_NO_TEST matters
+# most here: when a test class cannot be instantiated off the release classpath,
+# TestNG aborts the suite, runs nothing, and reports 8 -- exactly the #414 failure.
+if [ "${EXIT_CODE}" -ne 0 ]; then
+    if [ $((EXIT_CODE & 8)) -ne 0 ]; then
+        compat_log "TestNG ran no tests (exit ${EXIT_CODE}); a test class likely failed to load from the release jars"
+    elif [ $((EXIT_CODE & 1)) -ne 0 ] || [ $((EXIT_CODE & 4)) -ne 0 ]; then
+        compat_log "TestNG reported failures (exit ${EXIT_CODE})"
+    elif [ "${EXIT_CODE}" -eq 2 ]; then
+        compat_log "TestNG reported skipped tests and no failures, treating as success"
+        EXIT_CODE=0
+    else
+        compat_log "TestNG exited ${EXIT_CODE}"
+    fi
 fi
 
 exit "${EXIT_CODE}"
