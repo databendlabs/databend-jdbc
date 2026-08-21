@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.OkHttpClient;
@@ -18,7 +19,13 @@ import java.util.Properties;
 import java.util.concurrent.atomic.AtomicReference;
 
 public class TestPreparedStatementBytes {
+    private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
     private static final byte[] BINARY_VALUE = new byte[]{0x00, (byte) 0xff, 0x27, 0x61, 0x5c};
+
+    @Test(groups = {"UNIT"})
+    public void testMavenClasspathProvidesJackson() throws Exception {
+        Assert.assertEquals(OBJECT_MAPPER.readTree("{\"value\":1}").get("value").asInt(), 1);
+    }
 
     @Test(groups = {"UNIT"})
     public void testSetBytesUsesHexLiteralByDefault() throws Exception {
