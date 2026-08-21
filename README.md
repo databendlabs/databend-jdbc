@@ -103,9 +103,12 @@ make compat-test
 ```
 
 Both build the jars first. Set `COMPAT_SKIP_BUILD=1` to reuse whatever is already in
-`databend-jdbc/target`. `compat-test` accepts `COMPAT_GROUPS` and
+`databend-jdbc/target`. Like the source build, these targets require JDK 11 or newer.
+`compat-test` accepts `COMPAT_GROUPS` and
 `COMPAT_EXCLUDED_GROUPS` (defaults `IT` and `FLAKY,cluster,MULTI_HOST`) and honours
-`DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow`. Reports land in
+`DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT=arrow`. It defaults the JVM timezone to
+`Asia/Shanghai`, matching databend's compat CI; set `COMPAT_USER_TIMEZONE` to override
+it. Reports land in
 `tests/compatibility/test-output/<groups>/`, one directory per group selection, so an
 IT pass and a UNIT pass do not overwrite each other:
 

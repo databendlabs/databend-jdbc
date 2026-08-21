@@ -89,10 +89,42 @@ compat_download_libs() {
     done
 }
 
+# Convert java.specification.version to a major version. Java 8 reports "1.8",
+# while newer releases report a single number such as "11" or "17".
+compat_java_major_version() {
+    local specification_version="${1:-}"
+    if [ -z "${specification_version}" ]; then
+        specification_version="$(java -XshowSettings:properties -version 2>&1 \
+            | awk -F'= *' '/java.specification.version/ { gsub(/[[:space:]]/, "", $2); print $2; exit }')"
+    fi
+
+    case "${specification_version}" in
+        1.*)
+            specification_version="${specification_version#1.}"
+            echo "${specification_version%%.*}"
+            ;;
+        *) echo "${specification_version%%.*}" ;;
+    esac
+}
+
+compat_require_java() {
+    local major_version
+    major_version="$(compat_java_major_version)"
+    case "${major_version}" in
+        ''|*[!0-9]*)
+            echo "could not determine the Java major version" >&2
+            return 1
+            ;;
+    esac
+    if [ "${major_version}" -lt 11 ]; then
+        echo "release-jar compatibility tests require JDK 11 or newer (found Java ${major_version})" >&2
+        return 1
+    fi
+}
+
 # jdeps needs an explicit release for multi-release jars such as slf4j-api.
 compat_multi_release() {
-    java -XshowSettings:properties -version 2>&1 \
-        | awk -F'= *' '/java.specification.version/ { gsub(/[^0-9]/, "", $2); print $2; exit }'
+    compat_java_major_version
 }
 
 # TestNG class names contained in the test jar, mirroring databend's discovery
@@ -100,13 +132,13 @@ compat_multi_release() {
 compat_test_classes() {
     local test_jar="$1"
     jar tf "${test_jar}" \
-        | grep '\.class$' \
-        | grep -v '\$' \
-        | sed -e 's/\.class$//' -e 's#/#.#g' \
-        | awk -F. '{
-              name = $NF
+        | awk '/\.class$/ && index($0, "$") == 0 {
+              sub(/\.class$/, "")
+              gsub(/\//, ".")
+              count = split($0, parts, ".")
+              name = parts[count]
               if (name == "Compatibility" || name == "Utils") next
-              if (name ~ /^Test/ || name ~ /Test$/) print
+              if (name ~ /^Test/ || name ~ /Test$/) print $0
           }' \
         | sort -u
 }

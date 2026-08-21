@@ -12,7 +12,9 @@ source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
 COMPAT_GROUPS="${COMPAT_GROUPS:-IT}"
 COMPAT_EXCLUDED_GROUPS="${COMPAT_EXCLUDED_GROUPS:-FLAKY,cluster,MULTI_HOST}"
+COMPAT_USER_TIMEZONE="${COMPAT_USER_TIMEZONE:-Asia/Shanghai}"
 
+compat_require_java
 compat_build_jars
 compat_download_libs
 
@@ -21,11 +23,30 @@ TEST_JAR="$(compat_test_jar)"
 
 # Keep runs of different group selections in separate directories so a second
 # pass (for example UNIT after IT) does not clobber the first one's report.
-COMPAT_RUN_TAG="$(echo "${COMPAT_GROUPS}" | tr ',[:upper:]' '-[:lower:]')"
+COMPAT_RUN_TAG="$(printf '%s' "${COMPAT_GROUPS}" \
+    | tr ',[:upper:]' '-[:lower:]' \
+    | tr -c 'a-z0-9_-' '-')"
+if [ -z "${COMPAT_RUN_TAG}" ]; then
+    COMPAT_RUN_TAG="all"
+fi
 SUITE_FILE="${COMPAT_GENERATED_DIR}/testng-${COMPAT_RUN_TAG}.xml"
 COMPAT_OUTPUT_DIR="${COMPAT_OUTPUT_ROOT}/${COMPAT_RUN_TAG}"
 
+TEST_CLASSES="$(compat_test_classes "${TEST_JAR}")"
+if [ -z "${TEST_CLASSES}" ]; then
+    echo "no test classes discovered in ${TEST_JAR}" >&2
+    exit 1
+fi
+CLASS_COUNT="$(printf '%s\n' "${TEST_CLASSES}" | wc -l | tr -d '[:space:]')"
+
 mkdir -p "${COMPAT_GENERATED_DIR}"
+case "${COMPAT_OUTPUT_DIR}" in
+    "${COMPAT_OUTPUT_ROOT}/"*) ;;
+    *)
+        echo "refusing to clean output directory outside ${COMPAT_OUTPUT_ROOT}: ${COMPAT_OUTPUT_DIR}" >&2
+        exit 1
+        ;;
+esac
 rm -rf "${COMPAT_OUTPUT_DIR}"
 mkdir -p "${COMPAT_OUTPUT_DIR}"
 
@@ -44,7 +65,7 @@ mkdir -p "${COMPAT_OUTPUT_DIR}"
     echo '      </run>'
     echo '    </groups>'
     echo '    <classes>'
-    compat_test_classes "${TEST_JAR}" | while read -r class_name; do
+    printf '%s\n' "${TEST_CLASSES}" | while read -r class_name; do
         echo "      <class name=\"${class_name}\"/>"
     done
     echo '    </classes>'
@@ -52,21 +73,11 @@ mkdir -p "${COMPAT_OUTPUT_DIR}"
     echo '</suite>'
 } >"${SUITE_FILE}"
 
-# grep -c exits 1 on zero matches, so guard it to keep the message below reachable.
-CLASS_COUNT="$(grep -c '<class name=' "${SUITE_FILE}" || true)"
-if [ "${CLASS_COUNT:-0}" -eq 0 ]; then
-    echo "no test classes discovered in ${TEST_JAR}" >&2
-    exit 1
-fi
-
 compat_log "driver jar: ${MAIN_JAR}"
 compat_log "test jar:   ${TEST_JAR}"
 compat_log "suite:      ${SUITE_FILE} (${CLASS_COUNT} classes, groups=${COMPAT_GROUPS})"
 
-JAVA_ARGS=(-Dlogback.logger.root=INFO)
-if [ -n "${COMPAT_USER_TIMEZONE:-}" ]; then
-    JAVA_ARGS+=("-Duser.timezone=${COMPAT_USER_TIMEZONE}")
-fi
+JAVA_ARGS=("-Duser.timezone=${COMPAT_USER_TIMEZONE}")
 if [ "${DATABEND_JDBC_TEST_QUERY_RESULT_FORMAT:-}" = "arrow" ]; then
     # Arrow needs the same JVM openings the arrow-tests Maven profile sets.
     JAVA_ARGS+=(--add-opens=java.base/java.nio=ALL-UNNAMED -Dio.netty.tryReflectionSetAccessible=true)
