@@ -11,6 +11,7 @@ set -euo pipefail
 
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/common.sh"
 
+compat_require_java
 compat_build_jars
 compat_download_libs
 
