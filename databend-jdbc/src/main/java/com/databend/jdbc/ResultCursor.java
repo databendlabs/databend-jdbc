@@ -54,6 +54,7 @@ final class PagedResultCursor implements ResultCursor {
     private final ResultPageSource pageSource;
     private final long maxRows;
     private ResultPage currentPage;
+    private int currentPageRowCount;
     private int currentRowInPage = -1;
     private long rowsRead;
 
@@ -69,7 +70,7 @@ final class PagedResultCursor implements ResultCursor {
             return false;
         }
         while (true) {
-            if (currentPage != null && currentRowInPage + 1 < currentPage.getRowCount()) {
+            if (currentPage != null && currentRowInPage + 1 < currentPageRowCount) {
                 currentRowInPage++;
                 rowsRead++;
                 return true;
@@ -79,6 +80,7 @@ final class PagedResultCursor implements ResultCursor {
             if (currentPage == null) {
                 return false;
             }
+            currentPageRowCount = currentPage.getRowCount();
             currentRowInPage = -1;
         }
     }
@@ -105,6 +107,7 @@ final class PagedResultCursor implements ResultCursor {
         if (currentPage != null) {
             currentPage.close();
             currentPage = null;
+            currentPageRowCount = 0;
             currentRowInPage = -1;
         }
     }
