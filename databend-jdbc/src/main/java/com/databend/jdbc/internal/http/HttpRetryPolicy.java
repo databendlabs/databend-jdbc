@@ -6,6 +6,7 @@ import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
 import okhttp3.Request;
 import okhttp3.Response;
+import okhttp3.ResponseBody;
 
 import java.io.IOException;
 import java.net.ConnectException;
@@ -109,7 +110,22 @@ public class HttpRetryPolicy {
         return (long) (baseInterval * jitter);
     }
 
+    @FunctionalInterface
+    public interface ResponseHandler<T> {
+        T handle(Response response) throws IOException, SQLException;
+    }
+
     public ResponseWithBody sendRequestWithRetry(OkHttpClient httpClient, Request request) throws SQLException {
+        return sendRequestWithRetry(httpClient, request, response -> {
+            ResponseBody responseBody = response.body();
+            byte[] body = shouldIgnore(response.code()) || responseBody == null
+                    ? new byte[0]
+                    : responseBody.bytes();
+            return new ResponseWithBody(response, body);
+        });
+    }
+
+    public <T> T sendRequestWithRetry(OkHttpClient httpClient, Request request, ResponseHandler<T> responseHandler) throws SQLException {
         String failReason = null;
         Throwable cause = null;
         int attempts = 1;
@@ -129,16 +145,16 @@ public class HttpRetryPolicy {
                 int code = response.code();
                 if (code != 200) {
                     if (shouldIgnore(code)) {
-                        return new ResponseWithBody(response, new byte[0]);
+                        return responseHandler.handle(response);
                     }
-                    String body = response.body().string();
+                    ResponseBody responseBody = response.body();
+                    String body = responseBody == null ? "" : responseBody.string();
                     if (!shouldRetry(code, body) || attempts == MAX_ATTEMPTS) {
                         failReason = String.format("status_code = %s, body = %s", code, body);
                         break;
                     }
                 } else {
-                    byte[] body = response.body().bytes();
-                    return new ResponseWithBody(response, body);
+                    return responseHandler.handle(response);
                 }
             } catch (IOException e) {
                 failReason = e.getMessage();
