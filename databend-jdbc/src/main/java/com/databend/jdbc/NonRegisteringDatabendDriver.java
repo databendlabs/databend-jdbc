@@ -11,6 +11,7 @@ import java.sql.SQLFeatureNotSupportedException;
 import java.util.Properties;
 import java.util.logging.Logger;
 
+import static com.databend.jdbc.internal.http.OkHttpUtils.setupInsecureSsl;
 import static com.databend.jdbc.internal.http.OkHttpUtils.userAgentInterceptor;
 import static com.databend.jdbc.DriverInfo.*;
 
@@ -28,6 +29,7 @@ class NonRegisteringDatabendDriver implements Driver, Closeable {
     private static OkHttpClient newHttpClient() {
         OkHttpClient.Builder builder = new OkHttpClient.Builder()
                 .addInterceptor(userAgentInterceptor(USER_AGENT_VALUE));
+        setupInsecureSsl(builder);
         return builder.build();
     }
 

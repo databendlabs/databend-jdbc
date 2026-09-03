@@ -28,7 +28,6 @@ import java.nio.charset.StandardCharsets;
 
 import static com.databend.jdbc.internal.http.OkHttpUtils.*;
 import static com.databend.jdbc.ConnectionProperties.*;
-import static com.databend.jdbc.DatabendConstant.ENABLE_STR;
 import static com.google.common.base.MoreObjects.firstNonNull;
 import static com.google.common.base.Strings.isNullOrEmpty;
 import static java.lang.String.format;
@@ -427,9 +426,6 @@ final class DatabendDriverUri {
 
             String password = PASSWORD.getValue(properties).orElse("");
             builder.addInterceptor(basicAuthInterceptor(USER.getValue(properties).orElse(""), password));
-            if (useSecureConnection || ENABLE_STR.equals(sslmode)) {
-                setupInsecureSsl(builder);
-            }
             if (ACCESS_TOKEN.getValue(properties).isPresent()) {
                 builder.addInterceptor(tokenAuth(ACCESS_TOKEN.getValue(properties).get()));
             }
