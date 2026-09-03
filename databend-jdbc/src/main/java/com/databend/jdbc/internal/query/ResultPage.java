@@ -4,24 +4,33 @@ import com.databend.jdbc.IntervalValue;
 import com.databend.jdbc.internal.data.DatabendRawType;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
+import org.apache.arrow.vector.BigIntVector;
+import org.apache.arrow.vector.BitVector;
 import org.apache.arrow.vector.DateDayVector;
 import org.apache.arrow.vector.DecimalVector;
 import org.apache.arrow.vector.FieldVector;
 import org.apache.arrow.vector.FixedSizeBinaryVector;
+import org.apache.arrow.vector.Float4Vector;
+import org.apache.arrow.vector.Float8Vector;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.LargeVarCharVector;
 import org.apache.arrow.vector.LargeVarBinaryVector;
+import org.apache.arrow.vector.SmallIntVector;
+import org.apache.arrow.vector.TinyIntVector;
 import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.UInt1Vector;
 import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
+import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VarBinaryVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ViewVarCharVector;
 import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.util.Text;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -80,10 +89,16 @@ final class ArrowResultPage implements ResultPage {
     private final BufferAllocator allocator;
     private final List<VectorSchemaRoot> batches;
     private final int[] rowOffsets;
+    private final ValueKind[] valueKinds;
+    private final boolean[] nullableColumns;
+    private final int rowCount;
     private final Map<String, String> settings;
     private final AtomicBoolean closed = new AtomicBoolean();
+    private int currentBatchStart;
+    private int currentBatchEnd;
+    private VectorSchemaRoot currentBatch;
 
-    ArrowResultPage(BufferAllocator allocator, List<VectorSchemaRoot> batches, Map<String, String> settings) {
+    ArrowResultPage(BufferAllocator allocator, List<VectorSchemaRoot> batches, Map<String, String> settings) throws SQLException {
         this.allocator = allocator;
         this.batches = batches;
         this.settings = settings == null ? Collections.<String, String>emptyMap() : settings;
@@ -93,110 +108,215 @@ final class ArrowResultPage implements ResultPage {
             this.rowOffsets[i] = offset;
             offset += batches.get(i).getRowCount();
         }
+        this.rowCount = offset;
+        if (batches.isEmpty()) {
+            this.valueKinds = new ValueKind[0];
+            this.nullableColumns = new boolean[0];
+        }
+        else {
+            List<Field> fields = batches.get(0).getSchema().getFields();
+            this.valueKinds = new ValueKind[fields.size()];
+            this.nullableColumns = new boolean[fields.size()];
+            for (int i = 0; i < fields.size(); i++) {
+                Field field = fields.get(i);
+                this.valueKinds[i] = valueKind(field);
+                this.nullableColumns[i] = field.isNullable();
+            }
+        }
     }
 
     @Override
     public int getRowCount() {
-        if (batches.isEmpty()) {
-            return 0;
-        }
-        return rowOffsets[batches.size() - 1] + batches.get(batches.size() - 1).getRowCount();
+        return rowCount;
     }
 
     @Override
     public Object getValue(int rowIndex, int columnIndex) throws SQLException {
-        int batchIndex = 0;
-        while (batchIndex + 1 < rowOffsets.length && rowOffsets[batchIndex + 1] <= rowIndex) {
-            batchIndex++;
-        }
-        VectorSchemaRoot root = batches.get(batchIndex);
-        int rowInBatch = rowIndex - rowOffsets[batchIndex];
+        VectorSchemaRoot root = batchForRow(rowIndex);
+        int rowInBatch = rowIndex - currentBatchStart;
         FieldVector vector = root.getVector(columnIndex);
-        if (vector == null || vector.isNull(rowInBatch)) {
+        if (vector == null || (nullableColumns[columnIndex] && vector.isNull(rowInBatch))) {
             return null;
         }
 
-        Field field = vector.getField();
-        String extensionType = field.getMetadata() == null ? null : field.getMetadata().get(EXTENSION_KEY);
-        if (extensionType != null) {
-            if (EXTENSION_TYPE_VARIANT.equals(extensionType) || EXTENSION_TYPE_BITMAP.equals(extensionType)) {
+        switch (valueKinds[columnIndex]) {
+            case TEXT_EXTENSION:
                 return new String(decodeBinary(vector, rowInBatch), StandardCharsets.UTF_8);
-            }
-            if (EXTENSION_TYPE_GEOMETRY.equals(extensionType) || EXTENSION_TYPE_GEOGRAPHY.equals(extensionType)) {
+            case GEOMETRY_EXTENSION:
                 byte[] bytes = decodeBinary(vector, rowInBatch);
                 return "wkb".equalsIgnoreCase(settings.get("geometry_output_format"))
                         ? bytes
                         : new String(bytes, StandardCharsets.UTF_8);
-            }
-            if (EXTENSION_TYPE_INTERVAL.equals(extensionType)) {
+            case INTERVAL_EXTENSION:
                 DecimalParts parts = readDecimal128((DecimalVector) vector, rowInBatch);
                 if (parts.months != 0) {
                     throw new SQLException("Arrow interval with year/month component is not supported by JDBC Duration");
                 }
                 return new IntervalValue(parts.days, parts.micros);
+            case TIMESTAMP_TZ_EXTENSION:
+                DecimalParts timestampParts = readDecimal128((DecimalVector) vector, rowInBatch);
+                return offsetDateTimeFromMicros(timestampParts.micros, timestampParts.offsetSeconds);
+            case VECTOR_EXTENSION:
+                return vector.getObject(rowInBatch);
+            case BOOLEAN:
+                return ((BitVector) vector).get(rowInBatch) != 0;
+            case INT8:
+                return ((TinyIntVector) vector).get(rowInBatch);
+            case INT16:
+                return ((SmallIntVector) vector).get(rowInBatch);
+            case INT32:
+                return ((IntVector) vector).get(rowInBatch);
+            case INT64:
+                return ((BigIntVector) vector).get(rowInBatch);
+            case UINT8:
+                return Short.valueOf(((UInt1Vector) vector).getObjectNoOverflow(rowInBatch));
+            case UINT16:
+                return Integer.valueOf(((UInt2Vector) vector).getObject(rowInBatch));
+            case UINT32:
+                return Long.valueOf(((UInt4Vector) vector).getObjectNoOverflow(rowInBatch));
+            case UINT64:
+                return ((UInt8Vector) vector).getObject(rowInBatch);
+            case FLOAT32:
+                return ((Float4Vector) vector).get(rowInBatch);
+            case FLOAT64:
+                return ((Float8Vector) vector).get(rowInBatch);
+            case DECIMAL:
+                return ((DecimalVector) vector).getObject(rowInBatch);
+            case UTF8:
+                return new String(((VarCharVector) vector).get(rowInBatch), StandardCharsets.UTF_8);
+            case LARGE_UTF8:
+                return new String(((LargeVarCharVector) vector).get(rowInBatch), StandardCharsets.UTF_8);
+            case UTF8_VIEW:
+                return new String(((ViewVarCharVector) vector).get(rowInBatch), StandardCharsets.UTF_8);
+            case BINARY:
+                return decodeBinary(vector, rowInBatch);
+            case DATE:
+                return java.sql.Date.valueOf(LocalDate.ofEpochDay(((DateDayVector) vector).get(rowInBatch)));
+            case TIMESTAMP:
+                return ((TimeStampMicroVector) vector).getObject(rowInBatch);
+            case TIMESTAMP_TZ:
+                return offsetDateTimeFromMicros(((Number) vector.getObject(rowInBatch)).longValue(), 0);
+            case GENERIC:
+            default:
+                return vector.getObject(rowInBatch);
+        }
+    }
+
+    private VectorSchemaRoot batchForRow(int rowIndex) throws SQLException {
+        if (rowIndex < 0 || rowIndex >= rowCount) {
+            throw new SQLException("Invalid row index: " + rowIndex);
+        }
+        if (currentBatch != null && rowIndex >= currentBatchStart && rowIndex < currentBatchEnd) {
+            return currentBatch;
+        }
+
+        int low = 0;
+        int high = rowOffsets.length;
+        while (low < high) {
+            int middle = (low + high) >>> 1;
+            if (rowOffsets[middle] <= rowIndex) {
+                low = middle + 1;
+            }
+            else {
+                high = middle;
+            }
+        }
+        int batchIndex = low - 1;
+        currentBatch = batches.get(batchIndex);
+        currentBatchStart = rowOffsets[batchIndex];
+        currentBatchEnd = currentBatchStart + currentBatch.getRowCount();
+        return currentBatch;
+    }
+
+    private static ValueKind valueKind(Field field) throws SQLException {
+        String extensionType = field.getMetadata() == null ? null : field.getMetadata().get(EXTENSION_KEY);
+        if (extensionType != null) {
+            if (EXTENSION_TYPE_VARIANT.equals(extensionType) || EXTENSION_TYPE_BITMAP.equals(extensionType)) {
+                return ValueKind.TEXT_EXTENSION;
+            }
+            if (EXTENSION_TYPE_GEOMETRY.equals(extensionType) || EXTENSION_TYPE_GEOGRAPHY.equals(extensionType)) {
+                return ValueKind.GEOMETRY_EXTENSION;
+            }
+            if (EXTENSION_TYPE_INTERVAL.equals(extensionType)) {
+                return ValueKind.INTERVAL_EXTENSION;
             }
             if (EXTENSION_TYPE_TIMESTAMP_TZ.equals(extensionType)) {
-                DecimalParts parts = readDecimal128((DecimalVector) vector, rowInBatch);
-                return offsetDateTimeFromMicros(parts.micros, parts.offsetSeconds);
+                return ValueKind.TIMESTAMP_TZ_EXTENSION;
             }
             if (EXTENSION_TYPE_VECTOR.equals(extensionType)) {
-                return vector.getObject(rowInBatch);
+                return ValueKind.VECTOR_EXTENSION;
             }
+            throw new SQLException("Unsupported Arrow extension field: " + field);
         }
 
         ArrowType type = field.getType();
         if (type instanceof ArrowType.Bool) {
-            return vector.getObject(rowInBatch);
+            return ValueKind.BOOLEAN;
         }
         if (type instanceof ArrowType.Int) {
             ArrowType.Int intType = (ArrowType.Int) type;
-            if (!intType.getIsSigned()) {
-                if (intType.getBitWidth() == 8) {
-                    short value = ((UInt1Vector) vector).getObjectNoOverflow(rowInBatch);
-                    return Short.valueOf(value);
-                }
-                if (intType.getBitWidth() == 16) {
-                    return Integer.valueOf(((UInt2Vector) vector).getObject(rowInBatch));
-                }
-                if (intType.getBitWidth() == 32) {
-                    return Long.valueOf(((UInt4Vector) vector).getObjectNoOverflow(rowInBatch));
-                }
-                if (intType.getBitWidth() == 64) {
-                    return ((UInt8Vector) vector).getObject(rowInBatch);
+            if (intType.getIsSigned()) {
+                switch (intType.getBitWidth()) {
+                    case 8:
+                        return ValueKind.INT8;
+                    case 16:
+                        return ValueKind.INT16;
+                    case 32:
+                        return ValueKind.INT32;
+                    case 64:
+                        return ValueKind.INT64;
+                    default:
+                        return ValueKind.GENERIC;
                 }
             }
-            return vector.getObject(rowInBatch);
+            switch (intType.getBitWidth()) {
+                case 8:
+                    return ValueKind.UINT8;
+                case 16:
+                    return ValueKind.UINT16;
+                case 32:
+                    return ValueKind.UINT32;
+                case 64:
+                    return ValueKind.UINT64;
+                default:
+                    return ValueKind.GENERIC;
+            }
         }
         if (type instanceof ArrowType.FloatingPoint) {
             ArrowType.FloatingPoint floatingPoint = (ArrowType.FloatingPoint) type;
-            if (floatingPoint.getPrecision() == FloatingPointPrecision.SINGLE || floatingPoint.getPrecision() == FloatingPointPrecision.DOUBLE) {
-                return vector.getObject(rowInBatch);
-            }
+            return floatingPoint.getPrecision() == FloatingPointPrecision.SINGLE
+                    ? ValueKind.FLOAT32
+                    : ValueKind.FLOAT64;
         }
         if (type instanceof ArrowType.Decimal) {
-            return ((DecimalVector) vector).getObject(rowInBatch);
+            return ValueKind.DECIMAL;
         }
-        if (type instanceof ArrowType.Utf8 || type instanceof ArrowType.LargeUtf8 || type instanceof ArrowType.Utf8View) {
-            Object value = vector.getObject(rowInBatch);
-            return value instanceof Text ? value.toString() : String.valueOf(value);
+        if (type instanceof ArrowType.Utf8) {
+            return ValueKind.UTF8;
         }
-        if (type instanceof ArrowType.Binary || type instanceof ArrowType.LargeBinary || type instanceof ArrowType.FixedSizeBinary || type instanceof ArrowType.BinaryView) {
-            return decodeBinary(vector, rowInBatch);
+        if (type instanceof ArrowType.LargeUtf8) {
+            return ValueKind.LARGE_UTF8;
+        }
+        if (type instanceof ArrowType.Utf8View) {
+            return ValueKind.UTF8_VIEW;
+        }
+        if (type instanceof ArrowType.Binary || type instanceof ArrowType.LargeBinary
+                || type instanceof ArrowType.FixedSizeBinary || type instanceof ArrowType.BinaryView) {
+            return ValueKind.BINARY;
         }
         if (type instanceof ArrowType.Date) {
-            return java.sql.Date.valueOf(LocalDate.ofEpochDay(((DateDayVector) vector).get(rowInBatch)));
+            return ValueKind.DATE;
         }
         if (type instanceof ArrowType.Timestamp) {
-            ArrowType.Timestamp timestampType = (ArrowType.Timestamp) type;
-            if (timestampType.getUnit() != TimeUnit.MICROSECOND) {
-                throw new SQLException("Unsupported Arrow timestamp unit: " + timestampType.getUnit());
+            ArrowType.Timestamp timestamp = (ArrowType.Timestamp) type;
+            if (timestamp.getUnit() != TimeUnit.MICROSECOND) {
+                throw new SQLException("Unsupported Arrow timestamp unit: " + timestamp.getUnit());
             }
-            if (timestampType.getTimezone() == null || timestampType.getTimezone().isEmpty()) {
-                return ((TimeStampMicroVector) vector).getObject(rowInBatch);
-            }
-            return offsetDateTimeFromMicros(((Number) vector.getObject(rowInBatch)).longValue(), 0);
+            return timestamp.getTimezone() == null || timestamp.getTimezone().isEmpty()
+                    ? ValueKind.TIMESTAMP
+                    : ValueKind.TIMESTAMP_TZ;
         }
-        return vector.getObject(rowInBatch);
+        return ValueKind.GENERIC;
     }
 
     @Override
@@ -393,5 +513,33 @@ final class ArrowResultPage implements ResultPage {
             this.months = value.shiftRight(96).intValue();
             this.days = value.shiftRight(64).intValue();
         }
+    }
+
+    private enum ValueKind {
+        TEXT_EXTENSION,
+        GEOMETRY_EXTENSION,
+        INTERVAL_EXTENSION,
+        TIMESTAMP_TZ_EXTENSION,
+        VECTOR_EXTENSION,
+        BOOLEAN,
+        INT8,
+        INT16,
+        INT32,
+        INT64,
+        UINT8,
+        UINT16,
+        UINT32,
+        UINT64,
+        FLOAT32,
+        FLOAT64,
+        DECIMAL,
+        UTF8,
+        LARGE_UTF8,
+        UTF8_VIEW,
+        BINARY,
+        DATE,
+        TIMESTAMP,
+        TIMESTAMP_TZ,
+        GENERIC
     }
 }
