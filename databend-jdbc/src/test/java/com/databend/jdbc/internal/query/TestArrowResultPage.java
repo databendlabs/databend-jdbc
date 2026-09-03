@@ -1,5 +1,7 @@
 package com.databend.jdbc.internal.query;
 
+import org.apache.arrow.compression.CommonsCompressionFactory;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DateDayVector;
@@ -11,6 +13,8 @@ import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -60,6 +64,20 @@ public class TestArrowResultPage {
         closeAllocator(rootAllocator);
     }
 
+    @Test(groups = {"UNIT_ARROW"})
+    public void testDirectLz4CompressionRoundTrip() throws Exception {
+        byte[] expected = new byte[1024 * 1024];
+        for (int i = 0; i < expected.length; i++) {
+            expected[i] = (byte) (i % 31);
+        }
+        RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        CompressionCodec direct = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+        CompressionCodec commons = CommonsCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+        assertCompressionRoundTrip(allocator, expected, direct, commons);
+        assertCompressionRoundTrip(allocator, expected, commons, direct);
+        closeAllocator(allocator);
+    }
+
     public void testArrowSchemaMapsToJdbcTypes() throws Exception {
         Field intField = new Field("n", FieldType.notNullable(new ArrowType.Int(32, true)), null);
         Field dateField = new Field("d", FieldType.nullable(new ArrowType.Date(DateUnit.DAY)), null);
@@ -69,6 +87,18 @@ public class TestArrowResultPage {
         Assert.assertEquals(fields.get(0).getDataType().getType(), "Int32");
         Assert.assertEquals(fields.get(1).getDataType().getType(), "Nullable(Date)");
         Assert.assertEquals(fields.get(2).getDataType().getType(), "Nullable(Timestamp)");
+    }
+
+    private static void assertCompressionRoundTrip(BufferAllocator allocator, byte[] expected,
+            CompressionCodec compressor, CompressionCodec decompressor) {
+        ArrowBuf input = allocator.buffer(expected.length);
+        input.writeBytes(expected);
+        ArrowBuf compressed = compressor.compress(allocator, input);
+        ArrowBuf decompressed = decompressor.decompress(allocator, compressed);
+        byte[] actual = new byte[expected.length];
+        decompressed.getBytes(0, actual);
+        Assert.assertEquals(actual, expected);
+        decompressed.close();
     }
 
     private static void closeAllocator(AutoCloseable closeable) throws Exception {

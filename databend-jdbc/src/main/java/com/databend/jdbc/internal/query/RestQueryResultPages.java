@@ -16,7 +16,6 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -180,7 +179,7 @@ public class RestQueryResultPages implements QueryResultPages {
         try (ArrowStreamReader reader = new ArrowStreamReader(
                 body,
                 allocator,
-                CommonsCompressionFactory.INSTANCE)) {
+                ArrowCompressionFactory.INSTANCE)) {
             VectorSchemaRoot root = reader.getVectorSchemaRoot();
             org.apache.arrow.vector.types.pojo.Schema schema = root.getSchema();
             String responseHeader = schema.getCustomMetadata().get("response_header");
