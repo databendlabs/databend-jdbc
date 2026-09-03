@@ -136,7 +136,7 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             this.queryPages = requireNonNull(queryPages, "queryPages is null");
             this.liveness = requireNonNull(liveness, "liveness is null");
             this.executor = requireNonNull(executor, "executor is null");
-            this.inFlight = scheduleFetch();
+            this.inFlight = scheduleFetch(false);
         }
 
         @Override
@@ -166,12 +166,12 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                 return null;
             }
 
-            inFlight = scheduleFetch();
+            inFlight = scheduleFetch(true);
             return page;
         }
 
-        private Future<ResultPage> scheduleFetch() {
-            return executor.submit(this::fetchNextPage);
+        private Future<ResultPage> scheduleFetch(boolean advanceFirst) {
+            return executor.submit(() -> fetchNextPage(advanceFirst));
         }
 
         private ResultPage awaitPrefetchedPage() throws SQLException {
@@ -202,17 +202,31 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             }
         }
 
-        private ResultPage fetchNextPage() throws SQLException {
+        private ResultPage fetchNextPage(boolean advanceFirst) throws SQLException {
+            if (advanceFirst && !advance()) {
+                return finish();
+            }
             while (queryPages.hasNext()) {
                 ResultPage page = queryPages.getPage();
-                queryPages.advance();
-                liveness.lastRequestTime.set(System.currentTimeMillis());
                 if (page != null && page.getRowCount() > 0) {
                     return page;
                 }
                 closeQuietly(page);
+                if (!advance()) {
+                    break;
+                }
             }
 
+            return finish();
+        }
+
+        private boolean advance() {
+            boolean hasNext = queryPages.advance();
+            liveness.lastRequestTime.set(System.currentTimeMillis());
+            return hasNext;
+        }
+
+        private ResultPage finish() throws SQLException {
             liveness.stopped = true;
             QueryResults results = queryPages.getResults();
             if (results != null && results.getError() != null) {

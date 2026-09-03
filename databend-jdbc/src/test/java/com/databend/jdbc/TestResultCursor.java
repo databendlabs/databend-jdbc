@@ -25,7 +25,10 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
@@ -74,6 +77,38 @@ public class TestResultCursor {
         }
         finally {
             executor.shutdownNow();
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testPrefetchReturnsCurrentPageBeforeNextPageDownloadCompletes() throws Exception {
+        AtomicInteger closedPages = new AtomicInteger();
+        FakePage page1 = new FakePage(Collections.singletonList(Collections.singletonList(1)), closedPages);
+        FakePage page2 = new FakePage(Collections.singletonList(Collections.singletonList(2)), closedPages);
+        CountDownLatch advanceStarted = new CountDownLatch(1);
+        CountDownLatch allowAdvance = new CountDownLatch(1);
+        ExecutorService prefetchExecutor = Executors.newSingleThreadExecutor();
+        ExecutorService callerExecutor = Executors.newSingleThreadExecutor();
+        DatabendResultSet.PrefetchingPageSource pageSource = null;
+        try {
+            pageSource = new DatabendResultSet.PrefetchingPageSource(
+                    new BlockingAdvanceQueryResultPages(
+                            Arrays.asList(page1, page2), successResults(), successResults(), advanceStarted, allowAdvance),
+                    newLiveness(),
+                    prefetchExecutor);
+
+            DatabendResultSet.PrefetchingPageSource source = pageSource;
+            Future<ResultPage> firstPage = callerExecutor.submit(source::nextPage);
+            Assert.assertSame(firstPage.get(5, TimeUnit.SECONDS), page1);
+            Assert.assertTrue(advanceStarted.await(5, TimeUnit.SECONDS));
+        }
+        finally {
+            allowAdvance.countDown();
+            if (pageSource != null) {
+                pageSource.close();
+            }
+            callerExecutor.shutdownNow();
+            prefetchExecutor.shutdownNow();
         }
     }
 
@@ -375,7 +410,7 @@ public class TestResultCursor {
         }
     }
 
-    private static final class FakeQueryResultPages implements QueryResultPages {
+    private static class FakeQueryResultPages implements QueryResultPages {
         private final List<ResultPage> pages;
         private final QueryResults currentResults;
         private final QueryResults terminalResults;
@@ -446,6 +481,31 @@ public class TestResultCursor {
         @Override
         public boolean hasNext() {
             return !closed && index < pages.size();
+        }
+    }
+
+    private static final class BlockingAdvanceQueryResultPages extends FakeQueryResultPages {
+        private final CountDownLatch advanceStarted;
+        private final CountDownLatch allowAdvance;
+
+        private BlockingAdvanceQueryResultPages(List<ResultPage> pages, QueryResults currentResults,
+                QueryResults terminalResults, CountDownLatch advanceStarted, CountDownLatch allowAdvance) {
+            super(pages, currentResults, terminalResults);
+            this.advanceStarted = advanceStarted;
+            this.allowAdvance = allowAdvance;
+        }
+
+        @Override
+        public boolean advance() {
+            advanceStarted.countDown();
+            try {
+                allowAdvance.await();
+            }
+            catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+                return false;
+            }
+            return super.advance();
         }
     }
 }
