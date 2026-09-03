@@ -2,7 +2,6 @@ package com.databend.jdbc.internal.query;
 
 import com.databend.jdbc.IntervalValue;
 import com.databend.jdbc.internal.data.DatabendRawType;
-import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DateDayVector;
@@ -16,9 +15,8 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
+import org.apache.arrow.vector.util.TransferPair;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -207,26 +205,21 @@ final class ArrowResultPage implements ResultPage {
             return;
         }
         for (VectorSchemaRoot batch : batches) {
-            for (FieldVector vector : batch.getFieldVectors()) {
-                vector.close();
-            }
             batch.close();
         }
         allocator.close();
     }
 
-    static ArrowResultPage fromRecordBatches(BufferAllocator allocator, org.apache.arrow.vector.types.pojo.Schema schema, List<ArrowRecordBatch> recordBatches, Map<String, String> settings) {
-        List<VectorSchemaRoot> roots = new ArrayList<>(recordBatches.size());
-        for (ArrowRecordBatch batch : recordBatches) {
-            VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-            try {
-                new VectorLoader(root, CommonsCompressionFactory.INSTANCE).load(batch);
-                roots.add(root);
-            } finally {
-                batch.close();
-            }
+    static VectorSchemaRoot transferBatch(VectorSchemaRoot source, BufferAllocator allocator) {
+        VectorSchemaRoot target = VectorSchemaRoot.create(source.getSchema(), allocator);
+        List<FieldVector> sourceVectors = source.getFieldVectors();
+        List<FieldVector> targetVectors = target.getFieldVectors();
+        for (int i = 0; i < sourceVectors.size(); i++) {
+            TransferPair transferPair = sourceVectors.get(i).makeTransferPair(targetVectors.get(i));
+            transferPair.transfer();
         }
-        return new ArrowResultPage(allocator, roots, settings);
+        target.setRowCount(source.getRowCount());
+        return target;
     }
 
     static List<QueryRowField> schemaToFields(org.apache.arrow.vector.types.pojo.Schema schema) throws SQLException {
