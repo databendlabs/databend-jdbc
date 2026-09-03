@@ -2,6 +2,7 @@ package com.databend.jdbc;
 
 import com.databend.jdbc.internal.session.PaginationOptions;
 import com.databend.jdbc.internal.session.SessionHandleConfig;
+import okhttp3.OkHttpClient;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
@@ -88,6 +89,34 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(uri.getUri().getScheme(), "https");
         Assert.assertEquals(uri.getUri().getHost(), "localhost");
         Assert.assertEquals(uri.getUri().getPort(), 443);
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testTlsConfigurationOnlyAppliesToSecureConnections() throws SQLException {
+        OkHttpClient defaultClient = new OkHttpClient();
+
+        OkHttpClient.Builder httpBuilder = defaultClient.newBuilder();
+        createDriverUri("jdbc:databend://localhost").setupClient(httpBuilder);
+        OkHttpClient httpClient = httpBuilder.build();
+
+        OkHttpClient.Builder firstHttpsBuilder = defaultClient.newBuilder();
+        createDriverUri("jdbc:databend://localhost?ssl=true").setupClient(firstHttpsBuilder);
+        OkHttpClient firstHttpsClient = firstHttpsBuilder.build();
+        OkHttpClient.Builder secondHttpsBuilder = defaultClient.newBuilder();
+        createDriverUri("jdbc:databend://localhost?ssl=true").setupClient(secondHttpsBuilder);
+        OkHttpClient secondHttpsClient = secondHttpsBuilder.build();
+        OkHttpClient.Builder sslModeBuilder = defaultClient.newBuilder();
+        createDriverUri("jdbc:databend://http://localhost?sslmode=enable").setupClient(sslModeBuilder);
+        OkHttpClient sslModeClient = sslModeBuilder.build();
+
+        Assert.assertSame(httpClient.hostnameVerifier(), defaultClient.hostnameVerifier());
+        Assert.assertSame(httpClient.sslSocketFactory(), defaultClient.sslSocketFactory());
+        Assert.assertSame(firstHttpsClient.hostnameVerifier(), secondHttpsClient.hostnameVerifier());
+        Assert.assertSame(firstHttpsClient.sslSocketFactory(), secondHttpsClient.sslSocketFactory());
+        Assert.assertSame(firstHttpsClient.hostnameVerifier(), sslModeClient.hostnameVerifier());
+        Assert.assertSame(firstHttpsClient.sslSocketFactory(), sslModeClient.sslSocketFactory());
+        Assert.assertNotSame(firstHttpsClient.hostnameVerifier(), defaultClient.hostnameVerifier());
+        Assert.assertNotSame(firstHttpsClient.sslSocketFactory(), defaultClient.sslSocketFactory());
     }
 
     @Test(groups = {"UNIT"})
