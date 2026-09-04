@@ -7,14 +7,26 @@ import com.databend.jdbc.internal.session.QueryRequestConfig;
 import com.databend.jdbc.internal.session.SessionState;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.Interceptor;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
+import okio.Timeout;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
+import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
@@ -106,14 +118,73 @@ public class TestRestQueryResultPages {
     }
 
     @Test(groups = {"UNIT_ARROW"})
-    public void testMalformedArrowResponseRaisesDatabendQueryException() throws Exception {
+    public void testMalformedArrowResponseRaisesDatabendQueryException() {
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    attempts.incrementAndGet();
+                    return arrowResponse(chain, ResponseBody.create(arrowMediaType, malformedArrowResponse()));
+                })
+                .build();
+
+        DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
+                new RestQueryResultPages(
+                        client,
+                        "select 1",
+                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                        null,
+                        new AtomicReference<>()));
+
+        Assert.assertTrue(exception.getMessage().contains("Failed to execute query request"), exception.getMessage());
+        Assert.assertNotNull(exception.getCause());
+        Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
+                exception.getCause().getMessage());
+        Assert.assertEquals(attempts.get(), 1);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testUnsupportedArrowFieldReleasesDecodedBatches() {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    attempts.incrementAndGet();
+                    return arrowResponse(chain,
+                            ResponseBody.create(arrowMediaType, unsupportedArrowResponse()));
+                })
+                .build();
+
+        DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
+                new RestQueryResultPages(
+                        client,
+                        "select interval",
+                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                        null,
+                        new AtomicReference<>()));
+
+        Assert.assertEquals(attempts.get(), 1);
+        Assert.assertTrue(hasCauseMessage(exception, "Unsupported Arrow field: d: Interval(DAY_TIME) not null"),
+                causeMessages(exception));
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                "unsupported Arrow field leaked decoded record batches");
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testTruncatedArrowBodyIsRetried() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        byte[] payload = arrowResponse();
+        int thirdBatchCutoff = 864;
+        AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/v1/query", exchange -> {
             try {
-                byte[] payload = "not-arrow".getBytes(StandardCharsets.UTF_8);
+                int attempt = attempts.incrementAndGet();
                 exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
-                exchange.sendResponseHeaders(200, payload.length);
-                exchange.getResponseBody().write(payload);
+                exchange.sendResponseHeaders(200, 0);
+                int bytesToWrite = attempt == 1 ? thirdBatchCutoff : payload.length;
+                exchange.getResponseBody().write(payload, 0, bytesToWrite);
             }
             finally {
                 exchange.close();
@@ -122,22 +193,119 @@ public class TestRestQueryResultPages {
         server.start();
 
         try {
-            DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
-                    new RestQueryResultPages(
-                            new OkHttpClient(),
-                            "select 1",
-                            requestConfig(serverBaseUrl(server)),
-                            null,
-                            new AtomicReference<>()));
+            RestQueryResultPages pages = new RestQueryResultPages(
+                    new OkHttpClient(),
+                    "select 42",
+                    requestConfig(serverBaseUrl(server), QueryResultFormat.ARROW),
+                    null,
+                    new AtomicReference<>());
 
-            Assert.assertTrue(exception.getMessage().contains("Failed to execute query request"), exception.getMessage());
-            Assert.assertNotNull(exception.getCause());
-            Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
-                    exception.getCause().getMessage());
+            Assert.assertEquals(attempts.get(), 2);
+            Assert.assertEquals(pages.getResults().getQueryId(), "qid-arrow-retry");
+            Assert.assertEquals(pages.getPage().getRowCount(), 3);
+            Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+            Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+            Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+            pages.close();
+            Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                    "truncated Arrow attempt leaked decoded record batches");
         }
         finally {
             server.stop(0);
         }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowTransportFailureBeforeHeaderIsRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    ResponseBody body = attempts.incrementAndGet() == 1
+                            ? timeoutResponseBody(arrowMediaType)
+                            : ResponseBody.create(arrowMediaType, payload);
+                    return new Response.Builder()
+                            .request(chain.request())
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .body(body)
+                            .build();
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+        Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+        Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+        pages.close();
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testTruncatedArrowHeaderIsRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    byte[] responsePayload = attempts.incrementAndGet() == 1
+                            ? Arrays.copyOf(payload, 64)
+                            : payload;
+                    return arrowResponse(chain, ResponseBody.create(arrowMediaType, responsePayload));
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        pages.close();
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowReaderCloseFailureIsRetried() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    ResponseBody body = attempts.incrementAndGet() == 1
+                            ? closeFailureResponseBody(arrowMediaType, payload)
+                            : ResponseBody.create(arrowMediaType, payload);
+                    return arrowResponse(chain, body);
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+        Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+        Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+        pages.close();
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                "Arrow reader close failure leaked decoded record batches");
     }
 
     @Test(groups = {"UNIT"})
@@ -391,13 +559,17 @@ public class TestRestQueryResultPages {
     }
 
     private static QueryRequestConfig requestConfig(String host) {
+        return requestConfig(host, QueryResultFormat.JSON);
+    }
+
+    private static QueryRequestConfig requestConfig(String host, QueryResultFormat resultFormat) {
         return new QueryRequestConfig(
                 host,
                 SessionState.createDefault(),
                 QueryRequestConfig.DEFAULT_QUERY_TIMEOUT,
                 QueryRequestConfig.DEFAULT_CONNECTION_TIMEOUT,
                 QueryRequestConfig.DEFAULT_SOCKET_TIMEOUT,
-                QueryResultFormat.JSON,
+                resultFormat,
                 PaginationOptions.defaultPaginationOptions(),
                 new HashMap<String, String>(),
                 null,
@@ -406,6 +578,127 @@ public class TestRestQueryResultPages {
 
     private static String serverBaseUrl(HttpServer server) {
         return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private static ResponseBody timeoutResponseBody(MediaType contentType) {
+        BufferedSource source = Okio.buffer(new Source() {
+            @Override
+            public long read(Buffer sink, long byteCount) throws IOException {
+                throw new SocketTimeoutException("timed out while reading Arrow schema");
+            }
+
+            @Override
+            public Timeout timeout() {
+                return Timeout.NONE;
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+        return ResponseBody.create(contentType, -1, source);
+    }
+
+    private static ResponseBody closeFailureResponseBody(MediaType contentType, byte[] payload) {
+        Buffer buffer = new Buffer().write(payload);
+        BufferedSource source = Okio.buffer(new Source() {
+            @Override
+            public long read(Buffer sink, long byteCount) {
+                return buffer.read(sink, byteCount);
+            }
+
+            @Override
+            public Timeout timeout() {
+                return Timeout.NONE;
+            }
+
+            @Override
+            public void close() throws IOException {
+                throw new IOException("unexpected end of stream while closing Arrow body");
+            }
+        });
+        return ResponseBody.create(contentType, payload.length, source);
+    }
+
+    private static Response arrowResponse(Interceptor.Chain chain, ResponseBody body) {
+        return new Response.Builder()
+                .request(chain.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(body)
+                .build();
+    }
+
+    private static byte[] malformedArrowResponse() {
+        // Complete IPC framing: continuation marker, metadata length 8, then eight bytes
+        // of invalid FlatBuffer metadata. This is malformed, not a truncated stream.
+        return new byte[] {-1, -1, -1, -1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    }
+
+    private static byte[] unsupportedArrowResponse() {
+        // Generated with ArrowStreamWriter from a non-null Interval(DAY_TIME) field named
+        // "d", the same valid response_header metadata as arrowResponse(), and two batches.
+        // Keep generation out of this test because ArrowStreamWriter is removed from the
+        // minimized release driver jar.
+        return Base64.getDecoder().decode(
+                "/////7gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA0AQAAAQAAAAwAAAAIAAwA"
+                        + "CAAEAAgAAAAIAAAABAEAAPsAAAB7ImlkIjoicWlkLWFycm93LXVuc3VwcG9ydGVkIiwibm9kZV9pZCI6Im5vZGUiLCJzZXNz"
+                        + "aW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJy"
+                        + "b3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmki"
+                        + "Om51bGwsImZpbmFsX3VyaSI6bnVsbCwibmV4dF91cmkiOm51bGwsImtpbGxfdXJpIjpudWxsfQAPAAAAcmVzcG9uc2VfaGVh"
+                        + "ZGVyAAEAAAAYAAAAAAASABgAFAAAABMADAAAAAgABAASAAAAFAAAABQAAAAcAAAAAAAACxwAAAAAAAAAAAAAAAAABgAIAAYA"
+                        + "BgAAAAAAAQABAAAAZAAAAP////+IAAAAFAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAYAAwA"
+                        + "CAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAIAAAAAAAAAAAAAAABAAAA"
+                        + "AQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAOgDAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAA"
+                        + "AAAEABAAAAAAAwoAGAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAA"
+                        + "CAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAIAAADQBwAA////"
+                        + "/wAAAAA=");
+    }
+
+    private static boolean hasCauseMessage(Throwable failure, String expectedMessage) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains(expectedMessage)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String causeMessages(Throwable failure) {
+        StringBuilder messages = new StringBuilder();
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (messages.length() > 0) {
+                messages.append(" -> ");
+            }
+            messages.append(current.getClass().getSimpleName()).append(": ").append(current.getMessage());
+        }
+        return messages.toString();
+    }
+
+    private static byte[] arrowResponse() {
+        // Generated with ArrowStreamWriter using an Int32 field named "n": call
+        // writer.start(), then for values 40, 41, and 42 set one row and call
+        // writer.writeBatch(), followed by writer.end(). Record output.size() after start,
+        // each batch, and end: schema=464, batches=624/784/944, stream=952. The retry test
+        // cuts at byte 864 so two complete ArrowRecordBatches must be released before retry.
+        // Keep generation out of this test because ArrowStreamWriter is removed from the
+        // minimized release driver jar.
+        return Base64.getDecoder().decode(
+                "/////8gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA8AQAAAQAAAAwAAAAIAAwA"
+                        + "CAAEAAgAAAAIAAAADAEAAAIBAAB7ImlkIjoicWlkLWFycm93LXJldHJ5Iiwibm9kZV9pZCI6Im5vZGUiLCJzZXNzaW9uIjp7"
+                        + "ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJyb3IiOm51"
+                        + "bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGws"
+                        + "ImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5leHRfdXJpIjpudWxsLCJraWxsX3VyaSI6bnVsbH0AAA8AAAByZXNw"
+                        + "b25zZV9oZWFkZXIAAQAAABgAAAAAABIAGAAUAAAAEwAMAAAACAAEABIAAAAUAAAAFAAAABwAAAAAAAACIAAAAAAAAAAAAAAA"
+                        + "CAAMAAgABwAIAAAAAAAAASAAAAABAAAAbgAAAAAAAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAA"
+                        + "AAAEABAAAAAAAwoAGAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAA"
+                        + "BAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAACgAAAAAAAAA/////4gAAAAUAAAAAAAAAAwAFgAOABUA"
+                        + "EAAEAAwAAAAQAAAAAAAAAAAABAAQAAAAAAMKABgADAAIAAQACgAAABQAAAA4AAAAAQAAAAAAAAAAAAAAAgAAAAAAAAAAAAAA"
+                        + "AQAAAAAAAAAIAAAAAAAAAAQAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAApAAAAAAAAAP////+IAAAA"
+                        + "FAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAYAAwACAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAA"
+                        + "AAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAEAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA"
+                        + "KgAAAAAAAAD/////AAAAAA==");
     }
 
     private static String queryResponse(String queryId, String nextUri, String value) {
