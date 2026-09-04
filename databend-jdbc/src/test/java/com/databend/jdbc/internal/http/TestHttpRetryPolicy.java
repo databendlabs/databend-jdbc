@@ -255,14 +255,11 @@ public class TestHttpRetryPolicy {
     @Test(groups = {"UNIT"})
     public void testSocketTimeoutExceptionIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(new SocketTimeoutException("timed out")));
-        Assert.assertTrue(HttpRetryPolicy.isRetryableTransportIOException(new SocketTimeoutException("timed out")));
     }
 
     @Test(groups = {"UNIT"})
     public void testArrowUnexpectedEndOfStreamIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
-                new IOException("Unexpected end of stream trying to read message.")));
-        Assert.assertFalse(HttpRetryPolicy.isRetryableTransportIOException(
                 new IOException("Unexpected end of stream trying to read message.")));
     }
 

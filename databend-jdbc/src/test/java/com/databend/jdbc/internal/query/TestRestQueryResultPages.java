@@ -220,31 +220,29 @@ public class TestRestQueryResultPages {
     }
 
     @Test(groups = {"UNIT_ARROW"})
-    public void testTruncatedArrowHeaderIsNotRetried() {
+    public void testTruncatedArrowHeaderIsRetried() throws Exception {
         byte[] payload = arrowResponse();
         AtomicInteger attempts = new AtomicInteger();
         MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
         OkHttpClient client = new OkHttpClient.Builder()
                 .addInterceptor((Interceptor) chain -> {
-                    attempts.incrementAndGet();
-                    byte[] responsePayload = Arrays.copyOf(payload, 64);
+                    byte[] responsePayload = attempts.incrementAndGet() == 1
+                            ? Arrays.copyOf(payload, 64)
+                            : payload;
                     return arrowResponse(chain, ResponseBody.create(arrowMediaType, responsePayload));
                 })
                 .build();
 
-        DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
-                new RestQueryResultPages(
-                        client,
-                        "select 42",
-                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
-                        null,
-                        new AtomicReference<>()));
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
 
-        Assert.assertEquals(attempts.get(), 1);
-        Assert.assertTrue(exception.getCause() instanceof java.sql.SQLException,
-                exception.getCause().toString());
-        Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
-                exception.getCause().getMessage());
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        pages.close();
     }
 
     @Test(groups = {"UNIT_ARROW"})
