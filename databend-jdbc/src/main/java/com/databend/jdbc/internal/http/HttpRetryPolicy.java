@@ -10,8 +10,6 @@ import okhttp3.ResponseBody;
 
 import java.io.IOException;
 import java.net.ConnectException;
-import java.net.ProtocolException;
-import java.net.SocketException;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -87,7 +85,13 @@ public class HttpRetryPolicy {
         if (e instanceof NonRetryableHttpStatusException) {
             return false;
         }
-        if (isRetryableTransportIOException(e)) {
+        if (e instanceof RetryableHttpStatusException) {
+            return true;
+        }
+        if (e instanceof SocketTimeoutException) {
+            return true;
+        }
+        if (e.getCause() instanceof ConnectException) {
             return true;
         }
         String msg = e.getMessage();
@@ -96,24 +100,6 @@ public class HttpRetryPolicy {
         }
         String normalizedMessage = msg.toLowerCase(Locale.ENGLISH);
         return ERROR_KEYWORDS.stream().anyMatch(normalizedMessage::contains);
-    }
-
-    public static boolean isRetryableTransportIOException(IOException e) {
-        if (e instanceof NonRetryableHttpStatusException) {
-            return false;
-        }
-        if (e instanceof RetryableHttpStatusException) {
-            return true;
-        }
-        for (Throwable cause = e; cause != null; cause = cause.getCause()) {
-            if (cause instanceof SocketTimeoutException
-                    || cause instanceof ConnectException
-                    || cause instanceof SocketException
-                    || cause instanceof ProtocolException) {
-                return true;
-            }
-        }
-        return false;
     }
 
     public boolean shouldRetry(IOException e) {

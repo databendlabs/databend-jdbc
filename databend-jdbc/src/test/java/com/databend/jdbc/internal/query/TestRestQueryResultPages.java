@@ -25,6 +25,7 @@ import java.net.ConnectException;
 import java.net.InetSocketAddress;
 import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -117,38 +118,29 @@ public class TestRestQueryResultPages {
     }
 
     @Test(groups = {"UNIT_ARROW"})
-    public void testMalformedArrowResponseRaisesDatabendQueryException() throws Exception {
-        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
-        server.createContext("/v1/query", exchange -> {
-            try {
-                byte[] payload = "not-arrow".getBytes(StandardCharsets.UTF_8);
-                exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
-                exchange.sendResponseHeaders(200, payload.length);
-                exchange.getResponseBody().write(payload);
-            }
-            finally {
-                exchange.close();
-            }
-        });
-        server.start();
+    public void testMalformedArrowResponseRaisesDatabendQueryException() {
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    attempts.incrementAndGet();
+                    return arrowResponse(chain, ResponseBody.create(arrowMediaType, malformedArrowResponse()));
+                })
+                .build();
 
-        try {
-            DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
-                    new RestQueryResultPages(
-                            new OkHttpClient(),
-                            "select 1",
-                            requestConfig(serverBaseUrl(server)),
-                            null,
-                            new AtomicReference<>()));
+        DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
+                new RestQueryResultPages(
+                        client,
+                        "select 1",
+                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                        null,
+                        new AtomicReference<>()));
 
-            Assert.assertTrue(exception.getMessage().contains("Failed to execute query request"), exception.getMessage());
-            Assert.assertNotNull(exception.getCause());
-            Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
-                    exception.getCause().getMessage());
-        }
-        finally {
-            server.stop(0);
-        }
+        Assert.assertTrue(exception.getMessage().contains("Failed to execute query request"), exception.getMessage());
+        Assert.assertNotNull(exception.getCause());
+        Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
+                exception.getCause().getMessage());
+        Assert.assertEquals(attempts.get(), 1);
     }
 
     @Test(groups = {"UNIT_ARROW"})
@@ -224,6 +216,32 @@ public class TestRestQueryResultPages {
         Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
         Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
         Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+        pages.close();
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testTruncatedArrowHeaderIsRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    byte[] responsePayload = attempts.incrementAndGet() == 1
+                            ? Arrays.copyOf(payload, 64)
+                            : payload;
+                    return arrowResponse(chain, ResponseBody.create(arrowMediaType, responsePayload));
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
         pages.close();
     }
 
@@ -516,6 +534,22 @@ public class TestRestQueryResultPages {
             }
         });
         return ResponseBody.create(contentType, -1, source);
+    }
+
+    private static Response arrowResponse(Interceptor.Chain chain, ResponseBody body) {
+        return new Response.Builder()
+                .request(chain.request())
+                .protocol(Protocol.HTTP_1_1)
+                .code(200)
+                .message("OK")
+                .body(body)
+                .build();
+    }
+
+    private static byte[] malformedArrowResponse() {
+        // Complete IPC framing: continuation marker, metadata length 8, then eight bytes
+        // of invalid FlatBuffer metadata. This is malformed, not a truncated stream.
+        return new byte[] {-1, -1, -1, -1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
     }
 
     private static byte[] arrowResponse() {

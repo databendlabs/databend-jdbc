@@ -178,7 +178,6 @@ public class RestQueryResultPages implements QueryResultPages {
 
     private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws IOException, SQLException {
         BufferAllocator allocator = rootAllocator().newChildAllocator("databend-jdbc-arrow-page", 0, Long.MAX_VALUE);
-        boolean responseHeaderDecoded = false;
         try (ArrowStreamReader reader = new ArrowStreamReader(
                 body,
                 allocator,
@@ -191,7 +190,6 @@ public class RestQueryResultPages implements QueryResultPages {
             }
 
             QueryResults results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
-            responseHeaderDecoded = true;
             List<ArrowRecordBatch> recordBatches = new ArrayList<>();
             try {
                 while (reader.loadNextBatch()) {
@@ -212,8 +210,7 @@ public class RestQueryResultPages implements QueryResultPages {
                     ArrowResultPage.schemaToFields(schema));
         } catch (IOException e) {
             closeAllocator(allocator, e);
-            if (HttpRetryPolicy.isRetryableTransportIOException(e)
-                    || (responseHeaderDecoded && HttpRetryPolicy.isRetryableIOException(e))) {
+            if (HttpRetryPolicy.isRetryableIOException(e)) {
                 throw e;
             }
             throw new SQLException("Failed to decode Arrow response", e);
