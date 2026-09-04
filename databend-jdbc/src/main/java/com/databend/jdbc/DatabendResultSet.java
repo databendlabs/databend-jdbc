@@ -28,8 +28,8 @@ import static java.util.concurrent.Executors.newCachedThreadPool;
 
 public class DatabendResultSet extends AbstractDatabendResultSet {
     private final Statement statement;
-    @GuardedBy("this")
-    private boolean closed;
+    // Writes remain guarded by this; unsynchronized reads rely on volatile visibility.
+    private volatile boolean closed;
     @GuardedBy("this")
     private boolean closeStatementOnClose;
 
