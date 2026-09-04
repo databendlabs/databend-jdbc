@@ -212,7 +212,10 @@ public class RestQueryResultPages implements QueryResultPages {
                     ArrowResultPage.schemaToFields(schema));
         } catch (IOException e) {
             allocator.close();
-            throw e;
+            if (HttpRetryPolicy.isRetryableIOException(e)) {
+                throw e;
+            }
+            throw new SQLException("Failed to decode Arrow response", e);
         } catch (Exception e) {
             allocator.close();
             if (e instanceof SQLException) {
