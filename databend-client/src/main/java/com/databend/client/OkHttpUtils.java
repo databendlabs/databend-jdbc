@@ -60,6 +60,8 @@ public final class OkHttpUtils {
     }
 
     public static void setupInsecureSsl(OkHttpClient.Builder clientBuilder) {
+        // Legacy databend-client API retained for compatibility. JDBC uses its own cached TLS
+        // configuration; new JDBC code must not copy this per-call initialization.
         try {
             X509TrustManager trustAllCerts = new X509TrustManager() {
                 @Override

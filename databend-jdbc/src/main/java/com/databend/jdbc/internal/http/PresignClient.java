@@ -47,6 +47,10 @@ public class PresignClient {
                 .build();
     }
 
+    OkHttpClient clientForTesting() {
+        return client;
+    }
+
     private void uploadFromStream(InputStream inputStream, Headers headers, String presignedUrl, long fileSize)
             throws IOException
     {
