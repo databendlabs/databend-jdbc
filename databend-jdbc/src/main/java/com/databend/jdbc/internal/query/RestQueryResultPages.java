@@ -20,9 +20,7 @@ import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.VectorUnloader;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
@@ -178,7 +176,7 @@ public class RestQueryResultPages implements QueryResultPages {
 
     private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws IOException, SQLException {
         BufferAllocator allocator = rootAllocator().newChildAllocator("databend-jdbc-arrow-page", 0, Long.MAX_VALUE);
-        List<ArrowRecordBatch> recordBatches = new ArrayList<>();
+        List<VectorSchemaRoot> batches = new ArrayList<>();
         org.apache.arrow.vector.types.pojo.Schema schema;
         QueryResults results;
         try (ArrowStreamReader reader = new ArrowStreamReader(
@@ -194,40 +192,40 @@ public class RestQueryResultPages implements QueryResultPages {
 
             results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
             while (reader.loadNextBatch()) {
-                recordBatches.add(new VectorUnloader(root).getRecordBatch());
+                batches.add(ArrowResultPage.transferBatch(root, allocator));
             }
         } catch (IOException e) {
-            closeRecordBatches(recordBatches, e);
+            closeBatches(batches, e);
             closeAllocator(allocator, e);
             if (HttpRetryPolicy.isRetryableIOException(e)) {
                 throw e;
             }
             throw new SQLException("Failed to decode Arrow response", e);
         } catch (Error e) {
-            closeRecordBatches(recordBatches, e);
+            closeBatches(batches, e);
             closeAllocator(allocator, e);
             throw e;
         } catch (Exception e) {
-            closeRecordBatches(recordBatches, e);
+            closeBatches(batches, e);
             closeAllocator(allocator, e);
             throw new SQLException("Failed to decode Arrow response", e);
         }
 
         try {
             List<QueryRowField> fields = ArrowResultPage.schemaToFields(schema);
-            ResultPage page = ArrowResultPage.fromRecordBatches(allocator, schema, recordBatches, effectiveSettings(results));
+            ResultPage page = new ArrowResultPage(allocator, batches, effectiveSettings(results));
             return new ResponsePayload(response.code(), response.headers(), results, page, fields);
         } catch (SQLException | RuntimeException | Error e) {
-            closeRecordBatches(recordBatches, e);
+            closeBatches(batches, e);
             closeAllocator(allocator, e);
             throw e;
         }
     }
 
-    private static void closeRecordBatches(List<ArrowRecordBatch> recordBatches, Throwable failure) {
-        for (ArrowRecordBatch recordBatch : recordBatches) {
+    private static void closeBatches(List<VectorSchemaRoot> batches, Throwable failure) {
+        for (VectorSchemaRoot batch : batches) {
             try {
-                recordBatch.close();
+                ArrowResultPage.closeRoot(batch);
             }
             catch (Throwable closeFailure) {
                 failure.addSuppressed(closeFailure);

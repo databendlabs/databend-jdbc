@@ -681,7 +681,7 @@ public class TestRestQueryResultPages {
         // writer.start(), then for values 40, 41, and 42 set one row and call
         // writer.writeBatch(), followed by writer.end(). Record output.size() after start,
         // each batch, and end: schema=464, batches=624/784/944, stream=952. The retry test
-        // cuts at byte 864 so two complete ArrowRecordBatches must be released before retry.
+        // cuts at byte 864 so two transferred VectorSchemaRoots must be released before retry.
         // Keep generation out of this test because ArrowStreamWriter is removed from the
         // minimized release driver jar.
         return Base64.getDecoder().decode(
