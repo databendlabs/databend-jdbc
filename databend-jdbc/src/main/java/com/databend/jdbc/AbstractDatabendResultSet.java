@@ -31,8 +31,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.TimeZone;
-import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicLong;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -69,12 +67,17 @@ abstract class AbstractDatabendResultSet implements ResultSet {
     private static final Pattern TIME_PATTERN = Pattern.compile("(?<hour>\\d{1,2}):(?<minute>\\d{1,2}):(?<second>\\d{1,2})(?:\\.(?<fraction>\\d+))?");
     protected final ResultCursor results;
     private final Optional<Statement> statement;
-    private final AtomicBoolean validRow = new AtomicBoolean();
+    // A ResultSet has a single reader in this driver. These fields track sequential row traversal
+    // and are intentionally not synchronized.
+    private boolean validRow;
     // Index into 'rows' of our current row (1-based)
-    private final AtomicLong currentRowNumber = new AtomicLong();
-    private final AtomicBoolean wasNull = new AtomicBoolean();
+    private long currentRowNumber;
+    private boolean wasNull;
     private final Map<String, Integer> fieldMap;
     private final List<DatabendColumnInfo> databendColumnInfoList;
+    // Avoid repeated interval type inspection in the getObject(int) hot path.
+    private final boolean[] intervalColumns;
+    private final int columnCount;
     private final ResultSetMetaData resultSetMetaData;
     private final ZoneId resultTimeZone;
     private final boolean isResultTimeZoneFromServer;
@@ -85,6 +88,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         this.statement = requireNonNull(statement, "statement is null");
         this.fieldMap = getFieldMap(schema);
         this.databendColumnInfoList = getColumnInfo(schema);
+        this.columnCount = databendColumnInfoList.size();
+        this.intervalColumns = new boolean[columnCount];
+        for (int i = 0; i < columnCount; i++) {
+            DatabendRawType type = databendColumnInfoList.get(i).getType();
+            intervalColumns[i] = DatabendRawType.startsWithIgnoreCase(type.getType(), DatabendTypes.INTERVAL);
+        }
         this.results = requireNonNull(results, "results is null");
         this.resultSetMetaData = new DatabendResultSetMetaData(databendColumnInfoList);
         ZoneId timeZone = TimeZone.getDefault().toZoneId();
@@ -231,12 +240,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         checkOpen();
         try {
             if (!results.next()) {
-                validRow.set(false);
-                currentRowNumber.set(0);
+                validRow = false;
+                currentRowNumber = 0;
                 return false;
             }
-            validRow.set(true);
-            currentRowNumber.incrementAndGet();
+            validRow = true;
+            currentRowNumber++;
             return true;
         } catch (RuntimeException e) {
             SQLException sqlException = SqlExceptions.findSQLException(e);
@@ -249,12 +258,12 @@ abstract class AbstractDatabendResultSet implements ResultSet {
 
     @Override
     public boolean wasNull() throws SQLException {
-        return wasNull.get();
+        return wasNull;
     }
 
     private void checkValidRow()
             throws SQLException {
-        if (!validRow.get()) {
+        if (!validRow) {
             throw new SQLException("Not on a valid row");
         }
     }
@@ -263,16 +272,15 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             throws SQLException {
         checkOpen();
         checkValidRow();
-        if ((index <= 0) || (index > resultSetMetaData.getColumnCount())) {
+        if ((index <= 0) || (index > columnCount)) {
             throw new SQLException("Invalid column index: " + index);
         }
         Object value = results.getValue(index - 1);
         if (value == null) {
-            wasNull.set(true);
+            wasNull = true;
             return null;
-        } else {
-            wasNull.set(false);
         }
+        wasNull = false;
 
         return value;
     }
@@ -765,8 +773,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
         if (value == null) {
             return null;
         }
-        DatabendRawType databendRawType = this.databendColumnInfoList.get(columnIndex - 1).getType();
-        if (DatabendRawType.startsWithIgnoreCase(databendRawType.getType(), DatabendTypes.INTERVAL)) {
+        if (intervalColumns[columnIndex - 1]) {
             if (value instanceof IntervalValue) {
                 return ((IntervalValue) value).asDuration();
             }
@@ -878,7 +885,7 @@ abstract class AbstractDatabendResultSet implements ResultSet {
             throws SQLException {
         checkOpen();
 
-        long rowNumber = currentRowNumber.get();
+        long rowNumber = currentRowNumber;
         if (rowNumber < 0 || rowNumber > Integer.MAX_VALUE) {
             throw new SQLException("Current row exceeds limit of 2147483647");
         }
