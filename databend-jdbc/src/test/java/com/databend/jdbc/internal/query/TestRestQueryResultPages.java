@@ -173,18 +173,45 @@ public class TestRestQueryResultPages {
 
     @Test(groups = {"UNIT_ARROW"})
     public void testTruncatedArrowBodyIsRetried() throws Exception {
+        // Cut inside batch 3, after batches 1 and 2 have decoded.
+        assertTruncatedArrowBodyIsRetried(arrowResponse(), 864, "qid-arrow-retry", 40, 41, 42);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowBodyTruncatedAtBatchBoundaryIsRetried() throws Exception {
+        // Cut exactly where batch 2 ends, dropping batch 3 and the end-of-stream frame.
+        // The reader runs out of input on a message boundary, so the batch loop ends the
+        // same way it would for a complete stream.
+        assertTruncatedArrowBodyIsRetried(arrowResponse(), 784, "qid-arrow-retry", 40, 41, 42);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowBodyMissingEndOfStreamFrameIsRetried() throws Exception {
+        // All three batches arrive and only the end-of-stream frame is lost.
+        assertTruncatedArrowBodyIsRetried(arrowResponse(), 944, "qid-arrow-retry", 40, 41, 42);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowBodyEndingInEndOfStreamBytesIsRetried() throws Exception {
+        // Cut where batch 1 ends. Its payload's last eight bytes are byte for byte the
+        // end-of-stream marker, so truncation has to be judged on framing: comparing the
+        // trailing bytes accepts this body and silently drops batches 2 and 3.
+        assertTruncatedArrowBodyIsRetried(eosLookalikeArrowResponse(), 632, "qid-arrow-eos-lookalike", -1, 41, 42);
+    }
+
+    private static void assertTruncatedArrowBodyIsRetried(
+            byte[] payload, int cutoff, String expectedQueryId, int... expectedValues) throws Exception {
         long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
-        byte[] payload = arrowResponse();
-        int thirdBatchCutoff = 864;
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/v1/query", exchange -> {
             try {
                 int attempt = attempts.incrementAndGet();
                 exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
+                // Chunked: without a Content-Length the transport cannot detect the
+                // short body, so truncation has to be caught while decoding.
                 exchange.sendResponseHeaders(200, 0);
-                int bytesToWrite = attempt == 1 ? thirdBatchCutoff : payload.length;
-                exchange.getResponseBody().write(payload, 0, bytesToWrite);
+                exchange.getResponseBody().write(payload, 0, attempt == 1 ? cutoff : payload.length);
             }
             finally {
                 exchange.close();
@@ -200,15 +227,15 @@ public class TestRestQueryResultPages {
                     null,
                     new AtomicReference<>());
 
-            Assert.assertEquals(attempts.get(), 2);
-            Assert.assertEquals(pages.getResults().getQueryId(), "qid-arrow-retry");
-            Assert.assertEquals(pages.getPage().getRowCount(), 3);
-            Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
-            Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
-            Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+            Assert.assertEquals(attempts.get(), 2, "truncated Arrow body was not retried");
+            Assert.assertEquals(pages.getResults().getQueryId(), expectedQueryId);
+            Assert.assertEquals(pages.getPage().getRowCount(), expectedValues.length);
+            for (int row = 0; row < expectedValues.length; row++) {
+                Assert.assertEquals(pages.getPage().getValue(row, 0), expectedValues[row]);
+            }
             pages.close();
             Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
-                    "truncated Arrow attempt leaked decoded record batches");
+                    "truncated Arrow attempt leaked decoded batches");
         }
         finally {
             server.stop(0);
@@ -699,6 +726,35 @@ public class TestRestQueryResultPages {
                         + "FAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAYAAwACAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAA"
                         + "AAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAEAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA"
                         + "KgAAAAAAAAD/////AAAAAA==");
+    }
+
+    private static byte[] eosLookalikeArrowResponse() {
+        // Generated with ArrowStreamWriter using a non-nullable Int32 field named "n" and
+        // one row per batch for the values -1, 41, and 42. Sizes after start, each batch,
+        // and end: schema=472, batches=632/792/952, stream=960.
+        //
+        // Batch 1 exists to defeat a trailing-byte check. Its data buffer holds -1, four
+        // 0xFF bytes, and is then zero-padded to eight, so the batch ends with
+        // FF FF FF FF 00 00 00 00: byte for byte the Arrow end-of-stream marker. Cutting
+        // the body at 632 therefore yields a truncated stream whose last eight bytes look
+        // exactly like a complete one.
+        //
+        // Keep generation out of this test because ArrowStreamWriter is removed from the
+        // minimized release driver jar.
+        return Base64.getDecoder().decode(
+                "/////9ABAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAABEAQAAAQAAAAwAAAAIAAwACAAE"
+                        + "AAgAAAAIAAAAFAEAAAoBAAB7ImlkIjoicWlkLWFycm93LWVvcy1sb29rYWxpa2UiLCJub2RlX2lkIjoibm9kZSIsInNlc3Npb24i"
+                        + "OnsiZGF0YWJhc2UiOiJkZWZhdWx0In0sInNjaGVtYSI6W10sImRhdGEiOltdLCJzdGF0ZSI6IlJ1bm5pbmciLCJlcnJvciI6bnVs"
+                        + "bCwic3RhdHMiOm51bGwsImFmZmVjdCI6bnVsbCwicmVzdWx0X3RpbWVvdXRfc2VjcyI6MzAsInN0YXRzX3VyaSI6bnVsbCwiZmlu"
+                        + "YWxfdXJpIjoiL3YxL3F1ZXJ5L2ZpbmFsIiwibmV4dF91cmkiOm51bGwsImtpbGxfdXJpIjpudWxsfQAADwAAAHJlc3BvbnNlX2hl"
+                        + "YWRlcgABAAAAGAAAAAAAEgAYABQAAAATAAwAAAAIAAQAEgAAABQAAAAUAAAAHAAAAAAAAAIgAAAAAAAAAAAAAAAIAAwACAAHAAgA"
+                        + "AAAAAAABIAAAAAEAAABuAAAAAAAAAP////+IAAAAFAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAY"
+                        + "AAwACAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAEAAAAAAAAAAAAAAABAAAA"
+                        + "AQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA/////wAAAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAAAAAE"
+                        + "ABAAAAAAAwoAGAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAABAAAAAAA"
+                        + "AAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAACkAAAAAAAAA/////4gAAAAUAAAAAAAAAAwAFgAOABUAEAAEAAwAAAAQ"
+                        + "AAAAAAAAAAAABAAQAAAAAAMKABgADAAIAAQACgAAABQAAAA4AAAAAQAAAAAAAAAAAAAAAgAAAAAAAAAAAAAAAQAAAAAAAAAIAAAA"
+                        + "AAAAAAQAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAqAAAAAAAAAP////8AAAAA");
     }
 
     private static String queryResponse(String queryId, String nextUri, String value) {

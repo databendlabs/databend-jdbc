@@ -88,6 +88,9 @@ public class HttpRetryPolicy {
         if (e instanceof RetryableHttpStatusException) {
             return true;
         }
+        if (e instanceof TruncatedResponseException) {
+            return true;
+        }
         if (e instanceof SocketTimeoutException) {
             return true;
         }
