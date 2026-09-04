@@ -264,6 +264,13 @@ public class TestHttpRetryPolicy {
     }
 
     @Test(groups = {"UNIT"})
+    public void testTruncatedResponseExceptionIsRetryable() {
+        // Classified by type, not by message wording.
+        Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
+                new TruncatedResponseException("body ended early")));
+    }
+
+    @Test(groups = {"UNIT"})
     public void testRetryableHttpStatusCodes() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(502));
         Assert.assertTrue(HttpRetryPolicy.isRetryableHttpStatus(503));
