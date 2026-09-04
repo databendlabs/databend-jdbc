@@ -8,26 +8,15 @@ import com.databend.jdbc.internal.session.SessionState;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.IntVector;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowStreamWriter;
-import org.apache.arrow.vector.types.pojo.ArrowType;
-import org.apache.arrow.vector.types.pojo.Field;
-import org.apache.arrow.vector.types.pojo.FieldType;
-import org.apache.arrow.vector.types.pojo.Schema;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
-import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
-import java.util.Collections;
+import java.util.Base64;
 import java.util.HashMap;
-import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -154,7 +143,7 @@ public class TestRestQueryResultPages {
 
     @Test(groups = {"UNIT_ARROW"})
     public void testTruncatedArrowBodyIsRetried() throws Exception {
-        byte[] payload = arrowResponse(42);
+        byte[] payload = arrowResponse();
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/v1/query", exchange -> {
@@ -461,23 +450,18 @@ public class TestRestQueryResultPages {
         return "http://127.0.0.1:" + server.getAddress().getPort();
     }
 
-    private static byte[] arrowResponse(int value) throws Exception {
-        Map<String, String> metadata = new HashMap<>();
-        metadata.put("response_header", queryResponse("qid-arrow-retry", null, null));
-        Field field = new Field("n", FieldType.notNullable(new ArrowType.Int(32, true)), null);
-        Schema schema = new Schema(Collections.singletonList(field), metadata);
-        try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
-                VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-                ByteArrayOutputStream output = new ByteArrayOutputStream();
-                ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(output))) {
-            root.allocateNew();
-            ((IntVector) root.getVector(0)).setSafe(0, value);
-            root.setRowCount(1);
-            writer.start();
-            writer.writeBatch();
-            writer.end();
-            return output.toByteArray();
-        }
+    private static byte[] arrowResponse() {
+        return Base64.getDecoder().decode(
+                "/////8gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA8AQAAAQAAAAwAAAAI"
+                        + "AAwACAAEAAgAAAAIAAAADAEAAAIBAAB7ImlkIjoicWlkLWFycm93LXJldHJ5Iiwibm9kZV9pZCI6Im5vZGUi"
+                        + "LCJzZXNzaW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUi"
+                        + "OiJSdW5uaW5nIiwiZXJyb3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1l"
+                        + "b3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGwsImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5l"
+                        + "eHRfdXJpIjpudWxsLCJraWxsX3VyaSI6bnVsbH0AAA8AAAByZXNwb25zZV9oZWFkZXIAAQAAABgAAAAAABIA"
+                        + "GAAUAAAAEwAMAAAACAAEABIAAAAUAAAAFAAAABwAAAAAAAACIAAAAAAAAAAAAAAACAAMAAgABwAIAAAAAAAAASAA"
+                        + "AAABAAAAbgAAAAAAAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAAAAAEABAAAAAAAwoA"
+                        + "GAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAABAAAAAAA"
+                        + "AAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAACoAAAAAAAAA/////wAAAAA=");
     }
 
     private static String queryResponse(String queryId, String nextUri, String value) {
