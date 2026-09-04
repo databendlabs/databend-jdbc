@@ -176,7 +176,7 @@ public class RestQueryResultPages implements QueryResultPages {
                 results == null ? null : results.getSchema());
     }
 
-    private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws SQLException {
+    private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws IOException, SQLException {
         BufferAllocator allocator = rootAllocator().newChildAllocator("databend-jdbc-arrow-page", 0, Long.MAX_VALUE);
         try (ArrowStreamReader reader = new ArrowStreamReader(
                 body,
@@ -191,8 +191,16 @@ public class RestQueryResultPages implements QueryResultPages {
 
             QueryResults results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
             List<ArrowRecordBatch> recordBatches = new ArrayList<>();
-            while (reader.loadNextBatch()) {
-                recordBatches.add(new VectorUnloader(root).getRecordBatch());
+            try {
+                while (reader.loadNextBatch()) {
+                    recordBatches.add(new VectorUnloader(root).getRecordBatch());
+                }
+            }
+            catch (IOException e) {
+                for (ArrowRecordBatch recordBatch : recordBatches) {
+                    recordBatch.close();
+                }
+                throw e;
             }
 
             ResultPage page = ArrowResultPage.fromRecordBatches(allocator, schema, recordBatches, effectiveSettings(results));
@@ -202,6 +210,9 @@ public class RestQueryResultPages implements QueryResultPages {
                     results,
                     page,
                     ArrowResultPage.schemaToFields(schema));
+        } catch (IOException e) {
+            allocator.close();
+            throw e;
         } catch (Exception e) {
             allocator.close();
             if (e instanceof SQLException) {

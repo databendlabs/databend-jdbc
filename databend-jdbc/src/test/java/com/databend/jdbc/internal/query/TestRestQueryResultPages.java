@@ -8,14 +8,26 @@ import com.databend.jdbc.internal.session.SessionState;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.Interceptor;
 import okhttp3.OkHttpClient;
+import org.apache.arrow.memory.RootAllocator;
+import org.apache.arrow.vector.IntVector;
+import org.apache.arrow.vector.VectorSchemaRoot;
+import org.apache.arrow.vector.ipc.ArrowStreamWriter;
+import org.apache.arrow.vector.types.pojo.ArrowType;
+import org.apache.arrow.vector.types.pojo.Field;
+import org.apache.arrow.vector.types.pojo.FieldType;
+import org.apache.arrow.vector.types.pojo.Schema;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.nio.channels.Channels;
 import java.nio.charset.StandardCharsets;
+import java.util.Collections;
 import java.util.HashMap;
+import java.util.Map;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -134,6 +146,43 @@ public class TestRestQueryResultPages {
             Assert.assertNotNull(exception.getCause());
             Assert.assertTrue(exception.getCause().getMessage().contains("Failed to decode Arrow response"),
                     exception.getCause().getMessage());
+        }
+        finally {
+            server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testTruncatedArrowBodyIsRetried() throws Exception {
+        byte[] payload = arrowResponse(42);
+        AtomicInteger attempts = new AtomicInteger();
+        HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
+        server.createContext("/v1/query", exchange -> {
+            try {
+                int attempt = attempts.incrementAndGet();
+                exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
+                exchange.sendResponseHeaders(200, payload.length);
+                int bytesToWrite = attempt == 1 ? payload.length / 2 : payload.length;
+                exchange.getResponseBody().write(payload, 0, bytesToWrite);
+            }
+            finally {
+                exchange.close();
+            }
+        });
+        server.start();
+
+        try {
+            RestQueryResultPages pages = new RestQueryResultPages(
+                    new OkHttpClient(),
+                    "select 42",
+                    requestConfig(serverBaseUrl(server), QueryResultFormat.ARROW),
+                    null,
+                    new AtomicReference<>());
+
+            Assert.assertEquals(attempts.get(), 2);
+            Assert.assertEquals(pages.getResults().getQueryId(), "qid-arrow-retry");
+            Assert.assertEquals(pages.getPage().getValue(0, 0), 42);
+            pages.close();
         }
         finally {
             server.stop(0);
@@ -391,13 +440,17 @@ public class TestRestQueryResultPages {
     }
 
     private static QueryRequestConfig requestConfig(String host) {
+        return requestConfig(host, QueryResultFormat.JSON);
+    }
+
+    private static QueryRequestConfig requestConfig(String host, QueryResultFormat resultFormat) {
         return new QueryRequestConfig(
                 host,
                 SessionState.createDefault(),
                 QueryRequestConfig.DEFAULT_QUERY_TIMEOUT,
                 QueryRequestConfig.DEFAULT_CONNECTION_TIMEOUT,
                 QueryRequestConfig.DEFAULT_SOCKET_TIMEOUT,
-                QueryResultFormat.JSON,
+                resultFormat,
                 PaginationOptions.defaultPaginationOptions(),
                 new HashMap<String, String>(),
                 null,
@@ -406,6 +459,25 @@ public class TestRestQueryResultPages {
 
     private static String serverBaseUrl(HttpServer server) {
         return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private static byte[] arrowResponse(int value) throws Exception {
+        Map<String, String> metadata = new HashMap<>();
+        metadata.put("response_header", queryResponse("qid-arrow-retry", null, null));
+        Field field = new Field("n", FieldType.notNullable(new ArrowType.Int(32, true)), null);
+        Schema schema = new Schema(Collections.singletonList(field), metadata);
+        try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+                VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
+                ByteArrayOutputStream output = new ByteArrayOutputStream();
+                ArrowStreamWriter writer = new ArrowStreamWriter(root, null, Channels.newChannel(output))) {
+            root.allocateNew();
+            ((IntVector) root.getVector(0)).setSafe(0, value);
+            root.setRowCount(1);
+            writer.start();
+            writer.writeBatch();
+            writer.end();
+            return output.toByteArray();
+        }
     }
 
     private static String queryResponse(String queryId, String nextUri, String value) {
