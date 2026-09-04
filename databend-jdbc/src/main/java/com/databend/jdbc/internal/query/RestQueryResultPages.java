@@ -179,53 +179,51 @@ public class RestQueryResultPages implements QueryResultPages {
     private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws IOException, SQLException {
         BufferAllocator allocator = rootAllocator().newChildAllocator("databend-jdbc-arrow-page", 0, Long.MAX_VALUE);
         boolean responseHeaderDecoded = false;
+        List<ArrowRecordBatch> recordBatches = new ArrayList<>();
+        org.apache.arrow.vector.types.pojo.Schema schema;
+        QueryResults results;
         try (ArrowStreamReader reader = new ArrowStreamReader(
                 body,
                 allocator,
                 CommonsCompressionFactory.INSTANCE)) {
             VectorSchemaRoot root = reader.getVectorSchemaRoot();
-            org.apache.arrow.vector.types.pojo.Schema schema = root.getSchema();
+            schema = root.getSchema();
             String responseHeader = schema.getCustomMetadata().get("response_header");
             if (responseHeader == null) {
                 throw new DatabendQueryException("Missing response_header metadata in Arrow payload");
             }
 
-            QueryResults results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
+            results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
             responseHeaderDecoded = true;
-            List<ArrowRecordBatch> recordBatches = new ArrayList<>();
-            try {
-                while (reader.loadNextBatch()) {
-                    recordBatches.add(new VectorUnloader(root).getRecordBatch());
-                }
+            while (reader.loadNextBatch()) {
+                recordBatches.add(new VectorUnloader(root).getRecordBatch());
             }
-            catch (IOException | RuntimeException | Error e) {
-                closeRecordBatches(recordBatches, e);
-                throw e;
-            }
-
-            ResultPage page = ArrowResultPage.fromRecordBatches(allocator, schema, recordBatches, effectiveSettings(results));
-            return new ResponsePayload(
-                    response.code(),
-                    response.headers(),
-                    results,
-                    page,
-                    ArrowResultPage.schemaToFields(schema));
         } catch (IOException e) {
+            closeRecordBatches(recordBatches, e);
             closeAllocator(allocator, e);
             if (HttpRetryPolicy.isRetryableTransportIOException(e)
                     || (responseHeaderDecoded && HttpRetryPolicy.isRetryableIOException(e))) {
                 throw e;
             }
             throw new SQLException("Failed to decode Arrow response", e);
-        } catch (SQLException e) {
-            closeAllocator(allocator, e);
-            throw e;
         } catch (Error e) {
+            closeRecordBatches(recordBatches, e);
             closeAllocator(allocator, e);
             throw e;
         } catch (Exception e) {
+            closeRecordBatches(recordBatches, e);
             closeAllocator(allocator, e);
             throw new SQLException("Failed to decode Arrow response", e);
+        }
+
+        try {
+            List<QueryRowField> fields = ArrowResultPage.schemaToFields(schema);
+            ResultPage page = ArrowResultPage.fromRecordBatches(allocator, schema, recordBatches, effectiveSettings(results));
+            return new ResponsePayload(response.code(), response.headers(), results, page, fields);
+        } catch (SQLException | RuntimeException | Error e) {
+            closeRecordBatches(recordBatches, e);
+            closeAllocator(allocator, e);
+            throw e;
         }
     }
 

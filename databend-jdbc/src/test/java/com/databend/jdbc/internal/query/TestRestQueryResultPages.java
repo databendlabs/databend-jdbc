@@ -247,6 +247,35 @@ public class TestRestQueryResultPages {
                 exception.getCause().getMessage());
     }
 
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowReaderCloseFailureIsRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    ResponseBody body = attempts.incrementAndGet() == 1
+                            ? closeFailureResponseBody(arrowMediaType, payload)
+                            : ResponseBody.create(arrowMediaType, payload);
+                    return arrowResponse(chain, body);
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+        Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+        Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+        pages.close();
+    }
+
     @Test(groups = {"UNIT"})
     public void testInitialQueryConnectFailureThenRetrySucceeds() throws Exception {
         AtomicInteger attempts = new AtomicInteger();
@@ -536,6 +565,27 @@ public class TestRestQueryResultPages {
             }
         });
         return ResponseBody.create(contentType, -1, source);
+    }
+
+    private static ResponseBody closeFailureResponseBody(MediaType contentType, byte[] payload) {
+        Buffer buffer = new Buffer().write(payload);
+        BufferedSource source = Okio.buffer(new Source() {
+            @Override
+            public long read(Buffer sink, long byteCount) {
+                return buffer.read(sink, byteCount);
+            }
+
+            @Override
+            public Timeout timeout() {
+                return Timeout.NONE;
+            }
+
+            @Override
+            public void close() throws IOException {
+                throw new IOException("unexpected end of stream while closing Arrow body");
+            }
+        });
+        return ResponseBody.create(contentType, payload.length, source);
     }
 
     private static Response arrowResponse(Interceptor.Chain chain, ResponseBody body) {
