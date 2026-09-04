@@ -85,13 +85,7 @@ public class HttpRetryPolicy {
         if (e instanceof NonRetryableHttpStatusException) {
             return false;
         }
-        if (e instanceof RetryableHttpStatusException) {
-            return true;
-        }
-        if (e instanceof SocketTimeoutException) {
-            return true;
-        }
-        if (e.getCause() instanceof ConnectException) {
+        if (isRetryableTransportIOException(e)) {
             return true;
         }
         String msg = e.getMessage();
@@ -100,6 +94,15 @@ public class HttpRetryPolicy {
         }
         String normalizedMessage = msg.toLowerCase(Locale.ENGLISH);
         return ERROR_KEYWORDS.stream().anyMatch(normalizedMessage::contains);
+    }
+
+    public static boolean isRetryableTransportIOException(IOException e) {
+        if (e instanceof NonRetryableHttpStatusException) {
+            return false;
+        }
+        return e instanceof RetryableHttpStatusException
+                || e instanceof SocketTimeoutException
+                || e.getCause() instanceof ConnectException;
     }
 
     public boolean shouldRetry(IOException e) {
