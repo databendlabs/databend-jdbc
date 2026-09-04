@@ -98,7 +98,7 @@ public class HttpRetryPolicy {
         if (msg == null) {
             return false;
         }
-        String normalizedMessage = msg.toLowerCase(Locale.ENGLISH);
+        String normalizedMessage = msg.toLowerCase(Locale.ROOT);
         return ERROR_KEYWORDS.stream().anyMatch(normalizedMessage::contains);
     }
 

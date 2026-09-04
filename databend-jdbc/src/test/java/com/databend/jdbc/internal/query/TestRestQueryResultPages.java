@@ -144,6 +144,34 @@ public class TestRestQueryResultPages {
     }
 
     @Test(groups = {"UNIT_ARROW"})
+    public void testUnsupportedArrowFieldReleasesDecodedBatches() {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    attempts.incrementAndGet();
+                    return arrowResponse(chain,
+                            ResponseBody.create(arrowMediaType, unsupportedArrowResponse()));
+                })
+                .build();
+
+        DatabendQueryException exception = Assert.expectThrows(DatabendQueryException.class, () ->
+                new RestQueryResultPages(
+                        client,
+                        "select interval",
+                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                        null,
+                        new AtomicReference<>()));
+
+        Assert.assertEquals(attempts.get(), 1);
+        Assert.assertTrue(hasCauseMessage(exception, "Unsupported Arrow field: d: Interval(DAY_TIME) not null"),
+                causeMessages(exception));
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                "unsupported Arrow field leaked decoded record batches");
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
     public void testTruncatedArrowBodyIsRetried() throws Exception {
         long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
         byte[] payload = arrowResponse();
@@ -606,6 +634,46 @@ public class TestRestQueryResultPages {
         // Complete IPC framing: continuation marker, metadata length 8, then eight bytes
         // of invalid FlatBuffer metadata. This is malformed, not a truncated stream.
         return new byte[] {-1, -1, -1, -1, 8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0};
+    }
+
+    private static byte[] unsupportedArrowResponse() {
+        // Generated with ArrowStreamWriter from a non-null Interval(DAY_TIME) field named
+        // "d", the same valid response_header metadata as arrowResponse(), and two batches.
+        // Keep generation out of this test because ArrowStreamWriter is removed from the
+        // minimized release driver jar.
+        return Base64.getDecoder().decode(
+                "/////7gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA0AQAAAQAAAAwAAAAIAAwA"
+                        + "CAAEAAgAAAAIAAAABAEAAPsAAAB7ImlkIjoicWlkLWFycm93LXVuc3VwcG9ydGVkIiwibm9kZV9pZCI6Im5vZGUiLCJzZXNz"
+                        + "aW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJy"
+                        + "b3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmki"
+                        + "Om51bGwsImZpbmFsX3VyaSI6bnVsbCwibmV4dF91cmkiOm51bGwsImtpbGxfdXJpIjpudWxsfQAPAAAAcmVzcG9uc2VfaGVh"
+                        + "ZGVyAAEAAAAYAAAAAAASABgAFAAAABMADAAAAAgABAASAAAAFAAAABQAAAAcAAAAAAAACxwAAAAAAAAAAAAAAAAABgAIAAYA"
+                        + "BgAAAAAAAQABAAAAZAAAAP////+IAAAAFAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAYAAwA"
+                        + "CAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAAAAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAIAAAAAAAAAAAAAAABAAAA"
+                        + "AQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAQAAAOgDAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAA"
+                        + "AAAEABAAAAAAAwoAGAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAA"
+                        + "CAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAIAAADQBwAA////"
+                        + "/wAAAAA=");
+    }
+
+    private static boolean hasCauseMessage(Throwable failure, String expectedMessage) {
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (current.getMessage() != null && current.getMessage().contains(expectedMessage)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private static String causeMessages(Throwable failure) {
+        StringBuilder messages = new StringBuilder();
+        for (Throwable current = failure; current != null; current = current.getCause()) {
+            if (messages.length() > 0) {
+                messages.append(" -> ");
+            }
+            messages.append(current.getClass().getSimpleName()).append(": ").append(current.getMessage());
+        }
+        return messages.toString();
     }
 
     private static byte[] arrowResponse() {
