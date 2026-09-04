@@ -144,14 +144,15 @@ public class TestRestQueryResultPages {
     @Test(groups = {"UNIT_ARROW"})
     public void testTruncatedArrowBodyIsRetried() throws Exception {
         byte[] payload = arrowResponse();
+        int thirdBatchCutoff = 864;
         AtomicInteger attempts = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress(0), 0);
         server.createContext("/v1/query", exchange -> {
             try {
                 int attempt = attempts.incrementAndGet();
                 exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
-                exchange.sendResponseHeaders(200, payload.length);
-                int bytesToWrite = attempt == 1 ? payload.length / 2 : payload.length;
+                exchange.sendResponseHeaders(200, 0);
+                int bytesToWrite = attempt == 1 ? thirdBatchCutoff : payload.length;
                 exchange.getResponseBody().write(payload, 0, bytesToWrite);
             }
             finally {
@@ -170,7 +171,10 @@ public class TestRestQueryResultPages {
 
             Assert.assertEquals(attempts.get(), 2);
             Assert.assertEquals(pages.getResults().getQueryId(), "qid-arrow-retry");
-            Assert.assertEquals(pages.getPage().getValue(0, 0), 42);
+            Assert.assertEquals(pages.getPage().getRowCount(), 3);
+            Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+            Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+            Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
             pages.close();
         }
         finally {
@@ -451,17 +455,28 @@ public class TestRestQueryResultPages {
     }
 
     private static byte[] arrowResponse() {
+        // Generated with ArrowStreamWriter using an Int32 field named "n": call
+        // writer.start(), then for values 40, 41, and 42 set one row and call
+        // writer.writeBatch(), followed by writer.end(). Record output.size() after start,
+        // each batch, and end: schema=464, batches=624/784/944, stream=952. The retry test
+        // cuts at byte 864 so two complete ArrowRecordBatches must be released before retry.
+        // Keep generation out of this test because ArrowStreamWriter is removed from the
+        // minimized release driver jar.
         return Base64.getDecoder().decode(
-                "/////8gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA8AQAAAQAAAAwAAAAI"
-                        + "AAwACAAEAAgAAAAIAAAADAEAAAIBAAB7ImlkIjoicWlkLWFycm93LXJldHJ5Iiwibm9kZV9pZCI6Im5vZGUi"
-                        + "LCJzZXNzaW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUi"
-                        + "OiJSdW5uaW5nIiwiZXJyb3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1l"
-                        + "b3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGwsImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5l"
-                        + "eHRfdXJpIjpudWxsLCJraWxsX3VyaSI6bnVsbH0AAA8AAAByZXNwb25zZV9oZWFkZXIAAQAAABgAAAAAABIA"
-                        + "GAAUAAAAEwAMAAAACAAEABIAAAAUAAAAFAAAABwAAAAAAAACIAAAAAAAAAAAAAAACAAMAAgABwAIAAAAAAAAASAA"
-                        + "AAABAAAAbgAAAAAAAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAAAAAEABAAAAAAAwoA"
-                        + "GAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAABAAAAAAA"
-                        + "AAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAACoAAAAAAAAA/////wAAAAA=");
+                "/////8gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA8AQAAAQAAAAwAAAAIAAwA"
+                        + "CAAEAAgAAAAIAAAADAEAAAIBAAB7ImlkIjoicWlkLWFycm93LXJldHJ5Iiwibm9kZV9pZCI6Im5vZGUiLCJzZXNzaW9uIjp7"
+                        + "ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJyb3IiOm51"
+                        + "bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGws"
+                        + "ImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5leHRfdXJpIjpudWxsLCJraWxsX3VyaSI6bnVsbH0AAA8AAAByZXNw"
+                        + "b25zZV9oZWFkZXIAAQAAABgAAAAAABIAGAAUAAAAEwAMAAAACAAEABIAAAAUAAAAFAAAABwAAAAAAAACIAAAAAAAAAAAAAAA"
+                        + "CAAMAAgABwAIAAAAAAAAASAAAAABAAAAbgAAAAAAAAD/////iAAAABQAAAAAAAAADAAWAA4AFQAQAAQADAAAABAAAAAAAAAA"
+                        + "AAAEABAAAAAAAwoAGAAMAAgABAAKAAAAFAAAADgAAAABAAAAAAAAAAAAAAACAAAAAAAAAAAAAAABAAAAAAAAAAgAAAAAAAAA"
+                        + "BAAAAAAAAAAAAAAAAQAAAAEAAAAAAAAAAAAAAAAAAAABAAAAAAAAACgAAAAAAAAA/////4gAAAAUAAAAAAAAAAwAFgAOABUA"
+                        + "EAAEAAwAAAAQAAAAAAAAAAAABAAQAAAAAAMKABgADAAIAAQACgAAABQAAAA4AAAAAQAAAAAAAAAAAAAAAgAAAAAAAAAAAAAA"
+                        + "AQAAAAAAAAAIAAAAAAAAAAQAAAAAAAAAAAAAAAEAAAABAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAApAAAAAAAAAP////+IAAAA"
+                        + "FAAAAAAAAAAMABYADgAVABAABAAMAAAAEAAAAAAAAAAAAAQAEAAAAAADCgAYAAwACAAEAAoAAAAUAAAAOAAAAAEAAAAAAAAA"
+                        + "AAAAAAIAAAAAAAAAAAAAAAEAAAAAAAAACAAAAAAAAAAEAAAAAAAAAAAAAAABAAAAAQAAAAAAAAAAAAAAAAAAAAEAAAAAAAAA"
+                        + "KgAAAAAAAAD/////AAAAAA==");
     }
 
     private static String queryResponse(String queryId, String nextUri, String value) {

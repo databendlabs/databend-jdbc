@@ -196,10 +196,8 @@ public class RestQueryResultPages implements QueryResultPages {
                     recordBatches.add(new VectorUnloader(root).getRecordBatch());
                 }
             }
-            catch (IOException e) {
-                for (ArrowRecordBatch recordBatch : recordBatches) {
-                    recordBatch.close();
-                }
+            catch (IOException | RuntimeException | Error e) {
+                closeRecordBatches(recordBatches, e);
                 throw e;
             }
 
@@ -211,17 +209,40 @@ public class RestQueryResultPages implements QueryResultPages {
                     page,
                     ArrowResultPage.schemaToFields(schema));
         } catch (IOException e) {
-            allocator.close();
+            closeAllocator(allocator, e);
             if (HttpRetryPolicy.isRetryableIOException(e)) {
                 throw e;
             }
             throw new SQLException("Failed to decode Arrow response", e);
+        } catch (SQLException e) {
+            closeAllocator(allocator, e);
+            throw e;
+        } catch (Error e) {
+            closeAllocator(allocator, e);
+            throw e;
         } catch (Exception e) {
-            allocator.close();
-            if (e instanceof SQLException) {
-                throw (SQLException) e;
-            }
+            closeAllocator(allocator, e);
             throw new SQLException("Failed to decode Arrow response", e);
+        }
+    }
+
+    private static void closeRecordBatches(List<ArrowRecordBatch> recordBatches, Throwable failure) {
+        for (ArrowRecordBatch recordBatch : recordBatches) {
+            try {
+                recordBatch.close();
+            }
+            catch (Throwable closeFailure) {
+                failure.addSuppressed(closeFailure);
+            }
+        }
+    }
+
+    private static void closeAllocator(BufferAllocator allocator, Throwable failure) {
+        try {
+            allocator.close();
+        }
+        catch (Throwable closeFailure) {
+            failure.addSuppressed(closeFailure);
         }
     }
 

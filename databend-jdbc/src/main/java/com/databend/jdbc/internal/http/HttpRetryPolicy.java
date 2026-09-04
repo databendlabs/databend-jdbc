@@ -15,6 +15,7 @@ import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Random;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -35,7 +36,8 @@ public class HttpRetryPolicy {
             this.statusCode = response.code();
             this.statusMessage = response.message();
             this.headers = response.headers();
-            this.contentType = response.body().contentType();
+            ResponseBody responseBody = response.body();
+            this.contentType = responseBody == null ? null : responseBody.contentType();
             this.body = body;
         }
 
@@ -96,7 +98,8 @@ public class HttpRetryPolicy {
         if (msg == null) {
             return false;
         }
-        return ERROR_KEYWORDS.stream().anyMatch(msg::contains);
+        String normalizedMessage = msg.toLowerCase(Locale.ENGLISH);
+        return ERROR_KEYWORDS.stream().anyMatch(normalizedMessage::contains);
     }
 
     public boolean shouldRetry(IOException e) {

@@ -7,6 +7,7 @@ import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.net.SocketTimeoutException;
+import java.io.IOException;
 import java.net.InetSocketAddress;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
@@ -254,6 +255,12 @@ public class TestHttpRetryPolicy {
     @Test(groups = {"UNIT"})
     public void testSocketTimeoutExceptionIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(new SocketTimeoutException("timed out")));
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testArrowUnexpectedEndOfStreamIsRetryable() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
+                new IOException("Unexpected end of stream trying to read message.")));
     }
 
     @Test(groups = {"UNIT"})
