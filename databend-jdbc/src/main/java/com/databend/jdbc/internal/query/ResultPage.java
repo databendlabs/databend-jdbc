@@ -223,6 +223,8 @@ final class ArrowResultPage implements ResultPage {
                 new VectorLoader(root, CommonsCompressionFactory.INSTANCE).load(batch);
                 roots.add(root);
             } finally {
+                // A later conversion failure makes the caller close the full batch list
+                // again; ArrowRecordBatch.close() is idempotent, so that is safe.
                 batch.close();
             }
         }

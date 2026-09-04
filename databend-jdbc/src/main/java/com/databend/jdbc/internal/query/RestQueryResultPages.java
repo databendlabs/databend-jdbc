@@ -362,6 +362,10 @@ public class RestQueryResultPages implements QueryResultPages {
         return RootAllocatorHolder.INSTANCE;
     }
 
+    static long arrowAllocatedMemoryForTesting() {
+        return rootAllocator().getAllocatedMemory();
+    }
+
     private static Map<String, String> effectiveSettings(QueryResults results) {
         Map<String, String> merged = new HashMap<>();
         if (results.getSession() != null && results.getSession().getSettings() != null) {

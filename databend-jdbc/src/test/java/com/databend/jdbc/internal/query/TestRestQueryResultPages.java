@@ -145,6 +145,7 @@ public class TestRestQueryResultPages {
 
     @Test(groups = {"UNIT_ARROW"})
     public void testTruncatedArrowBodyIsRetried() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
         byte[] payload = arrowResponse();
         int thirdBatchCutoff = 864;
         AtomicInteger attempts = new AtomicInteger();
@@ -178,6 +179,8 @@ public class TestRestQueryResultPages {
             Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
             Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
             pages.close();
+            Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                    "truncated Arrow attempt leaked decoded record batches");
         }
         finally {
             server.stop(0);
@@ -247,6 +250,7 @@ public class TestRestQueryResultPages {
 
     @Test(groups = {"UNIT_ARROW"})
     public void testArrowReaderCloseFailureIsRetried() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
         byte[] payload = arrowResponse();
         AtomicInteger attempts = new AtomicInteger();
         MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
@@ -272,6 +276,8 @@ public class TestRestQueryResultPages {
         Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
         Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
         pages.close();
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                "Arrow reader close failure leaked decoded record batches");
     }
 
     @Test(groups = {"UNIT"})
