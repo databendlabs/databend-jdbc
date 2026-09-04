@@ -261,6 +261,14 @@ public class TestHttpRetryPolicy {
     public void testArrowUnexpectedEndOfStreamIsRetryable() {
         Assert.assertTrue(HttpRetryPolicy.isRetryableIOException(
                 new IOException("Unexpected end of stream trying to read message.")));
+        Assert.assertFalse(HttpRetryPolicy.isRetryableTransportIOException(
+                new IOException("Unexpected end of stream trying to read message.")));
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testSocketTimeoutIsRetryableBeforeResponseHeader() {
+        Assert.assertTrue(HttpRetryPolicy.isRetryableTransportIOException(
+                new SocketTimeoutException("timed out while reading Arrow schema")));
     }
 
     @Test(groups = {"UNIT"})

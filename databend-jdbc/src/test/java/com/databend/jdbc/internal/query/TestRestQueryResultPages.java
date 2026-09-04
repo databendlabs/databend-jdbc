@@ -7,13 +7,23 @@ import com.databend.jdbc.internal.session.QueryRequestConfig;
 import com.databend.jdbc.internal.session.SessionState;
 import com.sun.net.httpserver.HttpServer;
 import okhttp3.Interceptor;
+import okhttp3.MediaType;
 import okhttp3.OkHttpClient;
+import okhttp3.Protocol;
+import okhttp3.Response;
+import okhttp3.ResponseBody;
+import okio.Buffer;
+import okio.BufferedSource;
+import okio.Okio;
+import okio.Source;
+import okio.Timeout;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
 import java.net.ConnectException;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Base64;
 import java.util.HashMap;
@@ -180,6 +190,41 @@ public class TestRestQueryResultPages {
         finally {
             server.stop(0);
         }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowTransportFailureBeforeHeaderIsRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        AtomicInteger attempts = new AtomicInteger();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor((Interceptor) chain -> {
+                    ResponseBody body = attempts.incrementAndGet() == 1
+                            ? timeoutResponseBody(arrowMediaType)
+                            : ResponseBody.create(arrowMediaType, payload);
+                    return new Response.Builder()
+                            .request(chain.request())
+                            .protocol(Protocol.HTTP_1_1)
+                            .code(200)
+                            .message("OK")
+                            .body(body)
+                            .build();
+                })
+                .build();
+
+        RestQueryResultPages pages = new RestQueryResultPages(
+                client,
+                "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW),
+                null,
+                new AtomicReference<>());
+
+        Assert.assertEquals(attempts.get(), 2);
+        Assert.assertEquals(pages.getPage().getRowCount(), 3);
+        Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+        Assert.assertEquals(pages.getPage().getValue(1, 0), 41);
+        Assert.assertEquals(pages.getPage().getValue(2, 0), 42);
+        pages.close();
     }
 
     @Test(groups = {"UNIT"})
@@ -452,6 +497,25 @@ public class TestRestQueryResultPages {
 
     private static String serverBaseUrl(HttpServer server) {
         return "http://127.0.0.1:" + server.getAddress().getPort();
+    }
+
+    private static ResponseBody timeoutResponseBody(MediaType contentType) {
+        BufferedSource source = Okio.buffer(new Source() {
+            @Override
+            public long read(Buffer sink, long byteCount) throws IOException {
+                throw new SocketTimeoutException("timed out while reading Arrow schema");
+            }
+
+            @Override
+            public Timeout timeout() {
+                return Timeout.NONE;
+            }
+
+            @Override
+            public void close() {
+            }
+        });
+        return ResponseBody.create(contentType, -1, source);
     }
 
     private static byte[] arrowResponse() {
