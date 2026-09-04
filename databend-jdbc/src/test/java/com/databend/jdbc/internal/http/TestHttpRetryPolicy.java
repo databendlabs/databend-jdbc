@@ -6,9 +6,9 @@ import okhttp3.Request;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
-import java.net.SocketTimeoutException;
 import java.io.IOException;
 import java.net.InetSocketAddress;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.sql.SQLException;
 import java.util.concurrent.atomic.AtomicInteger;
