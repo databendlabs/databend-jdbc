@@ -2,7 +2,6 @@ package com.databend.jdbc.internal.query;
 
 import com.databend.jdbc.IntervalValue;
 import com.databend.jdbc.internal.data.DatabendRawType;
-import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.vector.DateDayVector;
@@ -16,14 +15,13 @@ import org.apache.arrow.vector.UInt2Vector;
 import org.apache.arrow.vector.UInt4Vector;
 import org.apache.arrow.vector.UInt8Vector;
 import org.apache.arrow.vector.VarBinaryVector;
-import org.apache.arrow.vector.VectorLoader;
 import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.message.ArrowRecordBatch;
 import org.apache.arrow.vector.types.FloatingPointPrecision;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
 import org.apache.arrow.vector.types.pojo.Field;
 import org.apache.arrow.vector.util.Text;
+import org.apache.arrow.vector.util.TransferPair;
 
 import java.math.BigInteger;
 import java.nio.charset.StandardCharsets;
@@ -207,28 +205,35 @@ final class ArrowResultPage implements ResultPage {
             return;
         }
         for (VectorSchemaRoot batch : batches) {
-            for (FieldVector vector : batch.getFieldVectors()) {
-                vector.close();
-            }
-            batch.close();
+            closeRoot(batch);
         }
         allocator.close();
     }
 
-    static ArrowResultPage fromRecordBatches(BufferAllocator allocator, org.apache.arrow.vector.types.pojo.Schema schema, List<ArrowRecordBatch> recordBatches, Map<String, String> settings) {
-        List<VectorSchemaRoot> roots = new ArrayList<>(recordBatches.size());
-        for (ArrowRecordBatch batch : recordBatches) {
-            VectorSchemaRoot root = VectorSchemaRoot.create(schema, allocator);
-            try {
-                new VectorLoader(root, CommonsCompressionFactory.INSTANCE).load(batch);
-                roots.add(root);
-            } finally {
-                // A later conversion failure makes the caller close the full batch list
-                // again; ArrowRecordBatch.close() is idempotent, so that is safe.
-                batch.close();
+    static VectorSchemaRoot transferBatch(VectorSchemaRoot source, BufferAllocator allocator) {
+        VectorSchemaRoot target = VectorSchemaRoot.create(source.getSchema(), allocator);
+        boolean transferred = false;
+        try {
+            List<FieldVector> sourceVectors = source.getFieldVectors();
+            List<FieldVector> targetVectors = target.getFieldVectors();
+            for (int i = 0; i < sourceVectors.size(); i++) {
+                TransferPair transferPair = sourceVectors.get(i).makeTransferPair(targetVectors.get(i));
+                transferPair.transfer();
+            }
+            // Vector-level transfers move per-vector value counts but never touch the
+            // root-level row count, so it has to be assigned explicitly.
+            target.setRowCount(source.getRowCount());
+            transferred = true;
+            return target;
+        } finally {
+            if (!transferred) {
+                closeRoot(target);
             }
         }
-        return new ArrowResultPage(allocator, roots, settings);
+    }
+
+    static void closeRoot(VectorSchemaRoot root) {
+        root.close();
     }
 
     static List<QueryRowField> schemaToFields(org.apache.arrow.vector.types.pojo.Schema schema) throws SQLException {
