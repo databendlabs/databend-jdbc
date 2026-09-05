@@ -6,6 +6,7 @@ import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.JsonCodec;
 import com.databend.jdbc.internal.http.JsonResponse;
+import com.databend.jdbc.internal.http.TruncatedResponseException;
 import com.databend.jdbc.internal.session.QueryRequestConfig;
 import com.databend.jdbc.internal.session.SessionState;
 import okhttp3.Headers;
@@ -23,6 +24,7 @@ import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
 import javax.annotation.concurrent.ThreadSafe;
+import java.io.FilterInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.net.URI;
@@ -179,8 +181,9 @@ public class RestQueryResultPages implements QueryResultPages {
         List<VectorSchemaRoot> batches = new ArrayList<>();
         org.apache.arrow.vector.types.pojo.Schema schema;
         QueryResults results;
+        ArrowStreamEnd streamEnd = new ArrowStreamEnd(body);
         try (ArrowStreamReader reader = new ArrowStreamReader(
-                body,
+                streamEnd,
                 allocator,
                 CommonsCompressionFactory.INSTANCE)) {
             VectorSchemaRoot root = reader.getVectorSchemaRoot();
@@ -193,6 +196,19 @@ public class RestQueryResultPages implements QueryResultPages {
             results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
             while (reader.loadNextBatch()) {
                 batches.add(ArrowResultPage.transferBatch(root, allocator));
+            }
+            // loadNextBatch() reports "no more batches" both for a stream that ended at
+            // its end-of-stream frame and for one whose input simply ran out, so the
+            // batch loop alone cannot detect truncation. The server always calls
+            // StreamWriter::finish(), so a whole stream carries that frame; reaching the
+            // end of the input instead means the body was cut in transit.
+            //
+            // Checked here rather than after the reader closes, so that draining on
+            // close cannot be mistaken for a truncated body.
+            if (streamEnd.reachedEndOfInput()) {
+                throw new TruncatedResponseException(
+                        "Arrow response ended without an end-of-stream frame after "
+                                + streamEnd.bytesRead() + " bytes and " + batches.size() + " batches");
             }
         } catch (IOException e) {
             closeBatches(batches, e);
@@ -393,5 +409,72 @@ public class RestQueryResultPages implements QueryResultPages {
 
     private static final class RootAllocatorHolder {
         private static final RootAllocator INSTANCE = new RootAllocator(Long.MAX_VALUE);
+    }
+
+    /**
+     * Tracks whether the Arrow reader ran out of input, so the caller can tell a stream
+     * that ended at its end-of-stream frame from one that was cut short.
+     *
+     * <p>The reader stops asking for batches for exactly two reasons: it parsed an
+     * end-of-stream frame (a zero metadata length), or a read for the next message
+     * returned end of input. Only the second reaches this class, so the distinction is
+     * made on framing rather than on payload bytes. Matching the trailing bytes against
+     * the marker would be wrong: a batch whose last buffer holds -1 followed by zero
+     * padding ends with those same eight bytes.
+     */
+    private static final class ArrowStreamEnd extends FilterInputStream {
+        private boolean endOfInput;
+        private long bytesRead;
+
+        private ArrowStreamEnd(InputStream in) {
+            super(in);
+        }
+
+        @Override
+        public int read() throws IOException {
+            int value = in.read();
+            if (value < 0) {
+                endOfInput = true;
+            } else {
+                bytesRead++;
+            }
+            return value;
+        }
+
+        @Override
+        public int read(byte[] buffer, int offset, int length) throws IOException {
+            int count = in.read(buffer, offset, length);
+            if (count < 0) {
+                endOfInput = true;
+            } else {
+                bytesRead += count;
+            }
+            return count;
+        }
+
+        @Override
+        public long skip(long count) throws IOException {
+            // The reader skips message padding and body bytes it does not need. Route
+            // those through read() so running out of input while skipping is recorded
+            // as end of input rather than as a short skip.
+            long skipped = 0;
+            byte[] buffer = new byte[(int) Math.min(Math.max(count, 0L), 8192L)];
+            while (skipped < count) {
+                int chunk = read(buffer, 0, (int) Math.min(buffer.length, count - skipped));
+                if (chunk < 0) {
+                    break;
+                }
+                skipped += chunk;
+            }
+            return skipped;
+        }
+
+        private long bytesRead() {
+            return bytesRead;
+        }
+
+        private boolean reachedEndOfInput() {
+            return endOfInput;
+        }
     }
 }
