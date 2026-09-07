@@ -2,6 +2,7 @@ package com.databend.jdbc.internal.query;
 
 import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
+import com.databend.jdbc.internal.http.TruncatedResponseException;
 import com.databend.jdbc.internal.session.PaginationOptions;
 import com.databend.jdbc.internal.session.QueryRequestConfig;
 import com.databend.jdbc.internal.session.SessionState;
@@ -18,6 +19,7 @@ import okio.Okio;
 import okio.Source;
 import okio.Timeout;
 import org.testng.Assert;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 import java.io.IOException;
@@ -199,6 +201,75 @@ public class TestRestQueryResultPages {
         assertTruncatedArrowBodyIsRetried(eosLookalikeArrowResponse(), 632, "qid-arrow-eos-lookalike", -1, 41, 42);
     }
 
+    @DataProvider(name = "arrowEofCutoffs")
+    public Object[][] arrowEofCutoffs() {
+        return new Object[][] {
+                {0},       // Empty body.
+                {1}, {3},  // Partial schema continuation marker.
+                {4}, {5}, {7}, // Missing/partial schema metadata length.
+                {64},      // Schema metadata.
+                {464},     // Schema only, no batches or EOS.
+                {785}, {787}, {788}, {789}, {791}, // Batch 3 framing.
+                {929}, {940}, // Batch 3 body (metadata ends at 928).
+                {945}, {947}, {948}, {949}, {951} // Partial EOS frame.
+        };
+    }
+
+    @Test(groups = {"UNIT_ARROW"}, dataProvider = "arrowEofCutoffs")
+    public void testArrowEofIsRetried(int cutoff) throws Exception {
+        assertTruncatedArrowBodyIsRetried(arrowResponse(), cutoff, "qid-arrow-retry", 40, 41, 42);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testCompleteArrowStreamsAreNotRetried() throws Exception {
+        byte[] payload = arrowResponse();
+        assertCompleteArrowStream(payload, 3);
+        // Keep the schema and append the original EOS, without any record batches.
+        byte[] schemaOnly = Arrays.copyOf(payload, 472);
+        System.arraycopy(payload, 944, schemaOnly, 464, 8);
+        assertCompleteArrowStream(schemaOnly, 0);
+    }
+
+    private static void assertCompleteArrowStream(byte[] payload, int rows) throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        AtomicInteger attempts = new AtomicInteger();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            attempts.incrementAndGet();
+            return arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_ARROW, payload));
+        }).build();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), null, new AtomicReference<>());
+        try {
+            Assert.assertEquals(attempts.get(), 1, "complete stream must not retry");
+            Assert.assertEquals(pages.getPage().getRowCount(), rows);
+            for (int row = 0; row < rows; row++) {
+                Assert.assertEquals(pages.getPage().getValue(row, 0), 40 + row);
+            }
+        } finally {
+            pages.close();
+        }
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowTruncationRetryExhaustionReleasesBatches() {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        AtomicInteger attempts = new AtomicInteger();
+        byte[] truncated = Arrays.copyOf(arrowResponse(), 784);
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            attempts.incrementAndGet();
+            return arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_ARROW, truncated));
+        }).build();
+        DatabendQueryException error = Assert.expectThrows(DatabendQueryException.class, () ->
+                new RestQueryResultPages(client, "select 42",
+                        requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), null, new AtomicReference<>()));
+        Assert.assertEquals(attempts.get(), 3);
+        Assert.assertTrue(error.getCause().getCause() instanceof TruncatedResponseException,
+                "exhaustion should retain the typed truncation cause");
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                "exhausted attempts leaked decoded batches");
+    }
+
     private static void assertTruncatedArrowBodyIsRetried(
             byte[] payload, int cutoff, String expectedQueryId, int... expectedValues) throws Exception {
         long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
@@ -208,8 +279,8 @@ public class TestRestQueryResultPages {
             try {
                 int attempt = attempts.incrementAndGet();
                 exchange.getResponseHeaders().add("Content-Type", "application/vnd.apache.arrow.stream");
-                // Chunked: without a Content-Length the transport cannot detect the
-                // short body, so truncation has to be caught while decoding.
+                // End HTTP normally after a short Arrow body. Broken chunked transfers
+                // themselves are detectable by HTTP; this tests application-level completeness.
                 exchange.sendResponseHeaders(200, 0);
                 exchange.getResponseBody().write(payload, 0, attempt == 1 ? cutoff : payload.length);
             }
