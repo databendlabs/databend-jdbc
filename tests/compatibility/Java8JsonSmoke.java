@@ -8,14 +8,21 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
+import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Properties;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /** Runs against only the shaded driver jar and the JDK, without TestNG or Maven dependencies. */
 public final class Java8JsonSmoke {
     public static void main(String[] args) throws Exception {
         System.out.println("Runtime: " + System.getProperty("java.version"));
+        Class<?> pages = Class.forName("com.databend.jdbc.internal.query.RestQueryResultPages");
+        pages.getDeclaredMethods();
+        pages.getDeclaredFields();
+        System.out.println("PASS: query class loading and reflection");
+        AtomicBoolean unexpectedArrow = new AtomicBoolean();
         AtomicInteger jsonRequests = new AtomicInteger();
         AtomicInteger unexpectedFormats = new AtomicInteger();
         HttpServer server = HttpServer.create(new InetSocketAddress("127.0.0.1", 0), 0);
@@ -26,6 +33,14 @@ public final class Java8JsonSmoke {
             String path = exchange.getRequestURI().getPath();
             if ("/v1/query/final".equals(path)) {
                 sendJson(exchange, "{}");
+                return;
+            }
+            if (unexpectedArrow.get()) {
+                // The runtime guard must reject even an unsolicited Arrow response before decoding.
+                exchange.getResponseHeaders().set("Content-Type", "application/vnd.apache.arrow.stream");
+                exchange.sendResponseHeaders(200, 1);
+                exchange.getResponseBody().write(0);
+                exchange.close();
                 return;
             }
             if (!"application/json".equals(exchange.getRequestHeaders().getFirst("Accept"))) {
@@ -58,8 +73,35 @@ public final class Java8JsonSmoke {
             require(jsonRequests.get() == 4, "Expected two pages per query, got " + jsonRequests.get());
             require(unexpectedFormats.get() == 0, "Driver did not request JSON");
             System.out.println("PASS: explicit JSON prepared statement and pagination");
+            if ("1.8".equals(System.getProperty("java.specification.version"))) {
+                expectArrowRuntimeError(url + "?query_result_format=arrow", properties);
+                require(jsonRequests.get() == 4, "Arrow request was sent on Java 8");
+                unexpectedArrow.set(true);
+                expectArrowRuntimeError(url, properties);
+                System.out.println("PASS: requested and unsolicited Arrow produce actionable SQLExceptions on Java 8");
+            }
         } finally {
             server.stop(0);
+        }
+    }
+
+    private static void expectArrowRuntimeError(String url, Properties properties) throws Exception {
+        try (Connection connection = DriverManager.getConnection(url, properties);
+             Statement statement = connection.createStatement()) {
+            try (ResultSet ignored = statement.executeQuery("select 1")) {
+                throw new AssertionError("Arrow should be rejected on Java 8");
+            }
+        } catch (SQLException e) {
+            Throwable cause = e;
+            while (cause != null) {
+                String message = cause.getMessage();
+                if (message != null && message.contains("Arrow result format requires Java 11 or newer")
+                        && message.contains("query_result_format=json")) {
+                    return;
+                }
+                cause = cause.getCause();
+            }
+            throw new AssertionError("Expected an actionable Arrow runtime error", e);
         }
     }
 
