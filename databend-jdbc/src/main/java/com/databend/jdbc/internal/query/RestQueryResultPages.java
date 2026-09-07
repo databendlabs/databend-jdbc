@@ -286,8 +286,18 @@ public class RestQueryResultPages implements QueryResultPages {
 
     private static void requireArrowRuntime() {
         // Do not probe Arrow classes: Java 8 must never attempt to load their Java 11 bytecode.
-        String version = System.getProperty("java.specification.version");
-        if (version.startsWith("1.") || Integer.parseInt(version) < 11) {
+        requireArrowRuntime(System.getProperty("java.specification.version"));
+    }
+
+    static void requireArrowRuntime(String version) {
+        int major;
+        try {
+            major = Integer.parseInt(version != null && version.startsWith("1.") ? version.substring(2) : version);
+        } catch (NumberFormatException e) {
+            // Unknown runtime: leave compatibility checks to the JVM rather than failing to parse a property.
+            return;
+        }
+        if (major < 11) {
             throw new DatabendQueryException("Arrow result format requires Java 11 or newer; use query_result_format=json");
         }
     }
