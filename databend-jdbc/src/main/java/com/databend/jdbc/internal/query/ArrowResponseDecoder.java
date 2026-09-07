@@ -4,7 +4,6 @@ import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
 import com.databend.jdbc.internal.http.TruncatedResponseException;
 import okhttp3.Response;
-import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.VectorSchemaRoot;
@@ -39,7 +38,7 @@ final class ArrowResponseDecoder {
         try (ArrowStreamReader reader = new ArrowStreamReader(
                 new EofRejectingChannel(Channels.newChannel(body)),
                 allocator,
-                CommonsCompressionFactory.INSTANCE)) {
+                ArrowCompressionFactory.INSTANCE)) {
             VectorSchemaRoot root = reader.getVectorSchemaRoot();
             schema = root.getSchema();
             String responseHeader = schema.getCustomMetadata().get("response_header");

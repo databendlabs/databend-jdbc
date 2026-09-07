@@ -1,5 +1,7 @@
 package com.databend.jdbc.internal.query;
 
+import org.apache.arrow.compression.CommonsCompressionFactory;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DateDayVector;
@@ -8,6 +10,8 @@ import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -129,6 +133,60 @@ public class TestArrowResultPage {
         rootAllocator.close();
     }
 
+    @Test(groups = {"UNIT_ARROW"})
+    public void testDirectLz4CompressionRoundTripAcrossBlocks() throws Exception {
+        byte[] expected = new byte[6 * 1024 * 1024];
+        for (int i = 0; i < expected.length; i++) {
+            expected[i] = (byte) (i % 31);
+        }
+        RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        CompressionCodec direct = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+        CompressionCodec commons = CommonsCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+
+        assertCompressionRoundTrip(allocator, expected, direct, commons);
+        assertCompressionRoundTrip(allocator, expected, commons, direct);
+
+        Assert.assertEquals(allocator.getAllocatedMemory(), 0L);
+        allocator.close();
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testDirectLz4RejectsTruncatedFrameWithoutLeaking() {
+        byte[] expected = new byte[1024 * 1024];
+        Arrays.fill(expected, (byte) 7);
+        RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        CompressionCodec direct = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+        ArrowBuf input = allocator.buffer(expected.length);
+        input.writeBytes(expected);
+        ArrowBuf compressed = direct.compress(allocator, input);
+        ArrowBuf truncated = allocator.buffer(compressed.writerIndex() - 1);
+        truncated.setBytes(0, compressed, 0, compressed.writerIndex() - 1);
+        truncated.writerIndex(compressed.writerIndex() - 1);
+        compressed.close();
+
+        long retainedInputBytes = allocator.getAllocatedMemory();
+        Assert.expectThrows(IllegalStateException.class, () -> direct.decompress(allocator, truncated));
+        Assert.assertEquals(allocator.getAllocatedMemory(), retainedInputBytes);
+        truncated.close();
+        Assert.assertEquals(allocator.getAllocatedMemory(), 0L);
+        allocator.close();
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testDirectLz4RejectsDeclaredLengthMismatchWithoutLeaking() {
+        byte[] expected = new byte[1024 * 1024];
+        Arrays.fill(expected, (byte) 7);
+        assertDeclaredLengthMismatchDoesNotLeak(expected, expected.length - 1L);
+        assertDeclaredLengthMismatchDoesNotLeak(expected, expected.length + 1L);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testNonLz4CodecStillUsesCommonsFactory() {
+        CompressionCodec codec = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.ZSTD);
+        Assert.assertEquals(codec.getClass(),
+                CommonsCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.ZSTD).getClass());
+    }
+
     public void testArrowSchemaMapsToJdbcTypes() throws Exception {
         Field intField = new Field("n", FieldType.notNullable(new ArrowType.Int(32, true)), null);
         Field dateField = new Field("d", FieldType.nullable(new ArrowType.Date(DateUnit.DAY)), null);
@@ -148,5 +206,33 @@ public class TestArrowResultPage {
             closeable.close();
         } catch (IllegalStateException ignored) {
         }
+    }
+
+    private static void assertCompressionRoundTrip(BufferAllocator allocator, byte[] expected,
+            CompressionCodec compressor, CompressionCodec decompressor) {
+        ArrowBuf input = allocator.buffer(expected.length);
+        input.writeBytes(expected);
+        ArrowBuf compressed = compressor.compress(allocator, input);
+        ArrowBuf decompressed = decompressor.decompress(allocator, compressed);
+        byte[] actual = new byte[expected.length];
+        decompressed.getBytes(0, actual);
+        Assert.assertEquals(actual, expected);
+        decompressed.close();
+    }
+
+    private static void assertDeclaredLengthMismatchDoesNotLeak(byte[] expected, long declaredLength) {
+        RootAllocator allocator = new RootAllocator(Long.MAX_VALUE);
+        CompressionCodec direct = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+        ArrowBuf input = allocator.buffer(expected.length);
+        input.writeBytes(expected);
+        ArrowBuf compressed = direct.compress(allocator, input);
+        compressed.setLong(0, declaredLength);
+
+        long retainedInputBytes = allocator.getAllocatedMemory();
+        Assert.expectThrows(IllegalStateException.class, () -> direct.decompress(allocator, compressed));
+        Assert.assertEquals(allocator.getAllocatedMemory(), retainedInputBytes);
+        compressed.close();
+        Assert.assertEquals(allocator.getAllocatedMemory(), 0L);
+        allocator.close();
     }
 }
