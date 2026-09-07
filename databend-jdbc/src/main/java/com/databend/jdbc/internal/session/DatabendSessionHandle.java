@@ -51,6 +51,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.ScheduledFuture;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 import java.util.function.Supplier;
@@ -84,6 +85,7 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
     private final AtomicReference<String> lastNodeID = new AtomicReference<>();
     private final Supplier<List<QueryLiveness>> queryLivenessSupplier;
     private final HeartbeatManager heartbeatManager = new HeartbeatManager();
+    private final AtomicBoolean arrowDowngradeLogged = new AtomicBoolean();
     private volatile String routeHint;
     private volatile Semver serverVersion;
     private volatile Integer serverMaxArrowResultVersion;
@@ -451,6 +453,13 @@ public class DatabendSessionHandle implements Consumer<SessionState> {
                 : queryResultFormatOverride;
         if (queryResultFormat == QueryResultFormat.ARROW && !supportsArrowTransport()) {
             queryResultFormat = QueryResultFormat.JSON;
+            // Arrow was requested but negotiated away. Log once: this silently changes the transport,
+            // so without a trace the lost performance is invisible when diagnosing later.
+            if (arrowDowngradeLogged.compareAndSet(false, true)) {
+                logger.info("arrow result format requested but not supported by server"
+                        + " (server_max_arrow_result_version=" + this.serverMaxArrowResultVersion
+                        + ", required>=" + MIN_ARROW_RESULT_VERSION + "), falling back to json");
+            }
         }
         return QueryRequestConfig.builder()
                 .setSession(this.session.get())

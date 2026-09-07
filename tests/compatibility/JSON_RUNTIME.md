@@ -13,9 +13,9 @@ installation or additional dependency jars are needed.
 It exercises class loading/reflection, JDBC service-provider discovery, connection/login, default JSON
 selection against an Arrow-capable server, statement execution, metadata, two-page
 result iteration, explicit JSON with a prepared statement, and resource closing.
-On Java 8 it also checks that requesting Arrow fails before sending the query and
-that an unsolicited Arrow response produces an actionable SQLException rather than
-a linkage error. It is not an Arrow decoding test or a replacement for live-server
+On Java 8 it also checks that requesting Arrow is rejected when the connection is created,
+before any query is sent, and that an unsolicited Arrow response produces an actionable
+SQLException rather than a linkage error. It is not an Arrow decoding test or a replacement for live-server
 integration tests.
 
 ## Run locally

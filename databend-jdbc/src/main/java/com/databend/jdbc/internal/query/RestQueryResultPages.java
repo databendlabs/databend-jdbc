@@ -1,5 +1,6 @@
 package com.databend.jdbc.internal.query;
 
+import com.databend.jdbc.internal.ArrowRuntime;
 import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.error.QueryError;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
@@ -77,7 +78,7 @@ public class RestQueryResultPages implements QueryResultPages {
 
     public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders, QueryResultFormat queryResultFormat) {
         if (queryResultFormat == QueryResultFormat.ARROW) {
-            requireArrowRuntime();
+            ArrowRuntime.requireSupported();
         }
         Request.Builder builder = new Request.Builder()
                 .url(url)
@@ -154,7 +155,7 @@ public class RestQueryResultPages implements QueryResultPages {
             if (responseBody == null) {
                 throw new SQLException("Arrow response has no body");
             }
-            requireArrowRuntime();
+            ArrowRuntime.requireSupported();
             return ArrowResponseDecoder.decode(response, responseBody.byteStream());
         }
 
@@ -284,26 +285,8 @@ public class RestQueryResultPages implements QueryResultPages {
                 && "vnd.apache.arrow.stream".equalsIgnoreCase(mediaType.subtype());
     }
 
-    private static void requireArrowRuntime() {
-        // Do not probe Arrow classes: Java 8 must never attempt to load their Java 11 bytecode.
-        requireArrowRuntime(System.getProperty("java.specification.version"));
-    }
-
-    static void requireArrowRuntime(String version) {
-        int major;
-        try {
-            major = Integer.parseInt(version != null && version.startsWith("1.") ? version.substring(2) : version);
-        } catch (NumberFormatException e) {
-            // Unknown runtime: leave compatibility checks to the JVM rather than failing to parse a property.
-            return;
-        }
-        if (major < 11) {
-            throw new DatabendQueryException("Arrow result format requires Java 11 or newer; use query_result_format=json");
-        }
-    }
-
     static long arrowAllocatedMemoryForTesting() {
-        requireArrowRuntime();
+        ArrowRuntime.requireSupported();
         return ArrowResponseDecoder.allocatedMemoryForTesting();
     }
 
