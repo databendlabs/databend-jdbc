@@ -2,6 +2,7 @@ package com.databend.jdbc.internal.query;
 
 import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.http.HttpRetryPolicy;
+import com.databend.jdbc.internal.http.TruncatedResponseException;
 import okhttp3.Response;
 import org.apache.arrow.compression.CommonsCompressionFactory;
 import org.apache.arrow.memory.BufferAllocator;
@@ -11,6 +12,9 @@ import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.ByteBuffer;
+import java.nio.channels.Channels;
+import java.nio.channels.ReadableByteChannel;
 import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -33,7 +37,7 @@ final class ArrowResponseDecoder {
         org.apache.arrow.vector.types.pojo.Schema schema;
         QueryResults results;
         try (ArrowStreamReader reader = new ArrowStreamReader(
-                body,
+                new EofRejectingChannel(Channels.newChannel(body)),
                 allocator,
                 CommonsCompressionFactory.INSTANCE)) {
             VectorSchemaRoot root = reader.getVectorSchemaRoot();
@@ -108,6 +112,41 @@ final class ArrowResponseDecoder {
             merged.putAll(results.getSettings());
         }
         return merged;
+    }
+
+    /**
+     * Arrow permits EOF as a stream terminator, but Databend always writes an explicit
+     * EOS frame via StreamWriter.finish(). Reject EOF before that frame so a short
+     * response cannot be accepted as a successful partial result. Arrow stops reading
+     * after parsing EOS; this wrapper neither parses framing nor examines payload bytes.
+     * HTTP framing can detect broken transfers, but not a short Arrow body enclosed in
+     * an otherwise normally completed HTTP response.
+     */
+    private static final class EofRejectingChannel implements ReadableByteChannel {
+        private final ReadableByteChannel delegate;
+
+        private EofRejectingChannel(ReadableByteChannel delegate) {
+            this.delegate = delegate;
+        }
+
+        @Override
+        public int read(ByteBuffer dst) throws IOException {
+            int count = delegate.read(dst);
+            if (count < 0) {
+                throw new TruncatedResponseException("Arrow response ended before an explicit end-of-stream frame");
+            }
+            return count;
+        }
+
+        @Override
+        public boolean isOpen() {
+            return delegate.isOpen();
+        }
+
+        @Override
+        public void close() throws IOException {
+            delegate.close();
+        }
     }
 
     private static final class RootAllocatorHolder {
