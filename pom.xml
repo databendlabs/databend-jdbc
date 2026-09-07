@@ -50,6 +50,7 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <dep.arrow.version>19.0.0</dep.arrow.version>
+        <dep.lz4-java.version>1.8.0</dep.lz4-java.version>
         <dep.commons-lang3.version>3.18.0</dep.commons-lang3.version>
         <dep.jackson.annotations.version>2.22</dep.jackson.annotations.version>
         <dep.jackson.version>2.22.1</dep.jackson.version>
@@ -193,6 +194,12 @@
                                     <artifact>org.apache.arrow:arrow-memory-unsafe</artifact>
                                     <includes>
                                         <include>org/apache/arrow/memory/unsafe/**</include>
+                                    </includes>
+                                </filter>
+                                <filter>
+                                    <artifact>org.lz4:lz4-java</artifact>
+                                    <includes>
+                                        <include>net/jpountz/**</include>
                                     </includes>
                                 </filter>
                             </filters>
