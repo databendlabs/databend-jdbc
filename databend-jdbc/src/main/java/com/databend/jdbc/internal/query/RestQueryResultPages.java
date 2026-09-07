@@ -1,5 +1,6 @@
 package com.databend.jdbc.internal.query;
 
+import com.databend.jdbc.internal.ArrowRuntime;
 import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.error.QueryError;
 import com.databend.jdbc.internal.exception.DatabendQueryException;
@@ -16,19 +17,11 @@ import okhttp3.Request;
 import okhttp3.RequestBody;
 import okhttp3.Response;
 import okhttp3.ResponseBody;
-import org.apache.arrow.compression.CommonsCompressionFactory;
-import org.apache.arrow.memory.BufferAllocator;
-import org.apache.arrow.memory.RootAllocator;
-import org.apache.arrow.vector.VectorSchemaRoot;
-import org.apache.arrow.vector.ipc.ArrowStreamReader;
 
 import javax.annotation.concurrent.ThreadSafe;
 import java.io.IOException;
-import java.io.InputStream;
 import java.net.URI;
 import java.sql.SQLException;
-import java.util.ArrayList;
-import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.atomic.AtomicReference;
@@ -84,6 +77,9 @@ public class RestQueryResultPages implements QueryResultPages {
     }
 
     public static Request.Builder prepareRequest(HttpUrl url, Map<String, String> additionalHeaders, QueryResultFormat queryResultFormat) {
+        if (queryResultFormat == QueryResultFormat.ARROW) {
+            ArrowRuntime.requireSupported();
+        }
         Request.Builder builder = new Request.Builder()
                 .url(url)
                 .header("Accept", queryResultFormat == QueryResultFormat.ARROW ? MEDIA_TYPE_ARROW.toString() : "application/json")
@@ -159,7 +155,8 @@ public class RestQueryResultPages implements QueryResultPages {
             if (responseBody == null) {
                 throw new SQLException("Arrow response has no body");
             }
-            return decodeArrowResponse(response, responseBody.byteStream());
+            ArrowRuntime.requireSupported();
+            return ArrowResponseDecoder.decode(response, responseBody.byteStream());
         }
 
         byte[] body = responseBody == null ? new byte[0] : responseBody.bytes();
@@ -172,74 +169,6 @@ public class RestQueryResultPages implements QueryResultPages {
                 results,
                 new JsonResultPage(results == null ? null : results.getData()),
                 results == null ? null : results.getSchema());
-    }
-
-    private ResponsePayload decodeArrowResponse(Response response, InputStream body) throws IOException, SQLException {
-        BufferAllocator allocator = rootAllocator().newChildAllocator("databend-jdbc-arrow-page", 0, Long.MAX_VALUE);
-        List<VectorSchemaRoot> batches = new ArrayList<>();
-        org.apache.arrow.vector.types.pojo.Schema schema;
-        QueryResults results;
-        try (ArrowStreamReader reader = new ArrowStreamReader(
-                body,
-                allocator,
-                CommonsCompressionFactory.INSTANCE)) {
-            VectorSchemaRoot root = reader.getVectorSchemaRoot();
-            schema = root.getSchema();
-            String responseHeader = schema.getCustomMetadata().get("response_header");
-            if (responseHeader == null) {
-                throw new DatabendQueryException("Missing response_header metadata in Arrow payload");
-            }
-
-            results = QUERY_RESULTS_CODEC.fromJson(responseHeader);
-            while (reader.loadNextBatch()) {
-                batches.add(ArrowResultPage.transferBatch(root, allocator));
-            }
-        } catch (IOException e) {
-            closeBatches(batches, e);
-            closeAllocator(allocator, e);
-            if (HttpRetryPolicy.isRetryableIOException(e)) {
-                throw e;
-            }
-            throw new SQLException("Failed to decode Arrow response", e);
-        } catch (Error e) {
-            closeBatches(batches, e);
-            closeAllocator(allocator, e);
-            throw e;
-        } catch (Exception e) {
-            closeBatches(batches, e);
-            closeAllocator(allocator, e);
-            throw new SQLException("Failed to decode Arrow response", e);
-        }
-
-        try {
-            List<QueryRowField> fields = ArrowResultPage.schemaToFields(schema);
-            ResultPage page = new ArrowResultPage(allocator, batches, effectiveSettings(results));
-            return new ResponsePayload(response.code(), response.headers(), results, page, fields);
-        } catch (SQLException | RuntimeException | Error e) {
-            closeBatches(batches, e);
-            closeAllocator(allocator, e);
-            throw e;
-        }
-    }
-
-    private static void closeBatches(List<VectorSchemaRoot> batches, Throwable failure) {
-        for (VectorSchemaRoot batch : batches) {
-            try {
-                ArrowResultPage.closeRoot(batch);
-            }
-            catch (Throwable closeFailure) {
-                failure.addSuppressed(closeFailure);
-            }
-        }
-    }
-
-    private static void closeAllocator(BufferAllocator allocator, Throwable failure) {
-        try {
-            allocator.close();
-        }
-        catch (Throwable closeFailure) {
-            failure.addSuppressed(closeFailure);
-        }
     }
 
     private void processResponse(Headers headers, QueryResults results, ResultPage page, List<QueryRowField> schema) {
@@ -356,42 +285,24 @@ public class RestQueryResultPages implements QueryResultPages {
                 && "vnd.apache.arrow.stream".equalsIgnoreCase(mediaType.subtype());
     }
 
-    private static RootAllocator rootAllocator() {
-        return RootAllocatorHolder.INSTANCE;
-    }
-
     static long arrowAllocatedMemoryForTesting() {
-        return rootAllocator().getAllocatedMemory();
+        ArrowRuntime.requireSupported();
+        return ArrowResponseDecoder.allocatedMemoryForTesting();
     }
 
-    private static Map<String, String> effectiveSettings(QueryResults results) {
-        Map<String, String> merged = new HashMap<>();
-        if (results.getSession() != null && results.getSession().getSettings() != null) {
-            merged.putAll(results.getSession().getSettings());
-        }
-        if (results.getSettings() != null) {
-            merged.putAll(results.getSettings());
-        }
-        return merged;
-    }
-
-    private static final class ResponsePayload {
+    static final class ResponsePayload {
         private final int statusCode;
         private final Headers headers;
         private final QueryResults results;
         private final ResultPage page;
         private final List<QueryRowField> schema;
 
-        private ResponsePayload(int statusCode, Headers headers, QueryResults results, ResultPage page, List<QueryRowField> schema) {
+        ResponsePayload(int statusCode, Headers headers, QueryResults results, ResultPage page, List<QueryRowField> schema) {
             this.statusCode = statusCode;
             this.headers = headers;
             this.results = results;
             this.page = page;
             this.schema = schema;
         }
-    }
-
-    private static final class RootAllocatorHolder {
-        private static final RootAllocator INSTANCE = new RootAllocator(Long.MAX_VALUE);
     }
 }

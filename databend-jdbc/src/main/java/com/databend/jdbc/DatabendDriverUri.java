@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.internal.ArrowRuntime;
 import com.databend.jdbc.internal.QueryResultFormat;
 import com.databend.jdbc.internal.session.DatabendSessionCookieJar;
 import com.databend.jdbc.internal.session.SessionHandleConfig;
@@ -92,6 +93,12 @@ final class DatabendDriverUri {
         this.nullDisplay = NULL_DISPLAY.getValue(properties).orElse("\\N");
         this.binaryFormat = BINARY_FORMAT.getValue(properties).orElse("");
         this.queryResultFormat = QueryResultFormat.fromValue(QUERY_RESULT_FORMAT.getValue(properties).orElse("json"));
+        // Fail at connect time, not at query time: whether the Arrow guard in the query path trips
+        // depends on the server advertising Arrow, so a Java 8 misconfiguration would otherwise stay
+        // dormant until an unrelated server upgrade.
+        if (this.queryResultFormat == QueryResultFormat.ARROW && !ArrowRuntime.isSupported()) {
+            throw new SQLException(ArrowRuntime.UNSUPPORTED_MESSAGE);
+        }
         this.waitTimeSecs = WAIT_TIME_SECS.getRequiredValue(properties);
         this.connectionTimeout = CONNECTION_TIMEOUT.getRequiredValue(properties);
         this.queryTimeout = QUERY_TIMEOUT.getRequiredValue(properties);

@@ -1,5 +1,6 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.internal.ArrowRuntime;
 import com.databend.jdbc.internal.session.PaginationOptions;
 import com.databend.jdbc.internal.session.SessionHandleConfig;
 import okhttp3.OkHttpClient;
@@ -37,6 +38,20 @@ public class TestDatabendDriverUri {
         Assert.assertEquals(config.getWaitTimeSecs().intValue(), waitTimeSecs);
         Assert.assertEquals(config.getMaxRowsInBuffer().intValue(), maxRowsInBuffer);
         Assert.assertEquals(config.getMaxRowsPerPage().intValue(), maxRowsPerPage);
+    }
+
+    /**
+     * Arrow is validated when the connection is created, so a Java 8 misconfiguration cannot stay
+     * dormant until the server starts advertising Arrow.
+     */
+    @Test(groups = {"UNIT"})
+    public void testArrowIsValidatedAtConnectTime() throws SQLException {
+        String url = "jdbc:databend://localhost:8000/default?query_result_format=arrow";
+        if (ArrowRuntime.isSupported()) {
+            Assert.assertEquals(createDriverUri(url).getQueryResultFormat(), "arrow");
+            return;
+        }
+        assertInvalid(url, ArrowRuntime.UNSUPPORTED_MESSAGE);
     }
 
     @Test(groups = {"UNIT"})

@@ -329,7 +329,11 @@ Arrow mode is intended for query result fetching. Internal control queries still
 Requirements:
 
 1. Databend server must support Arrow result pages.
-2. The JVM must allow Arrow to access `java.nio` internals.
+2. Arrow result decoding requires Java 11 or newer. Java 8 remains supported for JSON results;
+   requesting Arrow on Java 8 is rejected when the connection is created, regardless of server
+   version, so the misconfiguration cannot stay dormant until the server starts advertising Arrow.
+   If the server does not support Arrow, the driver falls back to JSON and logs the downgrade.
+3. The JVM must allow Arrow to access `java.nio` internals.
 
 Before starting your application, set:
 

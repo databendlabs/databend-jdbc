@@ -22,6 +22,38 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  json-runtime-smoke:
+    name: JSON release jar on Java ${{ matrix.java }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        java: ['8', '11', '17']
+    steps:
+      - uses: actions/checkout@v4
+
+      # Compile/package like a release, then switch the consumer runtime.
+      # release=8 alone does not validate shaded dependency bytecode versions.
+      - name: Set up build JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+          cache: 'maven'
+
+      - name: Package release jar
+        run: mvn -B -ntp clean package -DskipTests -Dmaven.javadoc.skip=true -Dgpg.skip=true
+
+      - name: Set up runtime JDK ${{ matrix.java }}
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: ${{ matrix.java }}
+
+      - name: Exercise JSON using the shaded release jar
+        run: bash tests/compatibility/run_json_smoke.sh
+
   test-jar-deps:
     name: Test jar resolves on release classpath
     runs-on: ubuntu-latest
