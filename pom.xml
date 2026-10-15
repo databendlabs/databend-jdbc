@@ -50,6 +50,8 @@
         <maven.compiler.target>1.8</maven.compiler.target>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <dep.arrow.version>19.0.0</dep.arrow.version>
+        <dep.lz4-java.version>1.12.0</dep.lz4-java.version>
+        <dep.commons-codec.version>1.21.0</dep.commons-codec.version>
         <dep.commons-lang3.version>3.18.0</dep.commons-lang3.version>
         <dep.jackson.annotations.version>2.22</dep.jackson.annotations.version>
         <dep.jackson.version>2.22.1</dep.jackson.version>
@@ -195,6 +197,18 @@
                                         <include>org/apache/arrow/memory/unsafe/**</include>
                                     </includes>
                                 </filter>
+                                <filter>
+                                    <artifact>at.yawk.lz4:lz4-java</artifact>
+                                    <includes>
+                                        <include>net/jpountz/**</include>
+                                    </includes>
+                                    <excludes>
+                                        <!-- The codec explicitly selects the Java LZ4/xxhash
+                                             backends in tests and production. Do not ship native
+                                             libraries (their JNI symbols cannot be relocated). -->
+                                        <exclude>net/jpountz/util/*/*/liblz4-java.*</exclude>
+                                    </excludes>
+                                </filter>
                             </filters>
                             <relocations>
                                 <relocation>
@@ -216,6 +230,10 @@
                                 <relocation>
                                     <pattern>org.apache.commons.lang3</pattern>
                                     <shadedPattern>com.databend.jdbc.org.apache.commons.lang3</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.jpountz</pattern>
+                                    <shadedPattern>com.databend.jdbc.net.jpountz</shadedPattern>
                                 </relocation>
                             </relocations>
                         </configuration>
