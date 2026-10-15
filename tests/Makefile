@@ -23,6 +23,18 @@ up: prepare
 down:
 	docker compose down
 
+# Single-node Databend + MinIO (host networking, Linux only).
+# Set DATABEND_VERSION to choose the datafuselabs/databend image tag.
+up-standalone:
+	docker compose -f docker-compose.standalone.yaml up --quiet-pull -d --wait
+	curl -u databend:databend -XPOST "http://localhost:8000/v1/query" -H 'Content-Type: application/json' -d '{"sql": "select version()", "pagination": {"wait_time_secs": 10}}'
+
+logs-standalone:
+	docker compose -f docker-compose.standalone.yaml logs
+
+down-standalone:
+	docker compose -f docker-compose.standalone.yaml down
+
 test:
 	cd .. && \
 	JAVA_TOOL_OPTIONS='$(TEST_JAVA_TOOL_OPTIONS)' \
