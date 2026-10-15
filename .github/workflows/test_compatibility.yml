@@ -74,16 +74,6 @@ jobs:
   release-jar-tests:
     name: Run IT suite from release jars
     runs-on: ubuntu-latest
-    services:
-      databend:
-        image: datafuselabs/databend:nightly
-        env:
-          QUERY_DEFAULT_USER: databend
-          QUERY_DEFAULT_PASSWORD: databend
-          MINIO_ENABLED: true
-        ports:
-          - 8000:8000
-          - 9000:9000
     steps:
       - uses: actions/checkout@v4
 
@@ -94,12 +84,11 @@ jobs:
           java-version: '17'
           cache: 'maven'
 
-      - name: Verify Service Running
-        run: |
-          sleep 30
-          cid=$(docker ps -a | grep databend | cut -d' ' -f1)
-          docker logs ${cid}
-          curl -u databend:databend --request POST localhost:8000/v1/query --header 'Content-Type:application/json' --data-raw '{"sql":"select 1"}'
+      # The databend image's MINIO_ENABLED bootstrap downloads MinIO from
+      # dl.min.io, which no longer serves it; run MinIO separately instead.
+      - name: Start Databend With Minio
+        working-directory: tests
+        run: make up-standalone
 
       - name: Run IT Tests from release jars
         working-directory: tests
@@ -116,6 +105,11 @@ jobs:
           COMPAT_GROUPS: UNIT
           COMPAT_EXCLUDED_GROUPS: FLAKY,UNIT_ARROW,cluster,MULTI_HOST
         run: make compat-test
+
+      - name: Show Service Logs
+        if: failure()
+        working-directory: tests
+        run: make logs-standalone
 
       - name: Upload test output
         uses: actions/upload-artifact@v4
