@@ -34,6 +34,18 @@
             <artifactId>arrow-compression</artifactId>
             <version>${dep.arrow.version}</version>
         </dependency>
+        <dependency>
+            <groupId>at.yawk.lz4</groupId>
+            <artifactId>lz4-java</artifactId>
+            <version>${dep.lz4-java.version}</version>
+        </dependency>
+        <!-- Commons LZ4 needs XXHash32 at runtime; frame fixtures also use it directly.
+             Test scope would shadow the transitive runtime dependency in the shaded jar. -->
+        <dependency>
+            <groupId>commons-codec</groupId>
+            <artifactId>commons-codec</artifactId>
+            <version>${dep.commons-codec.version}</version>
+        </dependency>
         <!-- https://mvnrepository.com/artifact/org.apache.commons/commons-lang3 -->
         <dependency>
             <groupId>org.apache.commons</groupId>
