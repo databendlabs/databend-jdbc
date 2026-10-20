@@ -40,6 +40,7 @@ public class RestQueryResultPages implements QueryResultPages {
     public static final String QUERY_PATH = "/v1/query";
 
     private final AtomicReference<Boolean> finished = new AtomicReference<>(false);
+    private final Object pageLock = new Object();
     private final OkHttpClient httpClient;
     private final String query;
     private final String host;
@@ -189,9 +190,19 @@ public class RestQueryResultPages implements QueryResultPages {
                 this.additionalHeaders.put(QueryRequestConfig.X_DATABEND_ROUTE_HINT, routeHint);
             }
         }
-        currentPage.set(page);
-        currentSchema.set(schema);
-        currentResults.set(results);
+        synchronized (pageLock) {
+            // An HTTP call may complete after close(), even when its worker was
+            // interrupted. Do not publish an unreachable Arrow page in that case.
+            if (finished.get()) {
+                if (page != null) {
+                    page.close();
+                }
+                return;
+            }
+            currentPage.set(page);
+            currentSchema.set(schema);
+            currentResults.set(results);
+        }
     }
 
     @Override
@@ -213,7 +224,12 @@ public class RestQueryResultPages implements QueryResultPages {
         Request.Builder builder = prepareRequest(url, this.additionalHeaders, this.queryResultFormat.get());
         builder.addHeader(QueryRequestConfig.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
-        return executeInternal(request);
+        if (!executeInternal(request)) {
+            // false is reserved for a genuine end of stream. Otherwise a prefetch
+            // worker could silently treat a failed page request as successful EOF.
+            throw new DatabendQueryException("Failed to fetch next query page");
+        }
+        return true;
     }
 
     @Override
@@ -237,6 +253,11 @@ public class RestQueryResultPages implements QueryResultPages {
     }
 
     @Override
+    public ResultPage takePage() {
+        return currentPage.getAndSet(null);
+    }
+
+    @Override
     public SessionState getSession() {
         return databendSession.get();
     }
@@ -252,11 +273,13 @@ public class RestQueryResultPages implements QueryResultPages {
     }
 
     private void closeQuery() {
-        if (!finished.compareAndSet(false, true)) {
-            return;
+        ResultPage page;
+        synchronized (pageLock) {
+            if (!finished.compareAndSet(false, true)) {
+                return;
+            }
+            page = currentPage.getAndSet(null);
         }
-
-        ResultPage page = currentPage.getAndSet(null);
         if (page != null) {
             page.close();
         }

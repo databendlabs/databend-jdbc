@@ -30,6 +30,11 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.HashMap;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -116,6 +121,111 @@ public class TestRestQueryResultPages {
         }
         finally {
             server.stop(0);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testUndecodableNextPageIsNotTreatedAsEndOfStream() {
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(chain -> {
+                    boolean next = chain.request().url().encodedPath().equals("/v1/query/next");
+                    MediaType mediaType = MediaType.parse(next ? "text/plain" : "application/json");
+                    String payload = next ? "not a query result" : queryResponse("qid", "/v1/query/next", "first");
+                    return arrowResponse(chain, ResponseBody.create(mediaType, payload));
+                })
+                .build();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 1", requestConfig("http://127.0.0.1"),
+                null, new AtomicReference<>());
+        try {
+            DatabendQueryException failure = Assert.expectThrows(DatabendQueryException.class, pages::advance);
+            Assert.assertEquals(failure.getMessage(), "Failed to fetch next query page");
+        }
+        finally {
+            pages.close();
+        }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testTakenArrowPageSurvivesQueryCloseAndEndOfStream() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        MediaType arrowMediaType = MediaType.parse("application/vnd.apache.arrow.stream");
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(chain -> arrowResponse(chain, ResponseBody.create(arrowMediaType, arrowResponse())))
+                .build();
+        for (boolean advanceToEnd : new boolean[] {false, true}) {
+            RestQueryResultPages pages = new RestQueryResultPages(client, "select 42",
+                    requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), null, new AtomicReference<>());
+            ResultPage taken = pages.takePage();
+            try {
+                Assert.assertNull(pages.getPage());
+                Assert.assertNull(pages.takePage());
+                if (advanceToEnd) {
+                    Assert.assertFalse(pages.advance());
+                }
+                pages.close();
+                Assert.assertEquals(taken.getValue(0, 0), 40);
+                Assert.assertEquals(taken.getValue(2, 0), 42);
+            }
+            finally {
+                pages.close();
+                taken.close();
+            }
+            Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore);
+        }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testArrowResponseCompletingAfterCloseIsReleased() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        CountDownLatch decoded = new CountDownLatch(1);
+        CountDownLatch allowPublication = new CountDownLatch(1);
+        AtomicInteger responses = new AtomicInteger();
+        OkHttpClient client = new OkHttpClient.Builder()
+                .addInterceptor(chain -> {
+                    boolean initial = chain.request().url().encodedPath().equals("/v1/query");
+                    boolean finalRequest = chain.request().url().encodedPath().equals("/v1/query/final");
+                    MediaType mediaType = MediaType.parse(initial || finalRequest ? "application/json" : "application/vnd.apache.arrow.stream");
+                    byte[] payload = initial || finalRequest
+                            ? queryResponse("qid", "/v1/query/next", "first").getBytes(StandardCharsets.UTF_8) : arrowResponse();
+                    return arrowResponse(chain, ResponseBody.create(mediaType, payload));
+                })
+                .build();
+        ExecutorService executor = Executors.newSingleThreadExecutor();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), session -> {
+                    if (responses.incrementAndGet() == 2) {
+                        decoded.countDown();
+                        try {
+                            if (!allowPublication.await(5, TimeUnit.SECONDS)) {
+                                throw new AssertionError("publication gate was not released");
+                            }
+                        }
+                        catch (InterruptedException e) {
+                            Thread.currentThread().interrupt();
+                            throw new AssertionError(e);
+                        }
+                    }
+                }, new AtomicReference<>());
+        ResultPage first = pages.takePage();
+        try {
+            Future<Boolean> next = executor.submit(pages::advance);
+            Assert.assertTrue(decoded.await(5, TimeUnit.SECONDS));
+            Assert.assertTrue(RestQueryResultPages.arrowAllocatedMemoryForTesting() > allocatedBefore);
+            pages.close();
+            allowPublication.countDown();
+            next.get(5, TimeUnit.SECONDS);
+            Assert.assertNull(pages.getPage(), "late response must not be published after close");
+            Assert.assertFalse(pages.hasNext());
+            Assert.assertEquals(first.getValue(0, 0), "first");
+            Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore,
+                    "late response leaked Arrow batches");
+        }
+        finally {
+            allowPublication.countDown();
+            pages.close();
+            first.close();
+            executor.shutdownNow();
+            Assert.assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
         }
     }
 
