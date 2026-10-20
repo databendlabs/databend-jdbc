@@ -1,5 +1,7 @@
 package com.databend.jdbc.internal.query;
 
+import org.apache.arrow.compression.CommonsCompressionFactory;
+import org.apache.arrow.memory.ArrowBuf;
 import org.apache.arrow.memory.BufferAllocator;
 import org.apache.arrow.memory.RootAllocator;
 import org.apache.arrow.vector.DateDayVector;
@@ -8,6 +10,8 @@ import org.apache.arrow.vector.TimeStampMicroVector;
 import org.apache.arrow.vector.VarCharVector;
 import org.apache.arrow.vector.VectorSchemaRoot;
 import org.apache.arrow.vector.complex.StructVector;
+import org.apache.arrow.vector.compression.CompressionCodec;
+import org.apache.arrow.vector.compression.CompressionUtil;
 import org.apache.arrow.vector.types.DateUnit;
 import org.apache.arrow.vector.types.TimeUnit;
 import org.apache.arrow.vector.types.pojo.ArrowType;
@@ -129,6 +133,29 @@ public class TestArrowResultPage {
         rootAllocator.close();
     }
 
+    @Test(groups = {"UNIT_ARROW"})
+    public void testDirectLz4CompressionRoundTripAcrossBlocks() {
+        byte[] expected = new byte[6 * 1024 * 1024];
+        for (int i = 0; i < expected.length; i++) {
+            expected[i] = (byte) (i % 31);
+        }
+        try (RootAllocator allocator = new RootAllocator(Long.MAX_VALUE)) {
+            CompressionCodec direct = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+            CompressionCodec commons = CommonsCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.LZ4_FRAME);
+            assertCompressionRoundTrip(allocator, expected, direct, commons);
+            assertCompressionRoundTrip(allocator, expected, commons, direct);
+            Assert.assertEquals(allocator.getAllocatedMemory(), 0L);
+        }
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testNonLz4CodecStillUsesCommonsFactory() {
+        CompressionCodec codec = ArrowCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.ZSTD);
+        Assert.assertEquals(codec.getClass(),
+                CommonsCompressionFactory.INSTANCE.createCodec(CompressionUtil.CodecType.ZSTD).getClass());
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
     public void testArrowSchemaMapsToJdbcTypes() throws Exception {
         Field intField = new Field("n", FieldType.notNullable(new ArrowType.Int(32, true)), null);
         Field dateField = new Field("d", FieldType.nullable(new ArrowType.Date(DateUnit.DAY)), null);
@@ -136,8 +163,11 @@ public class TestArrowResultPage {
 
         List<QueryRowField> fields = ArrowResultPage.schemaToFields(new org.apache.arrow.vector.types.pojo.Schema(Arrays.asList(intField, dateField, tsField)));
         Assert.assertEquals(fields.get(0).getDataType().getType(), "Int32");
-        Assert.assertEquals(fields.get(1).getDataType().getType(), "Nullable(Date)");
-        Assert.assertEquals(fields.get(2).getDataType().getType(), "Nullable(Timestamp)");
+        Assert.assertFalse(fields.get(0).getDataType().isNullable());
+        Assert.assertEquals(fields.get(1).getDataType().getType(), "Date");
+        Assert.assertTrue(fields.get(1).getDataType().isNullable());
+        Assert.assertEquals(fields.get(2).getDataType().getType(), "Timestamp");
+        Assert.assertTrue(fields.get(2).getDataType().isNullable());
     }
 
     private static void closeAllocator(AutoCloseable closeable) throws Exception {
@@ -147,6 +177,30 @@ public class TestArrowResultPage {
         try {
             closeable.close();
         } catch (IllegalStateException ignored) {
+        }
+    }
+
+    private static void assertCompressionRoundTrip(BufferAllocator allocator, byte[] expected,
+            CompressionCodec compressor, CompressionCodec decompressor) {
+        ArrowBuf input = allocator.buffer(expected.length);
+        input.writeBytes(expected);
+        try {
+            ArrowBuf compressed = compressor.compress(allocator, input);
+            try {
+                try (ArrowBuf decompressed = decompressor.decompress(allocator, compressed)) {
+                    byte[] actual = new byte[expected.length];
+                    decompressed.getBytes(0, actual);
+                    Assert.assertEquals(actual, expected);
+                }
+            } finally {
+                if (compressed.refCnt() > 0) {
+                    compressed.close();
+                }
+            }
+        } finally {
+            if (input.refCnt() > 0) {
+                input.close();
+            }
         }
     }
 }

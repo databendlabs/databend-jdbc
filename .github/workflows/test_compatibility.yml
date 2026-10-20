@@ -71,6 +71,11 @@ jobs:
         working-directory: tests
         run: make compat-check
 
+      # The previous step already packaged the release jar. Exercise relocation,
+      # reflectively loaded LZ4 implementations, and the no-JNI contract on it.
+      - name: Exercise Arrow LZ4 using the shaded release jar
+        run: bash tests/compatibility/run_arrow_lz4_smoke.sh
+
   release-jar-tests:
     name: Run IT suite from release jars
     runs-on: ubuntu-latest
