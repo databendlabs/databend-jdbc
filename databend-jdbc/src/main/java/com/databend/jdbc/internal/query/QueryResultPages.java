@@ -22,8 +22,15 @@ public interface QueryResultPages extends Closeable {
 
     ResultPage getPage();
 
+    /**
+     * Transfers the current page to the caller. Resource-owning implementations must
+     * detach it so advancing or closing the query cannot close a consumer's page.
+     */
+    ResultPage takePage();
+
     boolean execute(Request request);
 
+    /** Returns false at EOF or after close; throws on request/decode failure. */
     boolean advance();
 
     boolean hasNext();

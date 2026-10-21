@@ -102,6 +102,10 @@ final class ArrowResponseDecoder {
         return RootAllocatorHolder.INSTANCE.getAllocatedMemory();
     }
 
+    static int openPagesForTesting() {
+        return RootAllocatorHolder.INSTANCE.getChildAllocators().size();
+    }
+
     private static Map<String, String> effectiveSettings(QueryResults results) {
         Map<String, String> merged = new HashMap<>();
         if (results.getSession() != null && results.getSession().getSettings() != null) {
