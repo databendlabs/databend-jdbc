@@ -383,7 +383,7 @@ public class TestResultCursor {
         private boolean closed;
 
         private FakeQueryResultPages(List<ResultPage> pages, QueryResults currentResults, QueryResults terminalResults) {
-            this.pages = pages;
+            this.pages = new ArrayList<>(pages);
             this.currentResults = currentResults;
             this.terminalResults = terminalResults;
         }
@@ -428,6 +428,11 @@ public class TestResultCursor {
         @Override
         public ResultPage getPage() {
             return hasNext() ? pages.get(index) : null;
+        }
+
+        @Override
+        public ResultPage takePage() {
+            return hasNext() ? pages.set(index, null) : null;
         }
 
         @Override

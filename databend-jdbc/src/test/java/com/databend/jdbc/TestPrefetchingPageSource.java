@@ -1,17 +1,22 @@
 package com.databend.jdbc;
 
+import com.databend.jdbc.internal.exception.DatabendQueryException;
 import com.databend.jdbc.internal.query.QueryResultPages;
 import com.databend.jdbc.internal.query.QueryResults;
 import com.databend.jdbc.internal.query.QueryRowField;
 import com.databend.jdbc.internal.query.ResultPage;
+import com.databend.jdbc.internal.session.Capability;
 import com.databend.jdbc.internal.session.QueryLiveness;
 import com.databend.jdbc.internal.session.SessionState;
+import com.vdurmont.semver4j.Semver;
 import okhttp3.Request;
 import org.testng.Assert;
 import org.testng.annotations.Test;
 
+import java.lang.reflect.Proxy;
 import java.net.URI;
 import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayDeque;
 import java.util.Arrays;
 import java.util.Collections;
@@ -83,10 +88,50 @@ public class TestPrefetchingPageSource {
             Assert.assertSame(source.nextPage(), first);
             executor.runNext();
             Assert.assertEquals(first.getValue(0, 0), 1);
-            Assert.assertSame(Assert.expectThrows(IllegalStateException.class, source::nextPage), failure);
+            SQLException actual = Assert.expectThrows(SQLException.class, source::nextPage);
+            Assert.assertSame(actual.getCause(), failure);
             first.close();
         }
         Assert.assertEquals(first.closed.get(), 1);
+    }
+
+    public void testResultSetNextWrapsQueryFailureAsSQLException() throws Exception {
+        TestPage first = new TestPage(1);
+        DatabendQueryException failure = new DatabendQueryException("next page failed", new SQLException("decode failed"));
+        Pages pages = new Pages(first) {
+            @Override
+            public boolean advance() {
+                throw failure;
+            }
+        };
+        Statement statement = (Statement) Proxy.newProxyInstance(Statement.class.getClassLoader(),
+                new Class<?>[] {Statement.class}, (proxy, method, args) -> null);
+        try (DatabendResultSet results = DatabendResultSet.create(statement, pages, 0, new Capability(new Semver("1.2.0")))) {
+            Assert.assertTrue(results.next());
+            SQLException actual = Assert.expectThrows(SQLException.class, results::next);
+            Assert.assertSame(actual.getCause(), failure);
+            Assert.assertEquals(actual.getCause().getCause().getMessage(), "decode failed");
+        }
+        Assert.assertEquals(first.closed.get(), 1);
+    }
+
+    public void testWorkerErrorIsNotWrappedAsSQLException() throws Exception {
+        TestPage first = new TestPage(1);
+        AssertionError failure = new AssertionError("fatal worker error");
+        Pages pages = new Pages(first) {
+            @Override
+            public boolean advance() {
+                throw failure;
+            }
+        };
+        ManualExecutor executor = new ManualExecutor();
+        try (DatabendResultSet.PrefetchingPageSource source = new DatabendResultSet.PrefetchingPageSource(pages, liveness(), executor)) {
+            executor.runNext();
+            Assert.assertSame(source.nextPage(), first);
+            executor.runNext();
+            Assert.assertSame(Assert.expectThrows(AssertionError.class, source::nextPage), failure);
+            first.close();
+        }
     }
 
     public void testCloseBeforeQueuedFetchStarts() throws Exception {
@@ -173,8 +218,8 @@ public class TestPrefetchingPageSource {
             caller.submit(() -> {
                 Thread.currentThread().interrupt();
                 try {
-                    RuntimeException failure = Assert.expectThrows(RuntimeException.class, source::nextPage);
-                    Assert.assertTrue(failure.getCause() instanceof SQLException);
+                    SQLException failure = Assert.expectThrows(SQLException.class, source::nextPage);
+                    Assert.assertTrue(failure.getCause() instanceof InterruptedException);
                     Assert.assertTrue(Thread.currentThread().isInterrupted());
                 }
                 finally {
@@ -262,7 +307,8 @@ public class TestPrefetchingPageSource {
         try (DatabendResultSet.PrefetchingPageSource source = new DatabendResultSet.PrefetchingPageSource(pages, liveness(), executor)) {
             executor.runNext();
             executor.shutdown();
-            Assert.expectThrows(RejectedExecutionException.class, source::nextPage);
+            SQLException failure = Assert.expectThrows(SQLException.class, source::nextPage);
+            Assert.assertTrue(failure.getCause() instanceof RejectedExecutionException);
             Assert.assertEquals(first.closed.get(), 1);
             Assert.assertEquals(pages.closes.get(), 1);
             Assert.assertNull(source.nextPage());

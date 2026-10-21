@@ -148,6 +148,11 @@ public class TestDatabendStatement {
         }
 
         @Override
+        public ResultPage takePage() {
+            return null;
+        }
+
+        @Override
         public boolean execute(Request request) {
             return false;
         }

@@ -23,7 +23,6 @@ import java.util.concurrent.Future;
 import java.util.concurrent.FutureTask;
 import java.util.concurrent.atomic.AtomicLong;
 
-import static com.google.common.base.Throwables.throwIfUnchecked;
 import static java.util.Objects.requireNonNull;
 import static java.util.concurrent.Executors.newCachedThreadPool;
 
@@ -189,7 +188,10 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             catch (RuntimeException | Error e) {
                 closeQuietly(page);
                 close();
-                throw e;
+                if (e instanceof Error) {
+                    throw (Error) e;
+                }
+                throw new SQLException("Failed to schedule result page prefetch", e);
             }
             return page;
         }
@@ -229,7 +231,9 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
                 if (cause instanceof SQLException) {
                     throw (SQLException) cause;
                 }
-                throwIfUnchecked(cause);
+                if (cause instanceof Error) {
+                    throw (Error) cause;
+                }
                 throw new SQLException("Failed to fetch result page", cause);
             }
         }
@@ -291,10 +295,14 @@ public class DatabendResultSet extends AbstractDatabendResultSet {
             }
         }
 
-        private void handleInterrupt(InterruptedException e) {
-            close();
-            Thread.currentThread().interrupt();
-            throw new RuntimeException(new SQLException("Interrupted", e));
+        private void handleInterrupt(InterruptedException e) throws SQLException {
+            try {
+                close();
+            }
+            finally {
+                Thread.currentThread().interrupt();
+            }
+            throw new SQLException("Interrupted", e);
         }
     }
 }

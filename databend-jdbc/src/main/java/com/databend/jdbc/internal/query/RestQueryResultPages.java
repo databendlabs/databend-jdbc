@@ -24,6 +24,8 @@ import java.net.URI;
 import java.sql.SQLException;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ConcurrentMap;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Consumer;
 
@@ -46,13 +48,13 @@ public class RestQueryResultPages implements QueryResultPages {
     private final String host;
     private final QueryRequestConfig requestConfig;
     private final AtomicReference<QueryResultFormat> queryResultFormat;
-    private final Map<String, String> additionalHeaders;
+    private final ConcurrentMap<String, String> additionalHeaders;
     private final AtomicReference<SessionState> databendSession;
     private final AtomicReference<QueryResults> currentResults = new AtomicReference<>(null);
     private final AtomicReference<List<QueryRowField>> currentSchema = new AtomicReference<>(null);
     private final AtomicReference<ResultPage> currentPage = new AtomicReference<>(new JsonResultPage(null));
     private final Consumer<SessionState> onSessionStateUpdate;
-    private String nodeID;
+    private volatile String nodeID;
 
     public RestQueryResultPages(OkHttpClient httpClient, String sql, QueryRequestConfig requestConfig, Consumer<SessionState> onSessionStateUpdate, AtomicReference<String> lastNodeID) {
         requireNonNull(httpClient, "httpClient is null");
@@ -65,7 +67,12 @@ public class RestQueryResultPages implements QueryResultPages {
         this.host = requestConfig.getHost();
         this.requestConfig = requestConfig;
         this.queryResultFormat = new AtomicReference<>(requestConfig.getQueryResultFormat());
-        this.additionalHeaders = requestConfig.getAdditionalHeaders();
+        // Responses update headers on the worker while close builds the final request.
+        // Own a concurrent copy; the caller's map may also be shared or immutable.
+        this.additionalHeaders = new ConcurrentHashMap<>();
+        if (requestConfig.getAdditionalHeaders() != null) {
+            this.additionalHeaders.putAll(requestConfig.getAdditionalHeaders());
+        }
         this.databendSession = new AtomicReference<>(requestConfig.getSession());
         this.nodeID = lastNodeID.get();
 
@@ -181,8 +188,8 @@ public class RestQueryResultPages implements QueryResultPages {
                 this.onSessionStateUpdate.accept(session);
             }
         }
-        if (results.getQueryId() != null && this.additionalHeaders.get(QueryRequestConfig.X_DATABEND_QUERY_ID) == null) {
-            this.additionalHeaders.put(QueryRequestConfig.X_DATABEND_QUERY_ID, results.getQueryId());
+        if (results.getQueryId() != null) {
+            this.additionalHeaders.putIfAbsent(QueryRequestConfig.X_DATABEND_QUERY_ID, results.getQueryId());
         }
         if (headers != null) {
             String routeHint = headers.get(QueryRequestConfig.X_DATABEND_ROUTE_HINT);
@@ -190,6 +197,7 @@ public class RestQueryResultPages implements QueryResultPages {
                 this.additionalHeaders.put(QueryRequestConfig.X_DATABEND_ROUTE_HINT, routeHint);
             }
         }
+        ResultPage previous;
         synchronized (pageLock) {
             // An HTTP call may complete after close(), even when its worker was
             // interrupted. Do not publish an unreachable Arrow page in that case.
@@ -199,37 +207,45 @@ public class RestQueryResultPages implements QueryResultPages {
                 }
                 return;
             }
-            currentPage.set(page);
+            previous = currentPage.getAndSet(page);
             currentSchema.set(schema);
             currentResults.set(results);
+        }
+        if (previous != null) {
+            previous.close();
         }
     }
 
     @Override
     public boolean advance() {
         requireNonNull(this.host, "host is null");
-        requireNonNull(this.currentResults.get(), "currentResults is null");
-        if (finished.get()) {
-            return false;
-        }
-        if (!this.currentResults.get().hasMoreData()) {
-            currentPage.set(null);
-            finished.set(true);
-            return false;
+        QueryResults results;
+        synchronized (pageLock) {
+            if (finished.get()) {
+                return false;
+            }
+            results = requireNonNull(this.currentResults.get(), "currentResults is null");
+            if (!results.hasMoreData()) {
+                finished.set(true);
+                ResultPage page = currentPage.getAndSet(null);
+                if (page != null) {
+                    page.close();
+                }
+                return false;
+            }
         }
 
-        String nextUriPath = this.currentResults.get().getNextUri().toString();
+        String nextUriPath = results.getNextUri().toString();
         HttpUrl url = HttpUrl.get(this.host);
         url = url.newBuilder().encodedPath(nextUriPath).build();
         Request.Builder builder = prepareRequest(url, this.additionalHeaders, this.queryResultFormat.get());
         builder.addHeader(QueryRequestConfig.X_DATABEND_STICKY_NODE, this.nodeID);
         Request request = builder.get().build();
         if (!executeInternal(request)) {
-            // false is reserved for a genuine end of stream. Otherwise a prefetch
-            // worker could silently treat a failed page request as successful EOF.
+            // A failed response must not look like successful EOF to the consumer.
             throw new DatabendQueryException("Failed to fetch next query page");
         }
-        return true;
+        return !finished.get();
     }
 
     @Override
@@ -311,6 +327,11 @@ public class RestQueryResultPages implements QueryResultPages {
     static long arrowAllocatedMemoryForTesting() {
         ArrowRuntime.requireSupported();
         return ArrowResponseDecoder.allocatedMemoryForTesting();
+    }
+
+    static int arrowOpenPagesForTesting() {
+        ArrowRuntime.requireSupported();
+        return ArrowResponseDecoder.openPagesForTesting();
     }
 
     static final class ResponsePayload {

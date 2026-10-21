@@ -29,6 +29,7 @@ import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 import java.util.Base64;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -145,6 +146,187 @@ public class TestRestQueryResultPages {
         }
     }
 
+    @Test(groups = {"UNIT"})
+    public void testHeadersAreOwnedByQueryAndPropagateAcrossResponses() {
+        AtomicReference<String> finalRoute = new AtomicReference<>();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            String path = chain.request().url().encodedPath();
+            Assert.assertEquals(chain.request().header("X-Custom"), "caller");
+            boolean initial = path.equals("/v1/query");
+            if (!initial) {
+                Assert.assertEquals(chain.request().header(QueryRequestConfig.X_DATABEND_QUERY_ID), "qid");
+            }
+            if (path.equals("/v1/query/next")) {
+                Assert.assertEquals(chain.request().header(QueryRequestConfig.X_DATABEND_ROUTE_HINT), "first-route");
+                Assert.assertEquals(chain.request().header(QueryRequestConfig.X_DATABEND_STICKY_NODE), "first-node");
+            }
+            if (path.equals("/v1/query/final")) {
+                finalRoute.set(chain.request().header(QueryRequestConfig.X_DATABEND_ROUTE_HINT));
+            }
+            String payload = queryResponse("qid", "/v1/query/next", "value")
+                    .replace("\"node_id\":\"node\"", "\"node_id\":\"" + (initial ? "first-node" : "next-node") + "\"");
+            return arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_JSON, payload))
+                    .newBuilder().header(QueryRequestConfig.X_DATABEND_ROUTE_HINT, initial ? "first-route" : "next-route").build();
+        }).build();
+        QueryRequestConfig config = QueryRequestConfig.builder().setHost("http://127.0.0.1")
+                .setSession(SessionState.createDefault()).setPaginationOptions(PaginationOptions.defaultPaginationOptions())
+                .setAdditionalHeaders(Collections.singletonMap("X-Custom", "caller")).build();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 1", config, null, new AtomicReference<>());
+        try {
+            Assert.assertTrue(pages.advance());
+            Assert.assertEquals(pages.getNodeID(), "next-node");
+            Assert.assertEquals(config.getAdditionalHeaders(), Collections.singletonMap("X-Custom", "caller"),
+                    "response updates must not mutate the caller's header map");
+        }
+        finally {
+            pages.close();
+        }
+        Assert.assertEquals(finalRoute.get(), "next-route");
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testResponseHeaderUpdatesRaceWithFinalRequest() throws Exception {
+        ExecutorService executor = Executors.newFixedThreadPool(2);
+        try {
+            for (int iteration = 0; iteration < 20; iteration++) {
+                CountDownLatch responseReady = new CountDownLatch(1);
+                CountDownLatch closeReady = new CountDownLatch(1);
+                CountDownLatch race = new CountDownLatch(1);
+                AtomicInteger updates = new AtomicInteger();
+                OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+                    String path = chain.request().url().encodedPath();
+                    Response response = arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_JSON,
+                            queryResponse("qid", "/v1/query/next", "value")));
+                    if (path.equals("/v1/query/next")) {
+                        response = response.newBuilder().header(QueryRequestConfig.X_DATABEND_ROUTE_HINT, "new-route").build();
+                    }
+                    if (path.equals("/v1/query/final")) {
+                        Assert.assertEquals(chain.request().header("X-Custom-0"), "value");
+                        Assert.assertEquals(chain.request().header(QueryRequestConfig.X_DATABEND_QUERY_ID), "qid");
+                    }
+                    return response;
+                }).build();
+                QueryRequestConfig config = requestConfig("http://127.0.0.1");
+                for (int header = 0; header < 128; header++) {
+                    config.getAdditionalHeaders().put("X-Custom-" + header, "value");
+                }
+                RestQueryResultPages pages = new RestQueryResultPages(client, "select 1", config, session -> {
+                    if (updates.incrementAndGet() == 2) {
+                        responseReady.countDown();
+                        awaitGate(race);
+                    }
+                }, new AtomicReference<>());
+                try {
+                    Future<Boolean> advance = executor.submit(pages::advance);
+                    Assert.assertTrue(responseReady.await(5, TimeUnit.SECONDS));
+                    Future<?> close = executor.submit(() -> {
+                        closeReady.countDown();
+                        awaitGate(race);
+                        pages.close();
+                    });
+                    Assert.assertTrue(closeReady.await(5, TimeUnit.SECONDS));
+                    race.countDown();
+                    advance.get(5, TimeUnit.SECONDS);
+                    close.get(5, TimeUnit.SECONDS);
+                    Assert.assertFalse(pages.hasNext());
+                    Assert.assertNull(pages.getPage());
+                }
+                finally {
+                    race.countDown();
+                    pages.close();
+                }
+            }
+        }
+        finally {
+            executor.shutdownNow();
+            Assert.assertTrue(executor.awaitTermination(5, TimeUnit.SECONDS));
+        }
+    }
+
+    private static void awaitGate(CountDownLatch gate) {
+        try {
+            if (!gate.await(5, TimeUnit.SECONDS)) {
+                throw new AssertionError("test gate was not released");
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+            throw new AssertionError(e);
+        }
+    }
+
+    @Test(groups = {"UNIT"})
+    public void testAdvanceAfterCloseDoesNotSendRequest() {
+        AtomicInteger requests = new AtomicInteger();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            requests.incrementAndGet();
+            return arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_JSON,
+                    queryResponse("qid", "/v1/query/next", "first")));
+        }).build();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 1", requestConfig("http://127.0.0.1"),
+                null, new AtomicReference<>());
+        pages.close();
+        int afterClose = requests.get();
+        Assert.assertFalse(pages.advance());
+        Assert.assertFalse(pages.advance());
+        pages.close();
+        Assert.assertEquals(requests.get(), afterClose);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testReplacingUntakenEmptyArrowPagesReleasesAllocators() throws Exception {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        int pagesBefore = RestQueryResultPages.arrowOpenPagesForTesting();
+        AtomicInteger responses = new AtomicInteger();
+        OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain -> {
+            byte[] payload = responses.incrementAndGet() < 3 ? emptyArrowResponse(true) : arrowResponse();
+            return arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_ARROW, payload));
+        }).build();
+        RestQueryResultPages pages = new RestQueryResultPages(client, "select 42",
+                requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), null, new AtomicReference<>());
+        try {
+            // Match DatabendStatement's getPage()/advance() loop for empty responses.
+            for (int i = 0; i < 2; i++) {
+                Assert.assertEquals(pages.getPage().getRowCount(), 0);
+                Assert.assertEquals(RestQueryResultPages.arrowOpenPagesForTesting(), pagesBefore + 1);
+                Assert.assertTrue(pages.advance());
+            }
+            Assert.assertEquals(pages.getPage().getValue(0, 0), 40);
+            Assert.assertEquals(RestQueryResultPages.arrowOpenPagesForTesting(), pagesBefore + 1,
+                    "each replaced empty page must close its child allocator, even if it holds zero bytes");
+        }
+        finally {
+            pages.close();
+        }
+        Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore);
+        Assert.assertEquals(RestQueryResultPages.arrowOpenPagesForTesting(), pagesBefore);
+    }
+
+    @Test(groups = {"UNIT_ARROW"})
+    public void testEofReleasesUntakenArrowPage() {
+        long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
+        int pagesBefore = RestQueryResultPages.arrowOpenPagesForTesting();
+        for (boolean empty : new boolean[] {false, true}) {
+            OkHttpClient client = new OkHttpClient.Builder().addInterceptor(chain ->
+                    arrowResponse(chain, ResponseBody.create(RestQueryResultPages.MEDIA_TYPE_ARROW,
+                            empty ? emptyArrowResponse(false) : arrowResponse()))).build();
+            RestQueryResultPages pages = new RestQueryResultPages(client, "select 42",
+                    requestConfig("http://127.0.0.1", QueryResultFormat.ARROW), null, new AtomicReference<>());
+            try {
+                Assert.assertEquals(RestQueryResultPages.arrowOpenPagesForTesting(), pagesBefore + 1);
+                Assert.assertEquals(pages.getPage().getRowCount(), empty ? 0 : 3);
+                Assert.assertFalse(pages.advance());
+                Assert.assertFalse(pages.advance());
+                Assert.assertNull(pages.getPage());
+                Assert.assertEquals(RestQueryResultPages.arrowAllocatedMemoryForTesting(), allocatedBefore);
+                Assert.assertEquals(RestQueryResultPages.arrowOpenPagesForTesting(), pagesBefore);
+            }
+            finally {
+                pages.close();
+            }
+        }
+    }
+
     @Test(groups = {"UNIT_ARROW"})
     public void testTakenArrowPageSurvivesQueryCloseAndEndOfStream() throws Exception {
         long allocatedBefore = RestQueryResultPages.arrowAllocatedMemoryForTesting();
@@ -213,7 +395,8 @@ public class TestRestQueryResultPages {
             Assert.assertTrue(RestQueryResultPages.arrowAllocatedMemoryForTesting() > allocatedBefore);
             pages.close();
             allowPublication.countDown();
-            next.get(5, TimeUnit.SECONDS);
+            Assert.assertFalse(next.get(5, TimeUnit.SECONDS), "late response discarded after close is not an advance");
+            Assert.assertFalse(pages.advance());
             Assert.assertNull(pages.getPage(), "late response must not be published after close");
             Assert.assertFalse(pages.hasNext());
             Assert.assertEquals(first.getValue(0, 0), "first");
@@ -836,6 +1019,15 @@ public class TestRestQueryResultPages {
                 .message("OK")
                 .body(body)
                 .build();
+    }
+
+    private static byte[] emptyArrowResponse(boolean hasNext) {
+        // Generated with ArrowStreamWriter, one nullable Utf8 field named "s", one
+        // zero-row batch, and response_header metadata with/without a next URI.
+        // Writers are absent from the minimized jar, so keep generation out of this test.
+        return Base64.getDecoder().decode(hasNext
+                ? "/////8ABAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAABEAQAAAQAAAAwAAAAIAAwACAAEAAgAAAAIAAAAFAEAAAgBAAB7ImlkIjoicWlkLWVtcHR5Iiwibm9kZV9pZCI6Im5vZGUiLCJzZXNzaW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJyb3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGwsImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5leHRfdXJpIjoiL3YxL3F1ZXJ5L25leHQiLCJraWxsX3VyaSI6bnVsbH0AAAAADwAAAHJlc3BvbnNlX2hlYWRlcgABAAAAGAAAAAAAEgAYABQAEwASAAwAAAAIAAQAEgAAABQAAAAUAAAAGAAAAAAABQEUAAAAAAAAAAAAAAAEAAQABAAAAAEAAABzAAAA/////5AAAAAUAAAAAAAAAAwAGgASABkAFAAEAAwAAAAIAAAAAAAAAAAAAAAAAAQAEAAAAAADCgAMAAAACAAEAAoAAAAIAAAAPAAAAAMAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAgAAAAAAAAAAAAAAAAAAAAAAAAAAQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP////8AAAAA"
+                : "/////7gBAAAQAAAAAAAKAA4ABgANAAgACgAAAAAABAAQAAAAAAEKAAwAAAAIAAQACgAAAAgAAAA4AQAAAQAAAAwAAAAIAAwACAAEAAgAAAAIAAAACAEAAPwAAAB7ImlkIjoicWlkLWVtcHR5Iiwibm9kZV9pZCI6Im5vZGUiLCJzZXNzaW9uIjp7ImRhdGFiYXNlIjoiZGVmYXVsdCJ9LCJzY2hlbWEiOltdLCJkYXRhIjpbXSwic3RhdGUiOiJSdW5uaW5nIiwiZXJyb3IiOm51bGwsInN0YXRzIjpudWxsLCJhZmZlY3QiOm51bGwsInJlc3VsdF90aW1lb3V0X3NlY3MiOjMwLCJzdGF0c191cmkiOm51bGwsImZpbmFsX3VyaSI6Ii92MS9xdWVyeS9maW5hbCIsIm5leHRfdXJpIjpudWxsLCJraWxsX3VyaSI6bnVsbH0AAAAADwAAAHJlc3BvbnNlX2hlYWRlcgABAAAAGAAAAAAAEgAYABQAEwASAAwAAAAIAAQAEgAAABQAAAAUAAAAGAAAAAAABQEUAAAAAAAAAAAAAAAEAAQABAAAAAEAAABzAAAAAAAAAP////+QAAAAFAAAAAAAAAAMABoAEgAZABQABAAMAAAACAAAAAAAAAAAAAAAAAAEABAAAAAAAwoADAAAAAgABAAKAAAACAAAADwAAAADAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAAAAAAAAAAIAAAAAAAAAAAAAAAAAAAAAAAAAAEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD/////AAAAAA==");
     }
 
     private static byte[] malformedArrowResponse() {
